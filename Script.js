@@ -167,9 +167,9 @@ function populateFloors() {
     document.getElementById("entryCoordX").value = ""; document.getElementById("entryCoordY").value = "";
 }
 
-function populateDefectList() {
+function populateDefectlist() {
     const type = document.getElementById("defectType").value;
-    const lSel = document.getElementById("defectList");
+    const lSel = document.getElementById("defectlist");
     lSel.innerHTML = '<option value="">-- Select Specific Defect --</option>';
     if(defectMatrix[type]) defectMatrix[type].forEach(def => lSel.appendChild(new Option(def, def)));
 }
@@ -304,9 +304,9 @@ async function saveDefect(){
 
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
+        Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value,
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
-        status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
+        status: document.getElementById("status").value, dueDate: dueStr, loggeddate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
         map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closeddate: document.getElementById("status").value === "Closed" ? today : "-"
     };
@@ -363,12 +363,12 @@ function generateTableRowsHtml(dataArray) {
                 <td>${d.floor}</td>
                 <td>${d.flat}</td>
                 <td><b>${d.Type}</b></td>
-                <td>${d.defectList}</td>
+                <td>${d.defectlist}</td>
                 <td>${d.remark || "-"}</td>
                 <td><span style="font-size:11px; background:#e2e8f0; padding:3px 6px; border-radius:4px;"><i class="fas fa-map-marker-alt text-cyan"></i> ${mapText}</span></td>
                 <td>${d.intensity}</td>
                 <td><span class="locked-badge">${d.status}</span></td>
-                <td>${d.loggedDate}</td>
+                <td>${d.loggeddate}</td>
                 <td>${d.dueDate}</td>
                 <td>${d.closeddate}</td>
                 <td>${d.delay}</td>
@@ -681,12 +681,12 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Floor', key: 'floor', width: 12 }, 
         { header: 'Flat', key: 'flat', width: 12 }, 
         { header: 'Category', key: 'Type', width: 20 },
-        { header: 'Specification', key: 'defectList', width: 25 }, 
+        { header: 'Specification', key: 'defectlist', width: 25 }, 
         { header: 'Remarks', key: 'remark', width: 30 }, 
         { header: 'Map Coord', key: 'map', width: 15 },
         { header: 'Risk', key: 'intensity', width: 12 }, 
         { header: 'Status', key: 'status', width: 12 }, 
-        { header: 'Logged Date', key: 'loggedDate', width: 15 },
+        { header: 'Logged Date', key: 'loggeddate', width: 15 },
         { header: 'SLA Date', key: 'dueDate', width: 15 },
         { header: 'Closed Date', key: 'closeddate', width: 15 },
         { header: 'Delay', key: 'delay', width: 12 },
@@ -746,8 +746,8 @@ function exportPDF(dataToExport){
 
         html += `<div class="card"><div class="grid"><div class="meta">
             <b>Sl No:</b> ${d.serial} | <b>Project:</b> ${d.project}<br/><b>Tower:</b> ${d.tower}<br/><b>Floor:</b> ${d.floor} | <b>Flat:</b> ${d.flat}<br/><b>Map Coordinate:</b> ${mapText}<br/><b>Remarks:</b> ${d.remark || "-"}<br/><b>Status:</b> ${d.status}
-            </div><div class="meta"><b>Category:</b> ${d.Type}<br/><b>Specification:</b> ${d.defectList}<br/><b>Risk:</b> ${d.intensity}<br/>
-            <b>Dates -> Logged:</b> ${d.loggedDate} | <b>Closed:</b> ${d.closeddate === "-" ? "" : d.closeddate}
+            </div><div class="meta"><b>Category:</b> ${d.Type}<br/><b>Specification:</b> ${d.defectlist}<br/><b>Risk:</b> ${d.intensity}<br/>
+            <b>Dates -> Logged:</b> ${d.loggeddate} | <b>Closed:</b> ${d.closeddate === "-" ? "" : d.closeddate}
             </div></div><div class="photos"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div>
             <div class="photos"><b>Final: </b>${d.finalPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`;
     });
