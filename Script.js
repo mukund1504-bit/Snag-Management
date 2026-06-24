@@ -1,5 +1,5 @@
 // ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
-const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
 // ====== DYNAMIC USER MATRIX (WITH RBAC) ======
