@@ -33,6 +33,7 @@
         <header>
             <div class="logo-area">
                 <h2><i class="fas fa-digital-tachograph text-cyan"></i> PROJECT MONITORING COMMITTEE</h2>
+                <div id="networkStatus" class="network-badge online"><i class="fas fa-wifi"></i> Online</div>
             </div>
             <nav>
                 <button class="nav-btn" id="navEntryBtn" onclick="showSection('entry')"><i class="fas fa-sliders-h"></i> Control Center</button>
@@ -53,9 +54,9 @@
                     </div>
                 </div>
 
-                <div class="form-map-grid">
-                    <div class="form-left-col">
-                        <form id="defectForm" onsubmit="event.preventDefault(); saveDefect();">
+                <form id="defectForm" onsubmit="event.preventDefault(); saveDefect();">
+                    <div class="form-map-grid">
+                        <div class="form-left-col">
                             <div class="form-section-card-tech">
                                 <h4 class="card-title-tech"><i class="fas fa-project-diagram"></i> 01 / Spatial Architecture Blueprint</h4>
                                 <div class="form-grid">
@@ -67,7 +68,7 @@
                             </div>
 
                             <div class="form-section-card-tech">
-                                <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 02 / Diagnostics & Classification</h4>
+                                <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
                                 <div class="form-grid">
                                     <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectList()" required></select></div>
                                     <div class="field-box-tech"><label>Specification Matrix</label><select id="defectList" required><option value="">-- Select --</option></select></div>
@@ -78,7 +79,7 @@
                             </div>
 
                             <div class="form-section-card-tech">
-                                <h4 class="card-title-tech"><i class="fas fa-images"></i> 03 / Visual Evidence (Initial Photos)</h4>
+                                <h4 class="card-title-tech"><i class="fas fa-images"></i> 04 / Visual Evidence (Initial Photos)</h4>
                                 <div class="field-box-tech full-width" style="margin-top: 5px; margin-bottom: 10px;">
                                     <label>Engineering Remarks</label>
                                     <textarea id="remark" rows="2" placeholder="Detail the structural deviation here..."></textarea>
@@ -92,35 +93,35 @@
                                     <div id="photoPreview" class="preview-wrap"></div>
                                 </div>
                             </div>
-                            <button type="submit" id="mainSubmitBtn" class="btn-submit-tech"><i class="fas fa-network-wired"></i> TRANSMIT ENTRY</button>
-                        </form>
-                    </div>
+                            <button type="submit" id="mainSubmitBtn" class="btn-submit-tech"><i class="fas fa-save"></i> SUBMIT ENTRY</button>
+                        </div>
 
-                    <div class="map-precision-card">
-                        <div class="card-header-pro">
-                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:var(--primary-slate); color:white;"><i class="fas fa-crosshairs"></i> 04 / Visual Precision Map</h4>
-                        </div>
-                        <div class="map-viewport-container">
-                            <div class="zoom-controls-floating">
-                                <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 1.2)">＋</button>
-                                <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 0.8)">－</button>
-                                <button type="button" class="zoom-btn" onclick="resetCanvas('entryCanvas')">⟲</button>
+                        <div class="map-precision-card">
+                            <div class="card-header-pro">
+                                <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:var(--primary-slate); color:white;"><i class="fas fa-crosshairs"></i> 02 / Visual Precision Map</h4>
                             </div>
-                            <div id="blueprint-wrapper">
-                                <canvas id="entryCanvas"></canvas>
+                            <div class="map-viewport-container">
+                                <div class="zoom-controls-floating">
+                                    <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 1.2)">＋</button>
+                                    <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 0.8)">－</button>
+                                    <button type="button" class="zoom-btn" onclick="resetCanvas('entryCanvas')">⟲</button>
+                                </div>
+                                <div id="blueprint-wrapper">
+                                    <canvas id="entryCanvas"></canvas>
+                                </div>
                             </div>
+                            <p id="entryMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No Drawing mapped to this floor. Please upload in Setup.</p>
+                            <input type="hidden" id="entryCoordX"><input type="hidden" id="entryCoordY">
+                            <div class="map-instructions">Click on the drawing to pinpoint defect location.</div>
                         </div>
-                        <p id="entryMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No Drawing mapped to this floor. Please upload in Setup.</p>
-                        <input type="hidden" id="entryCoordX"><input type="hidden" id="entryCoordY">
-                        <div class="map-instructions">Click on the drawing to pinpoint defect location.</div>
                     </div>
-                </div>
+                </form>
             </section>
 
             <section id="report">
                 <div class="card-header-tech">
                     <div class="tech-title-wrapper">
-                        <span class="tech-badge live">SECURE</span>
+                        <span class="tech-badge live" id="liveSyncBadge"><i class="fas fa-sync fa-spin"></i> LIVE SYNC</span>
                         <h3><i class="fas fa-server"></i> Consolidated Architecture Records Matrix</h3>
                     </div>
                 </div>
@@ -130,6 +131,7 @@
                         <select id="reportProject" onchange="renderReportTable()"><option value="All">All Authorized Projects</option></select>
                     </div>
                     <div class="actions-group-tech">
+                        <button class="btn-capture-tech" onclick="loadDefectsFromCloud(false)"><i class="fas fa-redo"></i> Force Refresh</button>
                         <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(defects)"><i class="fas fa-file-excel"></i> Export MS-Excel</button>
                         <button class="btn-export-tech pdf" onclick="exportPDF(defects)"><i class="fas fa-file-pdf"></i> Generate PDF</button>
                     </div>
@@ -162,10 +164,31 @@
                         <label>Target Project Dimension:</label>
                         <select id="dashboardProjectFilter" onchange="renderCharts()"><option value="All">All Authorized Projects</option></select>
                     </div>
+                    <div class="filter-group-tech">
+                        <label>Analytical Cross-Section Mapping:</label>
+                        <select id="dashboardAnalyticFilter" onchange="renderCharts()">
+                            <option value="intensity">Intensity / Risk Wise</option>
+                            <option value="tower">Tower Segment Wise</option>
+                            <option value="defect">Defect Category Wise</option>
+                            <option value="floor">Floor Wise</option>
+                        </select>
+                    </div>
                 </div>
+                
+                <div class="records-table-container" style="margin-bottom: 20px;">
+                    <table id="analyticsTable" class="pmc-pro-table">
+                        <thead><tr id="analyticsTableHeader"></tr></thead>
+                        <tbody id="analyticsTableBody"></tbody>
+                    </table>
+                </div>
+
                 <div class="dashboard-display-container-tech">
-                    <div class="chart-card-tech"><h4><i class="fas fa-chart-bar"></i> Volumetric Deviation</h4><div class="chart-container-wrapper"><canvas id="projectChart"></canvas></div></div>
-                    <div class="chart-card-tech"><h4><i class="fas fa-chart-pie"></i> SLA Workflow Vector</h4><div class="chart-container-wrapper"><canvas id="statusChart"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-bar"></i> Primary Distribution</h4><div class="chart-container-wrapper"><canvas id="primaryChart"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-pie"></i> Status Workflow Vector</h4><div class="chart-container-wrapper"><canvas id="statusChart"></canvas></div></div>
+                </div>
+                <div class="dashboard-display-container-tech" style="margin-top:20px;">
+                    <div class="chart-card-tech"><h4><i class="fas fa-exclamation-triangle"></i> Intensity Spread</h4><div class="chart-container-wrapper"><canvas id="intensityChartCanvas"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-layer-group"></i> Category Trend</h4><div class="chart-container-wrapper"><canvas id="categoryChartCanvas"></canvas></div></div>
                 </div>
             </section>
 
@@ -178,57 +201,52 @@
                 </div>
 
                 <div class="admin-grid-container">
-                    
                     <div class="admin-card user-mgmt-card admin-span-full">
-                        <h4 class="card-title-tech" style="color:#b91c1c;"><i class="fas fa-user-shield"></i> Security & Access Management (RBAC)</h4>
+                        <h4 class="card-title-tech" style="color:#b91c1c;"><i class="fas fa-user-shield"></i> Security & Access Management</h4>
                         <div class="setup-split-layout">
                             <form onsubmit="event.preventDefault(); saveSystemUser();" class="setup-form-pro">
                                 <label>Email Address / User ID</label><input type="email" id="suEmail" required placeholder="user@company.com">
                                 <label>Password</label><input type="text" id="suPass" required placeholder="Default Password">
                                 <label>System Role</label>
-                                <select id="suRole" onchange="toggleProjectRights()">
-                                    <option value="admin">Super Admin (All Access)</option>
-                                    <option value="user" selected>Standard User (Restricted)</option>
-                                </select>
+                                <select id="suRole" onchange="toggleProjectRights()"><option value="admin">Super Admin</option><option value="user" selected>Standard User</option></select>
                                 <div id="projectRightsContainer" class="rights-container">
-                                    <label class="rights-label">Assign Project Access:</label>
-                                    <div id="projectCheckboxes" class="checkbox-grid"></div>
+                                    <label class="rights-label">Assign Project Access:</label><div id="projectCheckboxes" class="checkbox-grid"></div>
                                     <label class="rights-label" style="margin-top:12px;">Action Rights:</label>
-                                    <select id="suRights">
-                                        <option value="edit">Full Rights (Log/Edit/Update)</option>
-                                        <option value="view">View Only (Dashboard/Reports)</option>
-                                    </select>
+                                    <select id="suRights"><option value="edit">Full Rights (Log/Edit/Update)</option><option value="view">View Only</option></select>
                                 </div>
-                                <button type="submit" class="btn-submit-tech" style="margin-top:15px; background:#b91c1c;"><i class="fas fa-user-plus"></i> Save User Access</button>
+                                <button type="submit" class="btn-submit-tech" style="margin-top:15px; background:#b91c1c;"><i class="fas fa-user-plus"></i> Save User</button>
                             </form>
-                            <div class="records-table-container">
-                                <table id="usersTable" class="pmc-pro-table">
-                                    <thead><tr><th>User ID</th><th>Role</th><th>Allowed Projects</th><th>Rights</th><th>Action</th></tr></thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
+                            <div class="records-table-container"><table id="usersTable" class="pmc-pro-table"><thead><tr><th>User ID</th><th>Role</th><th>Allowed Projects</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
                         </div>
                     </div>
 
                     <div class="admin-card">
                         <h4 class="card-title-tech"><i class="fas fa-sitemap"></i> Structural Hierarchy Manager</h4>
-                        <form onsubmit="event.preventDefault(); saveHierarchy();" class="setup-form-pro">
-                            <label>Project Name</label><input type="text" id="setupProjName" required placeholder="Enter Project Name">
-                            <label>Towers (Comma separated)</label><input type="text" id="setupTowers" required placeholder="Tower-A, Tower-B">
-                            <label>Floors (Comma separated)</label><input type="text" id="setupFloors" required placeholder="GF, 1st, 2nd">
-                            <button type="submit" class="btn-submit-tech"><i class="fas fa-save"></i> Save Structure</button>
+                        <form id="hierarchyForm" onsubmit="event.preventDefault(); saveHierarchy();" class="setup-form-pro">
+                            <input type="hidden" id="editHierarchyKey">
+                            <label>Project Name</label><input type="text" id="setupProjName" required placeholder="e.g. Fragrance">
+                            <label>Tower Name</label><input type="text" id="setupTowerName" required placeholder="e.g. Tower-A">
+                            <label>Applicable Floors (Comma separated)</label><input type="text" id="setupFloors" required placeholder="GF, 1st, 2nd">
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button type="submit" id="btnSaveHierarchy" class="btn-submit-tech" style="flex:1;"><i class="fas fa-save"></i> Save</button>
+                                <button type="button" class="btn-danger-tech" onclick="resetHierarchyForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
+                            </div>
                         </form>
                         <div class="records-table-container mini-table">
-                            <table id="hierarchyTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Towers</th><th>Action</th></tr></thead><tbody></tbody></table>
+                            <table id="hierarchyTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floors</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
 
                     <div class="admin-card">
                         <h4 class="card-title-tech"><i class="fas fa-tags"></i> Defect Category Manager</h4>
-                        <form onsubmit="event.preventDefault(); saveCategory();" class="setup-form-pro">
+                        <form id="categoryForm" onsubmit="event.preventDefault(); saveCategory();" class="setup-form-pro">
+                            <input type="hidden" id="editCategoryKey">
                             <label>Category Name</label><input type="text" id="setupCatName" required placeholder="e.g. Plumbing Work">
                             <label>Specifications (Comma separated)</label><textarea id="setupSpecs" rows="3" required placeholder="Leakage, Broken Pipe"></textarea>
-                            <button type="submit" class="btn-submit-tech"><i class="fas fa-save"></i> Save Category</button>
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button type="submit" id="btnSaveCategory" class="btn-submit-tech" style="flex:1;"><i class="fas fa-save"></i> Save</button>
+                                <button type="button" class="btn-danger-tech" onclick="resetCategoryForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
+                            </div>
                         </form>
                         <div class="records-table-container mini-table">
                             <table id="categoryTable" class="pmc-pro-table"><thead><tr><th>Category</th><th>Specs</th><th>Action</th></tr></thead><tbody></tbody></table>
@@ -243,6 +261,9 @@
                             <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor"></select></div>
                             <div class="field-box-tech"><label>Upload Blueprint</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="saveMapDrawing(event)"></div>
                         </div>
+                        <div class="records-table-container mini-table" style="margin-top:20px;">
+                            <table id="floorMapTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Map Preview</th><th>Action</th></tr></thead><tbody></tbody></table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -251,7 +272,7 @@
 
     <div id="passwordModal" class="drilldown-modal">
         <div class="modal-content" style="max-width:400px;">
-            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile & Security</h3>
+            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile</h3>
             <p style="font-size:13px; color:#64748b; margin-bottom:15px;">Logged in as: <strong id="profileEmailDisplay"></strong></p>
             <form onsubmit="event.preventDefault(); changePassword();" class="field-box-tech">
                 <label>Current Password</label><input type="password" id="oldPassword" required>
@@ -320,10 +341,10 @@
                 <table id="drilldownTable" class="pmc-pro-table">
                     <thead>
                         <tr>
-                            <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
-                            <th>Defect Category</th><th>Specification Matrix</th><th>Engineering Remarks</th><th>Map Location</th>
-                            <th>Risk Spectrum</th><th>Status Vector</th><th>Logged Date</th><th>SLA Due Date</th><th>Closed Date</th>
-                            <th>Delay Axis</th><th>Initial Photos</th><th>Final Photos</th>
+                            <th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th>
+                            <th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th>
+                            <th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th>
+                            <th>Delay</th><th>Initial</th><th>Final</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
