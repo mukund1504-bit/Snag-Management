@@ -161,10 +161,9 @@ function populateFloors() {
     document.getElementById("entryCoordX").value = ""; document.getElementById("entryCoordY").value = "";
 }
 
-// FIXED: Case match function name
 function populateDefectlist() {
     const type = document.getElementById("defectType").value;
-    const lSel = document.getElementById("defectlist"); // EXACT MATCH
+    const lSel = document.getElementById("defectlist"); 
     lSel.innerHTML = '<option value="">-- Select Specific Defect --</option>';
     if(defectMatrix[type]) defectMatrix[type].forEach(def => lSel.appendChild(new Option(def, def)));
 }
@@ -275,20 +274,18 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
+// =================== FIXED SAVE DEFECT FUNCTION ===================
 async function saveDefect() {
-    // 1. Permission check
     if (currentUser.role === "user" && currentUser.permission === "view") {
         return alert("You only have View Access.");
     }
 
-    // 2. Safely get form elements
     const pEl = document.getElementById("project");
     const tEl = document.getElementById("tower");
     const xEl = document.getElementById("entryCoordX");
     const yEl = document.getElementById("entryCoordY");
     const dueEl = document.getElementById("duedate");
 
-    // 3. Validation
     if (!pEl || !tEl) return alert("System error: Form fields missing.");
     
     const p = pEl.value;
@@ -302,7 +299,6 @@ async function saveDefect() {
         return alert("Please add at least 2 Initial Photos.");
     }
     
-    // 4. Map coordinate check
     const x = xEl ? xEl.value : null;
     const y = yEl ? yEl.value : null;
     
@@ -310,28 +306,29 @@ async function saveDefect() {
         return alert("Please pinpoint the defect location on the map.");
     }
 
-    // 5. Date calculation
     let delay = "On Time";
     if (dueEl && dueEl.value) {
         const dueDate = new Date(dueEl.value);
-        const today = new Date();
-        if (today > dueDate) {
-            const diffDays = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
+        const todayDate = new Date();
+        if (todayDate > dueDate) {
+            const diffDays = Math.ceil((todayDate - dueDate) / (1000 * 60 * 60 * 24));
             delay = diffDays + " days delay";
         }
     }
 
-    // Yahan apna save karne wala logic (Supabase call) add karein
     console.log("Validation Successful. Saving data...", { p, t, delay });
-}
-    // Getting Button & Disabling
+
     const submitBtn = document.getElementById("mainSubmitBtn");
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> TRANSMITTING DATA...';
 
+    // Added missing variables
+    let today = new Date().toISOString().slice(0, 10);
+    let dueStr = dueEl ? dueEl.value : "";
+
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value, // EXACT MAPPING
+        Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value, 
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, duedate: dueStr, loggeddate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
@@ -346,17 +343,18 @@ async function saveDefect() {
         if(res.ok) {
             alert("Record Logged Successfully!");
             document.getElementById("defectForm").reset();
-            clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry');
+            clearTempPhotos(); 
+            if(canvasConfig.entry) { canvasConfig.entry.marker = null; drawCanvas('entry'); }
             await loadDefectsFromCloud();
         } else throw await res.json();
     } catch(err) { 
         alert("Error: " + JSON.stringify(err)); 
     } finally {
-        // Re-enable button
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-network-wired"></i> TRANSMIT ENTRY';
     }
 }
+// ===================================================================
 
 async function loadDefectsFromCloud(){
     try {
@@ -454,7 +452,6 @@ function openEditModal(id) {
 }
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
-// FIXED: Update Payload and Request Type (PATCH + Disabled Button)
 async function submitEditDefect() {
     const id = parseInt(document.getElementById("editDefectId").value);
     const stat = document.getElementById("editStatus").value;
@@ -473,7 +470,7 @@ async function submitEditDefect() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?id=eq.${id}`, {
             method: 'PATCH',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) // FIXED Variable Mapping
+            body: JSON.stringify(payload)
         });
         if(res.ok) { 
             alert("Record Updated!"); 
@@ -681,58 +678,28 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, 
         { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggeddate', width: 15 },
         { header: 'SLA Date', key: 'duedate', width: 15 }, { header: 'Closed Date', key: 'closeddate', width: 15 },
-        { header: 'Delay', key: 'delay', width: 12 }, { header: 'Initial Photos', key: 'initial', width: 28 },
-        { header: 'Final Photos', key: 'final', width: 28 }
+        { header: 'Delay', key: 'delay', width: 12 }
     ];
 
     const hRow = sheet.getRow(1);
     hRow.font = { bold: true, color: { argb: 'FFFFFF' } }; 
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
 
-    dataToExport.forEach((d, i) => {
+    dataToExport.forEach((d) => {
         let mapText = "N/A";
         if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X:${d.map_x}, Y:${d.map_y}`;
         const rowData = { ...d, map: mapText };
-        const row = sheet.addRow(rowData); row.height = 60;
-        
-        let pCount = 0;
-        [...d.initialPics].forEach((pSrc) => {
-            if(pSrc.startsWith("data:image")) {
-                try { const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); sheet.addImage(imgId, { tl: { col: 15 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); pCount++; } catch(e){}
-            }
-        });
-        
-        pCount = 0;
-        [...d.finalPics].forEach((pSrc) => {
-            if(pSrc.startsWith("data:image")) {
-                try { const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); sheet.addImage(imgId, { tl: { col: 16 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); pCount++; } catch(e){}
-            }
-        });
+        sheet.addRow(rowData);
     });
 
-    const buf = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PMC_Report_Detailed.xlsx`;
-    a.click();
-}
-
-function exportPDF(dataToExport){ 
-    if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
-    const windowObj = window.open("", "", "width=950,height=750");
-    const style = `<style>body{font-family:'Segoe UI',sans-serif; padding:15px; color:#233;} h1{border-bottom:2px solid #0284c7; padding-bottom:10px;} .card{border:1px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:16px; page-break-inside: avoid;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} .meta{font-size:13px; line-height:1.6} .photos{display:flex; gap:10px; margin-top:12px;} .photos img{width:140px; height:140px; object-fit:cover; border-radius:8px; border:1px solid #ccc;}</style>`;
-    let html = `<h1>PMC Quality Audit Dossier</h1>`;
-    
-    dataToExport.forEach((d, i)=>{
-        let mapText = "Not Mapped";
-        if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X: ${d.map_x}, Y: ${d.map_y}`;
-        html += `<div class="card"><div class="grid"><div class="meta">
-            <b>Sl No:</b> ${d.serial} | <b>Project:</b> ${d.project}<br/><b>Tower:</b> ${d.tower}<br/><b>Floor:</b> ${d.floor} | <b>Flat:</b> ${d.flat}<br/><b>Map Coordinate:</b> ${mapText}<br/><b>Remarks:</b> ${d.remark || "-"}<br/><b>Status:</b> ${d.status}
-            </div><div class="meta"><b>Category:</b> ${d.Type}<br/><b>Specification:</b> ${d.defectlist}<br/><b>Risk:</b> ${d.intensity}<br/>
-            <b>Dates -> Logged:</b> ${d.loggeddate} | <b>Closed:</b> ${d.closeddate === "-" ? "" : d.closeddate}
-            </div></div><div class="photos"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div>
-            <div class="photos"><b>Final: </b>${d.finalPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`;
-    });
-    
-    windowObj.document.write(style + html); windowObj.document.close();
-    setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
+    try {
+        const buf = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `PMC_Defect_Audit_Report.xlsx`;
+        link.click();
+    } catch(err) {
+        alert("Error generating Excel: " + err);
+    }
 }
