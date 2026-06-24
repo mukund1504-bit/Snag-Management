@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PMC Quality Inspection & Defect Audit Management Tool</title>
+    <title>PMC Quality Inspection & Defect Audit</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -32,15 +32,15 @@
     <div id="appContainer" style="display: none;">
         <header>
             <div class="logo-area">
-                <h2><i class="fas fa-digital-tachograph text-cyan"></i> PROJECT MONITORING COMMITTEE (PMC) REPORT</h2>
+                <h2><i class="fas fa-digital-tachograph text-cyan"></i> PROJECT MONITORING COMMITTEE</h2>
             </div>
             <nav>
                 <button class="nav-btn" id="navEntryBtn" onclick="showSection('entry')"><i class="fas fa-sliders-h"></i> Control Center</button>
                 <button class="nav-btn" onclick="showSection('report')"><i class="fas fa-database"></i> Records Matrix</button>
                 <button class="nav-btn" onclick="showSection('dashboard')"><i class="fas fa-chart-pie"></i> BI Telemetry</button>
                 <button class="nav-btn" id="navSetupBtn" onclick="showSection('setup')"><i class="fas fa-cogs"></i> System Setup</button>
-                <button class="nav-btn" style="background:#f59e0b; color:white;" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i> My Profile</button>
-                <button class="nav-btn" style="background:var(--crimson-fail); color:white;" onclick="processLogout()"><i class="fas fa-power-off"></i> Logout</button>
+                <button class="nav-btn profile-btn" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i> My Profile</button>
+                <button class="nav-btn logout-btn" onclick="processLogout()"><i class="fas fa-power-off"></i> Logout</button>
             </nav>
         </header>
 
@@ -69,8 +69,8 @@
                             <div class="form-section-card-tech">
                                 <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 02 / Diagnostics & Classification</h4>
                                 <div class="form-grid">
-                                    <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectList()" required></select></div>
-                                    <div class="field-box-tech"><label>Specification Matrix</label><select id="defectList" required><option value="">-- Select --</option></select></div>
+                                    <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectlist()" required></select></div>
+                                    <div class="field-box-tech"><label>Specification Matrix</label><select id="defectlist" required><option value="">-- Select --</option></select></div>
                                     <div class="field-box-tech"><label>Risk Spectrum</label><select id="intensity" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
                                     <div class="field-box-tech"><label>Status Vector</label><select id="status" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
                                     <div class="field-box-tech full-width"><label>Target SLA Due Date</label><input type="date" id="dueDate" required></div>
@@ -92,13 +92,13 @@
                                     <div id="photoPreview" class="preview-wrap"></div>
                                 </div>
                             </div>
-                            <button type="submit" class="btn-submit-tech"><i class="fas fa-network-wired"></i> TRANSMIT ENTRY</button>
+                            <button type="submit" id="mainSubmitBtn" class="btn-submit-tech"><i class="fas fa-network-wired"></i> TRANSMIT ENTRY</button>
                         </form>
                     </div>
 
                     <div class="map-precision-card">
                         <div class="card-header-pro">
-                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#0f172a; color:white;"><i class="fas fa-crosshairs"></i> 04 / Visual Precision Map</h4>
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:var(--primary-slate); color:white;"><i class="fas fa-crosshairs"></i> 04 / Visual Precision Map</h4>
                         </div>
                         <div class="map-viewport-container">
                             <div class="zoom-controls-floating">
@@ -139,22 +139,10 @@
                     <table id="defectsTable" class="pmc-pro-table">
                         <thead>
                             <tr>
-                                <th>Sl No</th>
-                                <th>Project Scope</th>
-                                <th>Tower</th>
-                                <th>Floor Vector</th>
-                                <th>Flat/Unit</th>
-                                <th>Defect Category</th>
-                                <th>Specification Matrix</th>
-                                <th>Engineering Remarks</th>
-                                <th>Map Location</th> <th>Risk Spectrum</th>
-                                <th>Status Vector</th>
-                                <th>Logged Date</th>
-                                <th>SLA Due Date</th>
-                                <th>Closed Date</th>
-                                <th>Delay Axis</th>
-                                <th>Initial Photos</th>
-                                <th>Final Photos</th> <th>Actions</th>
+                                <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
+                                <th>Defect Category</th><th>Specification Matrix</th><th>Engineering Remarks</th><th>Map Location</th>
+                                <th>Risk Spectrum</th><th>Status Vector</th><th>Logged Date</th><th>SLA Due Date</th><th>Closed Date</th>
+                                <th>Delay Axis</th><th>Initial Photos</th><th>Final Photos</th><th>Actions</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -176,8 +164,8 @@
                     </div>
                 </div>
                 <div class="dashboard-display-container-tech">
-                    <div class="chart-card-tech"><h4><i class="fas fa-chart-bar"></i> Volumetric Deviation (Click to Drill)</h4><div class="chart-container-wrapper"><canvas id="projectChart"></canvas></div></div>
-                    <div class="chart-card-tech"><h4><i class="fas fa-chart-pie"></i> SLA Workflow Vector (Click to Drill)</h4><div class="chart-container-wrapper"><canvas id="statusChart"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-bar"></i> Volumetric Deviation</h4><div class="chart-container-wrapper"><canvas id="projectChart"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-pie"></i> SLA Workflow Vector</h4><div class="chart-container-wrapper"><canvas id="statusChart"></canvas></div></div>
                 </div>
             </section>
 
@@ -190,10 +178,11 @@
                 </div>
 
                 <div class="admin-grid-container">
-                    <div class="admin-card user-mgmt-card" style="grid-column: 1 / -1;">
+                    
+                    <div class="admin-card user-mgmt-card admin-span-full">
                         <h4 class="card-title-tech" style="color:#b91c1c;"><i class="fas fa-user-shield"></i> Security & Access Management (RBAC)</h4>
-                        <div class="form-map-grid" style="grid-template-columns: 1fr 1.5fr; gap: 20px;">
-                            <form onsubmit="event.preventDefault(); saveSystemUser();" class="field-box-tech setup-form-pro">
+                        <div class="setup-split-layout">
+                            <form onsubmit="event.preventDefault(); saveSystemUser();" class="setup-form-pro">
                                 <label>Email Address / User ID</label><input type="email" id="suEmail" required placeholder="user@company.com">
                                 <label>Password</label><input type="text" id="suPass" required placeholder="Default Password">
                                 <label>System Role</label>
@@ -201,10 +190,10 @@
                                     <option value="admin">Super Admin (All Access)</option>
                                     <option value="user" selected>Standard User (Restricted)</option>
                                 </select>
-                                <div id="projectRightsContainer" style="background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:6px; margin-top:10px;">
-                                    <label style="color:#0284c7; margin-bottom:8px; display:block;">Assign Project Access:</label>
+                                <div id="projectRightsContainer" class="rights-container">
+                                    <label class="rights-label">Assign Project Access:</label>
                                     <div id="projectCheckboxes" class="checkbox-grid"></div>
-                                    <label style="color:#0284c7; margin-top:12px; margin-bottom:8px; display:block;">Action Rights:</label>
+                                    <label class="rights-label" style="margin-top:12px;">Action Rights:</label>
                                     <select id="suRights">
                                         <option value="edit">Full Rights (Log/Edit/Update)</option>
                                         <option value="view">View Only (Dashboard/Reports)</option>
@@ -212,7 +201,7 @@
                                 </div>
                                 <button type="submit" class="btn-submit-tech" style="margin-top:15px; background:#b91c1c;"><i class="fas fa-user-plus"></i> Save User Access</button>
                             </form>
-                            <div class="records-table-container" style="max-height: 400px;">
+                            <div class="records-table-container">
                                 <table id="usersTable" class="pmc-pro-table">
                                     <thead><tr><th>User ID</th><th>Role</th><th>Allowed Projects</th><th>Rights</th><th>Action</th></tr></thead>
                                     <tbody></tbody>
@@ -223,7 +212,7 @@
 
                     <div class="admin-card">
                         <h4 class="card-title-tech"><i class="fas fa-sitemap"></i> Structural Hierarchy Manager</h4>
-                        <form onsubmit="event.preventDefault(); saveHierarchy();" class="field-box-tech setup-form-pro">
+                        <form onsubmit="event.preventDefault(); saveHierarchy();" class="setup-form-pro">
                             <label>Project Name</label><input type="text" id="setupProjName" required placeholder="Enter Project Name">
                             <label>Towers (Comma separated)</label><input type="text" id="setupTowers" required placeholder="Tower-A, Tower-B">
                             <label>Floors (Comma separated)</label><input type="text" id="setupFloors" required placeholder="GF, 1st, 2nd">
@@ -236,7 +225,7 @@
 
                     <div class="admin-card">
                         <h4 class="card-title-tech"><i class="fas fa-tags"></i> Defect Category Manager</h4>
-                        <form onsubmit="event.preventDefault(); saveCategory();" class="field-box-tech setup-form-pro">
+                        <form onsubmit="event.preventDefault(); saveCategory();" class="setup-form-pro">
                             <label>Category Name</label><input type="text" id="setupCatName" required placeholder="e.g. Plumbing Work">
                             <label>Specifications (Comma separated)</label><textarea id="setupSpecs" rows="3" required placeholder="Leakage, Broken Pipe"></textarea>
                             <button type="submit" class="btn-submit-tech"><i class="fas fa-save"></i> Save Category</button>
@@ -246,13 +235,13 @@
                         </div>
                     </div>
 
-                    <div class="admin-card" style="grid-column: 1 / -1;">
+                    <div class="admin-card admin-span-full">
                         <h4 class="card-title-tech"><i class="fas fa-map"></i> Floor Plan Drawing Mapping</h4>
                         <div class="form-grid">
                             <div class="field-box-tech"><label>Project</label><select id="mapSetupProject" onchange="populateMapSetupTowers()"></select></div>
                             <div class="field-box-tech"><label>Tower</label><select id="mapSetupTower" onchange="populateMapSetupFloors()"></select></div>
                             <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor"></select></div>
-                            <div class="field-box-tech"><label>Upload Blueprint (Image)</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="saveMapDrawing(event)"></div>
+                            <div class="field-box-tech"><label>Upload Blueprint</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="saveMapDrawing(event)"></div>
                         </div>
                     </div>
                 </div>
@@ -262,15 +251,13 @@
 
     <div id="passwordModal" class="drilldown-modal">
         <div class="modal-content" style="max-width:400px;">
-            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px; color: #1e293b;"><i class="fas fa-user-circle text-cyan"></i> User Profile & Security</h3>
+            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile & Security</h3>
             <p style="font-size:13px; color:#64748b; margin-bottom:15px;">Logged in as: <strong id="profileEmailDisplay"></strong></p>
             <form onsubmit="event.preventDefault(); changePassword();" class="field-box-tech">
-                <label>Current Password</label>
-                <input type="password" id="oldPassword" required>
-                <label style="margin-top:10px;">New Password</label>
-                <input type="password" id="newPassword" required>
+                <label>Current Password</label><input type="password" id="oldPassword" required>
+                <label style="margin-top:10px;">New Password</label><input type="password" id="newPassword" required>
                 <div style="display:flex; gap:12px; margin-top:20px;">
-                    <button type="submit" class="btn-submit-tech" style="flex:1;"><i class="fas fa-key"></i> Update Pass</button>
+                    <button type="submit" class="btn-submit-tech" style="flex:1;"><i class="fas fa-key"></i> Update</button>
                     <button type="button" class="btn-danger-tech" style="flex:1;" onclick="closePasswordModal()"><i class="fas fa-times"></i> Close</button>
                 </div>
             </form>
@@ -279,7 +266,7 @@
 
     <div id="editModal" class="drilldown-modal">
         <div class="modal-content" style="max-width:900px;">
-            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px; color: #1e293b;"><i class="fas fa-edit text-cyan"></i> Action / Edit Defect Record</h3>
+            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-edit text-cyan"></i> Action / Edit Defect Record</h3>
             <div class="form-map-grid" style="grid-template-columns: 1.2fr 0.8fr; margin-top:15px; gap:20px;">
                 <div>
                     <input type="hidden" id="editDefectId">
@@ -287,12 +274,12 @@
                         <label>Update Status Vector:</label>
                         <select id="editStatus"><option value="Open">Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed / Certified</option></select>
                     </div>
-                    <div style="border:1px solid var(--border-matrix); padding:10px; border-radius:6px; margin-bottom:15px; background:#f8fafc;">
-                        <label style="font-size:12px; font-weight:bold;">Initial Photos (Click to Zoom)</label>
+                    <div class="edit-photo-box">
+                        <label>Initial Photos</label>
                         <div id="editInitialPhotoWrap" class="preview-wrap"></div>
                     </div>
                     <div class="photo-section-tech">
-                        <label class="photo-label-tech" style="font-weight:bold; font-size:12px; margin-bottom:8px; display:block;">Final Evidence Photos (After Repair)</label>
+                        <label class="photo-label-tech">Final Evidence Photos (After Repair)</label>
                         <div class="photo-controls">
                             <button type="button" class="btn-capture-tech" onclick="triggerEditPhoto()"><i class="fas fa-camera"></i> Add Final Photo</button>
                             <input type="file" id="editPhotoInput" accept="image/*" style="display:none;" onchange="onEditPhotoPicked(event)">
@@ -300,13 +287,13 @@
                         <div id="editPhotoPreview" class="preview-wrap"></div>
                     </div>
                     <div style="display:flex; gap:12px; margin-top:20px;">
-                        <button class="btn-submit-tech" style="margin-top:0; flex:1; padding:12px;" onclick="submitEditDefect()"><i class="fas fa-save"></i> Save Updates</button>
-                        <button class="btn-danger-tech" style="flex:1; padding:12px;" onclick="closeEditModal()"><i class="fas fa-times"></i> Cancel</button>
+                        <button id="editSubmitBtn" class="btn-submit-tech" style="margin-top:0; flex:1;" onclick="submitEditDefect()"><i class="fas fa-save"></i> Save Updates</button>
+                        <button class="btn-danger-tech" style="flex:1;" onclick="closeEditModal()"><i class="fas fa-times"></i> Cancel</button>
                     </div>
                 </div>
                 <div>
-                    <label style="font-size:12px; font-weight:bold; color:var(--text-core); display:block; margin-bottom:8px;">Logged Map Location (X,Y)</label>
-                    <div class="map-viewport-container" style="height:350px; margin:0; border-radius:8px;">
+                    <label class="map-label">Logged Map Location</label>
+                    <div class="map-viewport-container edit-map">
                         <div class="zoom-controls-floating">
                             <button type="button" class="zoom-btn" onclick="zoomCanvas('modalCanvas', 1.2)">＋</button>
                             <button type="button" class="zoom-btn" onclick="zoomCanvas('modalCanvas', 0.8)">－</button>
@@ -321,12 +308,12 @@
 
     <div id="drilldownModal" class="drilldown-modal">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #cbd5e1; padding-bottom:15px; margin-bottom:15px;">
-                <h3 id="modalTitle" style="margin:0; color:#0f172a; font-weight:700;"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3>
-                <div class="modal-header-actions" style="display:flex; gap:10px;">
+            <div class="modal-header-pro">
+                <h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3>
+                <div class="modal-header-actions">
                     <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button>
                     <button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button>
-                    <button class="modal-close-tech" style="background:#64748b; color:white; border:none; padding:10px 15px; border-radius:6px; cursor:pointer;" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button>
+                    <button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button>
                 </div>
             </div>
             <div class="records-table-container">
@@ -345,10 +332,10 @@
         </div>
     </div>
 
-    <div id="imageZoomModal" class="drilldown-modal" style="z-index: 99999;">
-        <div class="modal-content" style="background:transparent; box-shadow:none; align-items:center; border:none; text-align:center;">
-            <button class="btn-danger-tech" style="position:absolute; top:20px; right:20px;" onclick="closeImageZoom()">X Close</button>
-            <img id="zoomedImage" src="" style="max-width:90vw; max-height:85vh; border-radius:8px; border:4px solid white;">
+    <div id="imageZoomModal" class="drilldown-modal img-zoom-layer">
+        <div class="modal-content img-modal-content">
+            <button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button>
+            <img id="zoomedImage" src="" class="zoomed-view-img">
         </div>
     </div>
 

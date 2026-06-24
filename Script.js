@@ -2,9 +2,6 @@
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
-// ====== DYNAMIC USER MATRIX (WITH RBAC) ======
-// Role: 'admin' (All access) OR 'user' (Restricted)
-// Access rights for 'user': projects array, and permission (view/edit)
 const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" },
     { id: "Amit@gmail.com", pass: "Abc1504@", role: "user", projects: ["Fragrance"], permission: "edit" },
@@ -36,7 +33,6 @@ let canvasConfig = {
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-// ====== INITIALIZATION ======
 window.addEventListener("DOMContentLoaded", () => {
     const savedUser = sessionStorage.getItem("qa_logged_in_user");
     if(savedUser) {
@@ -45,7 +41,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// ====== LOGIN & ROLE BASED ACCESS CONTROL (RBAC) ======
 function processLogin() {
     const email = document.getElementById("loginEmail").value.trim();
     const pass = document.getElementById("loginPassword").value;
@@ -74,13 +69,11 @@ function openPasswordModal() {
     document.getElementById("newPassword").value = "";
     document.getElementById("passwordModal").style.display = "flex";
 }
-
 function closePasswordModal() { document.getElementById("passwordModal").style.display = "none"; }
 
 function changePassword() {
     const oldP = document.getElementById("oldPassword").value;
     const newP = document.getElementById("newPassword").value;
-    
     if(oldP !== currentUser.pass) return alert("Incorrect current password!");
     
     const userIndex = USER_MATRIX.findIndex(u => u.id === currentUser.id);
@@ -98,20 +91,15 @@ function activateApp() {
     document.getElementById("loginOverlay").style.display = "none";
     document.getElementById("appContainer").style.display = "block";
     
-    // RBAC Permissions Logic
-    if(currentUser.role !== "admin") { 
-        document.getElementById("navSetupBtn").style.display = "none"; 
-    }
+    if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
     if(currentUser.role === "user" && currentUser.permission === "view") {
         document.getElementById("navEntryBtn").style.display = "none";
-        showSection('dashboard'); // Redirect to dashboard if view only
+        showSection('dashboard');
     } else {
         showSection('entry');
     }
 
-    refreshDropdowns();
-    initCanvas('entry'); initCanvas('modal');
-    loadDefectsFromCloud();
+    refreshDropdowns(); initCanvas('entry'); initCanvas('modal'); loadDefectsFromCloud();
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
@@ -121,20 +109,17 @@ function showSection(id) {
     const sec = document.getElementById(id);
     if(sec) sec.classList.add("active");
     if(event && event.currentTarget) event.currentTarget.classList.add("active");
-    
     if(id === 'report') renderReportTable();
     if(id === 'dashboard') renderCharts();
 }
 
-// ====== DROPDOWN MANAGERS (WITH RBAC FILTERING) ======
 function getAllowedProjects() {
     if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(projects);
-    return currentUser.projects.filter(p => projects[p]); // Only return projects they have access to
+    return currentUser.projects.filter(p => projects[p]);
 }
 
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
-    
     ["project", "reportProject", "dashboardProjectFilter", "mapSetupProject"].forEach(id => {
         const el = document.getElementById(id);
         if(!el) return;
@@ -167,14 +152,14 @@ function populateFloors() {
     document.getElementById("entryCoordX").value = ""; document.getElementById("entryCoordY").value = "";
 }
 
+// FIXED: Case match function name
 function populateDefectlist() {
     const type = document.getElementById("defectType").value;
-    const lSel = document.getElementById("defectlist");
+    const lSel = document.getElementById("defectlist"); // EXACT MATCH
     lSel.innerHTML = '<option value="">-- Select Specific Defect --</option>';
     if(defectMatrix[type]) defectMatrix[type].forEach(def => lSel.appendChild(new Option(def, def)));
 }
 
-// ====== CANVAS MAPPING ENGINE ======
 function initCanvas(type) {
     const canvas = document.getElementById(`${type}Canvas`);
     if(!canvas) return;
@@ -238,14 +223,12 @@ function zoomCanvas(canvasId, factor) {
     canvasConfig[type].scale *= factor;
     document.getElementById(canvasId).style.transform = `scale(${canvasConfig[type].scale})`;
 }
-
 function resetCanvas(canvasId) {
     const type = canvasId.replace('Canvas', '');
     canvasConfig[type].scale = 1;
     document.getElementById(canvasId).style.transform = `scale(1)`;
 }
 
-// ====== DUAL PHOTO CAPTURE ======
 function triggerPhoto(){ if(tempPhotos.length >= 4) return alert("Max 4 photos allowed."); document.getElementById("photoInput").click(); }
 function triggerEditPhoto(){ if(editTempPhotos.length >= 3) return alert("Max 3 photos allowed."); document.getElementById("editPhotoInput").click(); }
 
@@ -274,7 +257,6 @@ function processFile(event, arr, renderFunc) {
 
 function renderPhotoPreview() { renderThumbs("photoPreview", tempPhotos, removeTempPhoto); }
 function renderEditPhotoPreview() { renderThumbs("editPhotoPreview", editTempPhotos, removeEditPhoto); }
-
 function renderThumbs(id, arr, removeFunc) {
     const wrap = document.getElementById(id);
     if(!wrap) return;
@@ -284,7 +266,7 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
-// ====== SUPABASE DATA SYNC ======
+// FIXED: Prevention of Multiple Submissions & Data Alignment
 async function saveDefect(){
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("You only have View Access.");
 
@@ -302,9 +284,14 @@ async function saveDefect(){
     let delay = "On Time";
     if(dueStr && new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
 
+    // Getting Button & Disabling
+    const submitBtn = document.getElementById("mainSubmitBtn");
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> TRANSMITTING DATA...';
+
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value,
+        Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value, // EXACT MAPPING
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggeddate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
@@ -322,15 +309,19 @@ async function saveDefect(){
             clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry');
             await loadDefectsFromCloud();
         } else throw await res.json();
-    } catch(err) { alert("Error: " + JSON.stringify(err)); }
+    } catch(err) { 
+        alert("Error: " + JSON.stringify(err)); 
+    } finally {
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-network-wired"></i> TRANSMIT ENTRY';
+    }
 }
 
 async function loadDefectsFromCloud(){
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?select=*&order=id.asc`, {
-    headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}` }});
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: i + 1, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
@@ -339,7 +330,6 @@ async function loadDefectsFromCloud(){
     } catch(e) { console.error(e); }
 }
 
-// ====== 18 COLUMNS REPORT & DRILLDOWN RENDERING ======
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
 
@@ -348,9 +338,7 @@ function generateTableRowsHtml(dataArray) {
         const finalHtml = `<div class="img-grid-cell">${d.finalPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;">View Only</span>`;
-        if(canEdit) {
-            actionHtml = `<button class="btn-capture-tech" onclick="openEditModal(${d.id})">Action</button>`;
-        }
+        if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})">Action</button>`;
 
         let mapText = "Not Mapped";
         if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X: ${d.map_x}, Y: ${d.map_y}`;
@@ -363,9 +351,9 @@ function generateTableRowsHtml(dataArray) {
                 <td>${d.floor}</td>
                 <td>${d.flat}</td>
                 <td><b>${d.Type}</b></td>
-                <td>${d.defectlist}</td>
+                <td>${d.defectlist || "-"}</td>
                 <td>${d.remark || "-"}</td>
-                <td><span style="font-size:11px; background:#e2e8f0; padding:3px 6px; border-radius:4px;"><i class="fas fa-map-marker-alt text-cyan"></i> ${mapText}</span></td>
+                <td><span class="map-badge"><i class="fas fa-map-marker-alt text-cyan"></i> ${mapText}</span></td>
                 <td>${d.intensity}</td>
                 <td><span class="locked-badge">${d.status}</span></td>
                 <td>${d.loggeddate}</td>
@@ -383,20 +371,16 @@ function renderReportTable(){
     const allowedProjects = getAllowedProjects();
     const pFilt = document.getElementById("reportProject").value;
     
-    // Filter by allowed projects AND dropdown selection
     const filtered = defects.filter(d => {
         const isAllowed = currentUser.role === "admin" || allowedProjects.includes(d.project);
         const matchDropdown = pFilt === "All" ? true : d.project === pFilt;
         return isAllowed && matchDropdown;
     });
-
     document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filtered);
 }
 
-// ====== EDIT / UPDATE / CLOSE LOGIC ======
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("View Only Access.");
-
     const d = defects.find(x => x.id === id);
     if(!d) return;
     
@@ -428,36 +412,42 @@ function openEditModal(id) {
     }
     document.getElementById("editModal").style.display = "flex";
 }
-
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
+// FIXED: Update Payload and Request Type (PATCH + Disabled Button)
 async function submitEditDefect() {
     const id = parseInt(document.getElementById("editDefectId").value);
     const stat = document.getElementById("editStatus").value;
     
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close defect.");
 
+    const editBtn = document.getElementById("editSubmitBtn");
+    editBtn.disabled = true;
+    editBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+
     let payload = { status: stat, final_photos: editTempPhotos.join("|||") };
     if(stat === "Closed") payload.closeddate = new Date().toISOString().slice(0,10);
     else payload.closeddate = "-";
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, {
-    method: 'POST',
-    headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-    },
-    body: JSON.stringify(defectData)
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload) // FIXED Variable Mapping
         });
-        if(res.ok) { alert("Record Updated!"); closeEditModal(); await loadDefectsFromCloud(); } 
-        else throw await res.json();
-    } catch(e) { alert("Error updating."); }
+        if(res.ok) { 
+            alert("Record Updated!"); 
+            closeEditModal(); 
+            await loadDefectsFromCloud(); 
+        } else throw await res.json();
+    } catch(e) { 
+        alert("Error updating: " + JSON.stringify(e)); 
+    } finally {
+        editBtn.disabled = false;
+        editBtn.innerHTML = '<i class="fas fa-save"></i> Save Updates';
+    }
 }
 
-// ====== ADMIN SETUP & USER MANAGEMENT (RBAC) ======
 function toggleProjectRights() {
     const role = document.getElementById("suRole").value;
     document.getElementById("projectRightsContainer").style.display = (role === "admin") ? "none" : "block";
@@ -499,20 +489,15 @@ function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody");
     if(!tbody) return;
     tbody.innerHTML = USER_MATRIX.map(u => {
-        const pBadge = u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ");
+        const pBadge = u.role === "admin" ? `<span class="tech-badge bg-blue">Global All</span>` : u.projects.join(", ");
         const rBadge = u.role === "admin" ? "Full Admin" : (u.permission === "edit" ? "Log & Edit" : "View Only");
         return `<tr>
-            <td><b>${u.id}</b></td>
-            <td>${u.role.toUpperCase()}</td>
-            <td style="white-space:normal; max-width:150px;">${pBadge}</td>
-            <td>${rBadge}</td>
-            <td>
-                ${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="btn-danger-tech" style="padding:4px 8px;" onclick="deleteUser('${u.id}')">Del</button>`}
-            </td>
+            <td><b>${u.id}</b></td><td>${u.role.toUpperCase()}</td>
+            <td style="white-space:normal; max-width:150px;">${pBadge}</td><td>${rBadge}</td>
+            <td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="btn-danger-tech pad-sm" onclick="deleteUser('${u.id}')">Del</button>`}</td>
         </tr>`;
     }).join('');
 }
-
 function deleteUser(email) {
     if(!confirm(`Delete access for ${email}?`)) return;
     USER_MATRIX = USER_MATRIX.filter(u => u.id !== email);
@@ -523,8 +508,8 @@ function deleteUser(email) {
 function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
     const cBody = document.querySelector("#categoryTable tbody");
-    if(hBody) hBody.innerHTML = Object.keys(projects).map(p => `<tr><td><b>${p}</b></td><td style="white-space:normal;">${projects[p].join(", ")}</td><td><button class="btn-danger-tech" style="padding:4px 8px;" onclick="delProj('${p}')">Del</button></td></tr>`).join('');
-    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal;">${defectMatrix[c].join(", ")}</td><td><button class="btn-danger-tech" style="padding:4px 8px;" onclick="delCat('${c}')">Del</button></td></tr>`).join('');
+    if(hBody) hBody.innerHTML = Object.keys(projects).map(p => `<tr><td><b>${p}</b></td><td style="white-space:normal;">${projects[p].join(", ")}</td><td><button class="btn-danger-tech pad-sm" onclick="delProj('${p}')">Del</button></td></tr>`).join('');
+    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal;">${defectMatrix[c].join(", ")}</td><td><button class="btn-danger-tech pad-sm" onclick="delCat('${c}')">Del</button></td></tr>`).join('');
 }
 
 function saveHierarchy() {
@@ -584,27 +569,21 @@ function saveMapDrawing(e) {
     reader.readAsDataURL(file);
 }
 
-// ====== IMAGE FULLSCREEN ZOOM ======
 function openZoomImage(url) {
     document.getElementById("zoomedImage").src = url;
     document.getElementById("imageZoomModal").style.display = "flex";
 }
 function closeImageZoom() { document.getElementById("imageZoomModal").style.display = "none"; }
 
-// ====== BI CHARTS & DASHBOARD DRILLDOWN ======
 let pChart, sChart;
-
 function openDrillModal(title, data) {
     currentDrilldownData = data;
     document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Deep-Drill: ${title} (${data.length} Records)`;
-    
     let html = generateTableRowsHtml(data);
     html = html.replace(/<td class="action-cell">.*?<\/td>/g, ""); 
-    
     document.querySelector("#drilldownTable tbody").innerHTML = html;
     document.getElementById("drilldownModal").style.display = "flex";
 }
-
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
 function renderCharts() {
@@ -635,38 +614,18 @@ function renderCharts() {
         pChart = new Chart(c1, { 
             type: 'bar', 
             data: { labels: Object.keys(mainVolMap), datasets: [{ label: 'Defect Volume', data: Object.values(mainVolMap), backgroundColor: '#0284c7' }] }, 
-            options: { 
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, elements) => {
-                    if(elements.length > 0) {
-                        const idx = elements[0].index;
-                        const pName = Object.keys(mainVolMap)[idx];
-                        openDrillModal(`Project - ${pName}`, filteredData.filter(x => x.project === pName));
-                    }
-                }
-            } 
+            options: { responsive: true, maintainAspectRatio: false, onClick: (e, elements) => { if(elements.length > 0) { const idx = elements[0].index; const pName = Object.keys(mainVolMap)[idx]; openDrillModal(`Project - ${pName}`, filteredData.filter(x => x.project === pName)); } } } 
         });
     }
-
     if (c2) {
         sChart = new Chart(c2, { 
             type: 'pie', 
             data: { labels: Object.keys(statusMap), datasets: [{ data: Object.values(statusMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] }, 
-            options: { 
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, elements) => {
-                    if(elements.length > 0) {
-                        const idx = elements[0].index;
-                        const sName = Object.keys(statusMap)[idx];
-                        openDrillModal(`Status - ${sName}`, filteredData.filter(x => x.status === sName));
-                    }
-                }
-            } 
+            options: { responsive: true, maintainAspectRatio: false, onClick: (e, elements) => { if(elements.length > 0) { const idx = elements[0].index; const sName = Object.keys(statusMap)[idx]; openDrillModal(`Status - ${sName}`, filteredData.filter(x => x.status === sName)); } } } 
         });
     }
 }
 
-// ====== FULL EXPORT FUNCTIONS (18 COLUMNS INCLUDED) ======
 async function exportExcelWithPhotos(dataToExport) {
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     if (typeof ExcelJS === "undefined") return alert("ExcelJS engine missing. Please check internet connection.");
@@ -675,22 +634,14 @@ async function exportExcelWithPhotos(dataToExport) {
     const sheet = workbook.addWorksheet('PMC Defect Report');
 
     sheet.columns = [
-        { header: 'ID', key: 'serial', width: 8 }, 
-        { header: 'Project', key: 'project', width: 16 }, 
-        { header: 'Tower', key: 'tower', width: 12 },
-        { header: 'Floor', key: 'floor', width: 12 }, 
-        { header: 'Flat', key: 'flat', width: 12 }, 
-        { header: 'Category', key: 'Type', width: 20 },
-        { header: 'Specification', key: 'defectlist', width: 25 }, 
-        { header: 'Remarks', key: 'remark', width: 30 }, 
-        { header: 'Map Coord', key: 'map', width: 15 },
-        { header: 'Risk', key: 'intensity', width: 12 }, 
-        { header: 'Status', key: 'status', width: 12 }, 
-        { header: 'Logged Date', key: 'loggeddate', width: 15 },
-        { header: 'SLA Date', key: 'dueDate', width: 15 },
-        { header: 'Closed Date', key: 'closeddate', width: 15 },
-        { header: 'Delay', key: 'delay', width: 12 },
-        { header: 'Initial Photos', key: 'initial', width: 28 },
+        { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
+        { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
+        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'Type', width: 20 },
+        { header: 'Specification', key: 'defectlist', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
+        { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, 
+        { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggeddate', width: 15 },
+        { header: 'SLA Date', key: 'dueDate', width: 15 }, { header: 'Closed Date', key: 'closeddate', width: 15 },
+        { header: 'Delay', key: 'delay', width: 12 }, { header: 'Initial Photos', key: 'initial', width: 28 },
         { header: 'Final Photos', key: 'final', width: 28 }
     ];
 
@@ -701,29 +652,20 @@ async function exportExcelWithPhotos(dataToExport) {
     dataToExport.forEach((d, i) => {
         let mapText = "N/A";
         if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X:${d.map_x}, Y:${d.map_y}`;
-        
         const rowData = { ...d, map: mapText };
         const row = sheet.addRow(rowData); row.height = 60;
         
         let pCount = 0;
         [...d.initialPics].forEach((pSrc) => {
             if(pSrc.startsWith("data:image")) {
-                try { 
-                    const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); 
-                    sheet.addImage(imgId, { tl: { col: 15 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); 
-                    pCount++; 
-                } catch(e){}
+                try { const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); sheet.addImage(imgId, { tl: { col: 15 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); pCount++; } catch(e){}
             }
         });
         
         pCount = 0;
         [...d.finalPics].forEach((pSrc) => {
             if(pSrc.startsWith("data:image")) {
-                try { 
-                    const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); 
-                    sheet.addImage(imgId, { tl: { col: 16 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); 
-                    pCount++; 
-                } catch(e){}
+                try { const imgId = workbook.addImage({ base64: pSrc, extension: 'jpeg' }); sheet.addImage(imgId, { tl: { col: 16 + (pCount*0.4), row: row.number-1 }, ext: { width: 50, height: 50 } }); pCount++; } catch(e){}
             }
         });
     });
@@ -743,7 +685,6 @@ function exportPDF(dataToExport){
     dataToExport.forEach((d, i)=>{
         let mapText = "Not Mapped";
         if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X: ${d.map_x}, Y: ${d.map_y}`;
-
         html += `<div class="card"><div class="grid"><div class="meta">
             <b>Sl No:</b> ${d.serial} | <b>Project:</b> ${d.project}<br/><b>Tower:</b> ${d.tower}<br/><b>Floor:</b> ${d.floor} | <b>Flat:</b> ${d.flat}<br/><b>Map Coordinate:</b> ${mapText}<br/><b>Remarks:</b> ${d.remark || "-"}<br/><b>Status:</b> ${d.status}
             </div><div class="meta"><b>Category:</b> ${d.Type}<br/><b>Specification:</b> ${d.defectlist}<br/><b>Risk:</b> ${d.intensity}<br/>
