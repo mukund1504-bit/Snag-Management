@@ -308,7 +308,7 @@ async function saveDefect(){
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
-        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-"
+        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closeddate: document.getElementById("status").value === "Closed" ? today : "-"
     };
 
     try {
@@ -370,7 +370,7 @@ function generateTableRowsHtml(dataArray) {
                 <td><span class="locked-badge">${d.status}</span></td>
                 <td>${d.loggedDate}</td>
                 <td>${d.dueDate}</td>
-                <td>${d.closedDate}</td>
+                <td>${d.closeddate}</td>
                 <td>${d.delay}</td>
                 <td>${initialHtml}</td>
                 <td>${finalHtml}</td>
@@ -438,8 +438,8 @@ async function submitEditDefect() {
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close defect.");
 
     let payload = { status: stat, final_photos: editTempPhotos.join("|||") };
-    if(stat === "Closed") payload.closedDate = new Date().toISOString().slice(0,10);
-    else payload.closedDate = "-";
+    if(stat === "Closed") payload.closeddate = new Date().toISOString().slice(0,10);
+    else payload.closeddate = "-";
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, {
@@ -688,7 +688,7 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Status', key: 'status', width: 12 }, 
         { header: 'Logged Date', key: 'loggedDate', width: 15 },
         { header: 'SLA Date', key: 'dueDate', width: 15 },
-        { header: 'Closed Date', key: 'closedDate', width: 15 },
+        { header: 'Closed Date', key: 'closeddate', width: 15 },
         { header: 'Delay', key: 'delay', width: 12 },
         { header: 'Initial Photos', key: 'initial', width: 28 },
         { header: 'Final Photos', key: 'final', width: 28 }
@@ -747,7 +747,7 @@ function exportPDF(dataToExport){
         html += `<div class="card"><div class="grid"><div class="meta">
             <b>Sl No:</b> ${d.serial} | <b>Project:</b> ${d.project}<br/><b>Tower:</b> ${d.tower}<br/><b>Floor:</b> ${d.floor} | <b>Flat:</b> ${d.flat}<br/><b>Map Coordinate:</b> ${mapText}<br/><b>Remarks:</b> ${d.remark || "-"}<br/><b>Status:</b> ${d.status}
             </div><div class="meta"><b>Category:</b> ${d.Type}<br/><b>Specification:</b> ${d.defectList}<br/><b>Risk:</b> ${d.intensity}<br/>
-            <b>Dates -> Logged:</b> ${d.loggedDate} | <b>Closed:</b> ${d.closedDate === "-" ? "" : d.closedDate}
+            <b>Dates -> Logged:</b> ${d.loggedDate} | <b>Closed:</b> ${d.closeddate === "-" ? "" : d.closeddate}
             </div></div><div class="photos"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div>
             <div class="photos"><b>Final: </b>${d.finalPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`;
     });
