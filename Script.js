@@ -1,5 +1,5 @@
 // ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
-const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
+const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co/rest/v1/";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
 // ====== DYNAMIC USER MATRIX (WITH RBAC) ======
@@ -327,7 +327,10 @@ async function saveDefect(){
 
 async function loadDefectsFromCloud(){
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/Defect?order=id.asc`, { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }});
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?select=*&order=id.asc`, {
+    headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: i + 1, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
@@ -439,9 +442,15 @@ async function submitEditDefect() {
     else payload.closedDate = "-";
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/Defect?id=eq.${id}`, {
-            method: "PATCH", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, {
+    method: 'POST',
+    headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(defectData)
         });
         if(res.ok) { alert("Record Updated!"); closeEditModal(); await loadDefectsFromCloud(); } 
         else throw await res.json();
