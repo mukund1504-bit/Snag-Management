@@ -56,47 +56,18 @@
 
                 <form id="defectForm" onsubmit="event.preventDefault(); saveDefect();">
                     <div class="form-map-grid">
-                        <div class="form-left-col">
-                            <div class="form-section-card-tech">
-                                <h4 class="card-title-tech"><i class="fas fa-project-diagram"></i> 01 / Spatial Architecture Blueprint</h4>
-                                <div class="form-grid">
-                                    <div class="field-box-tech"><label>Target Project</label><select id="project" onchange="populateTowers()" required></select></div>
-                                    <div class="field-box-tech"><label>Structural Tower</label><select id="tower" onchange="populateFloors()" required></select></div>
-                                    <div class="field-box-tech"><label>Floor Level Vector</label><select id="floor" onchange="loadEntryMap()" required></select></div>
-                                    <div class="field-box-tech"><label>Flat / Unit Registry</label><input type="text" id="flatNo" placeholder="e.g. Unit-102" required></div>
-                                </div>
+                        
+                        <div class="form-section-card-tech part-1">
+                            <h4 class="card-title-tech"><i class="fas fa-project-diagram"></i> 01 / Spatial Architecture Blueprint</h4>
+                            <div class="form-grid">
+                                <div class="field-box-tech"><label>Target Project</label><select id="project" onchange="populateTowers()" required></select></div>
+                                <div class="field-box-tech"><label>Structural Tower</label><select id="tower" onchange="populateFloors()" required></select></div>
+                                <div class="field-box-tech"><label>Floor Level Vector</label><select id="floor" onchange="loadEntryMap()" required></select></div>
+                                <div class="field-box-tech"><label>Flat / Unit Registry</label><input type="text" id="flatNo" placeholder="e.g. Unit-102" required></div>
                             </div>
-
-                            <div class="form-section-card-tech">
-                                <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
-                                <div class="form-grid">
-                                    <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectList()" required></select></div>
-                                    <div class="field-box-tech"><label>Specification Matrix</label><select id="defectList" required><option value="">-- Select --</option></select></div>
-                                    <div class="field-box-tech"><label>Risk Spectrum</label><select id="intensity" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
-                                    <div class="field-box-tech"><label>Status Vector</label><select id="status" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
-                                    <div class="field-box-tech full-width"><label>Target SLA Due Date</label><input type="date" id="dueDate" required></div>
-                                </div>
-                            </div>
-
-                            <div class="form-section-card-tech">
-                                <h4 class="card-title-tech"><i class="fas fa-images"></i> 04 / Visual Evidence (Initial Photos)</h4>
-                                <div class="field-box-tech full-width" style="margin-top: 5px; margin-bottom: 10px;">
-                                    <label>Engineering Remarks</label>
-                                    <textarea id="remark" rows="2" placeholder="Detail the structural deviation here..."></textarea>
-                                </div>
-                                <div class="photo-section-tech">
-                                    <div class="photo-controls">
-                                        <button type="button" class="btn-capture-tech" onclick="triggerPhoto()"><i class="fas fa-camera"></i> Capture Initial Img</button>
-                                        <button type="button" class="btn-danger-tech" onclick="clearTempPhotos()"><i class="fas fa-trash-alt"></i> Clear</button>
-                                        <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="onPhotoPicked(event)">
-                                    </div>
-                                    <div id="photoPreview" class="preview-wrap"></div>
-                                </div>
-                            </div>
-                            <button type="submit" id="mainSubmitBtn" class="btn-submit-tech"><i class="fas fa-save"></i> SUBMIT ENTRY</button>
                         </div>
 
-                        <div class="map-precision-card">
+                        <div class="map-precision-card part-2">
                             <div class="card-header-pro">
                                 <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:var(--primary-slate); color:white;"><i class="fas fa-crosshairs"></i> 02 / Visual Precision Map</h4>
                             </div>
@@ -112,8 +83,37 @@
                             </div>
                             <p id="entryMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No Drawing mapped to this floor. Please upload in Setup.</p>
                             <input type="hidden" id="entryCoordX"><input type="hidden" id="entryCoordY">
-                            <div class="map-instructions">Click on the drawing to pinpoint defect location.</div>
+                            <div class="map-instructions">Existing issues marked in RED. Click map to place NEW BLUE marker.</div>
                         </div>
+
+                        <div class="form-section-card-tech part-3">
+                            <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
+                            <div class="form-grid">
+                                <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectList()" required></select></div>
+                                <div class="field-box-tech"><label>Specification Matrix</label><select id="defectList" required><option value="">-- Select --</option></select></div>
+                                <div class="field-box-tech"><label>Risk Spectrum</label><select id="intensity" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
+                                <div class="field-box-tech"><label>Status Vector</label><select id="status" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
+                                <div class="field-box-tech full-width"><label>Target SLA Due Date</label><input type="date" id="dueDate" required></div>
+                            </div>
+                        </div>
+
+                        <div class="form-section-card-tech part-4">
+                            <h4 class="card-title-tech"><i class="fas fa-images"></i> 04 / Visual Evidence (Initial Photos)</h4>
+                            <div class="field-box-tech full-width" style="margin-top: 5px; margin-bottom: 10px;">
+                                <label>Engineering Remarks</label>
+                                <textarea id="remark" rows="2" placeholder="Detail the structural deviation here..."></textarea>
+                            </div>
+                            <div class="photo-section-tech">
+                                <div class="photo-controls">
+                                    <button type="button" class="btn-capture-tech" onclick="triggerPhoto()"><i class="fas fa-camera"></i> Capture Initial Img</button>
+                                    <button type="button" class="btn-danger-tech" onclick="clearTempPhotos()"><i class="fas fa-trash-alt"></i> Clear</button>
+                                    <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="onPhotoPicked(event)">
+                                </div>
+                                <div id="photoPreview" class="preview-wrap"></div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="mainSubmitBtn" class="btn-submit-tech form-submit-btn"><i class="fas fa-save"></i> SUBMIT ENTRY</button>
                     </div>
                 </form>
             </section>
@@ -167,10 +167,10 @@
                     <div class="filter-group-tech">
                         <label>Analytical Cross-Section Mapping:</label>
                         <select id="dashboardAnalyticFilter" onchange="renderCharts()">
-                            <option value="intensity">Intensity / Risk Wise</option>
-                            <option value="tower">Tower Segment Wise</option>
-                            <option value="defect">Defect Category Wise</option>
-                            <option value="floor">Floor Wise</option>
+                            <option value="floor">Floor Vector & Flat Units Distribution</option>
+                            <option value="defect">Structural Defect Classification Matrix</option>
+                            <option value="tower">Tower Segregation Breakdown</option>
+                            <option value="intensity">Risk Profiles (Intensity Distribution)</option>
                         </select>
                     </div>
                 </div>
@@ -270,21 +270,8 @@
         </main>
     </div>
 
-    <div id="passwordModal" class="drilldown-modal">
-        <div class="modal-content" style="max-width:400px;">
-            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile</h3>
-            <p style="font-size:13px; color:#64748b; margin-bottom:15px;">Logged in as: <strong id="profileEmailDisplay"></strong></p>
-            <form onsubmit="event.preventDefault(); changePassword();" class="field-box-tech">
-                <label>Current Password</label><input type="password" id="oldPassword" required>
-                <label style="margin-top:10px;">New Password</label><input type="password" id="newPassword" required>
-                <div style="display:flex; gap:12px; margin-top:20px;">
-                    <button type="submit" class="btn-submit-tech" style="flex:1;"><i class="fas fa-key"></i> Update</button>
-                    <button type="button" class="btn-danger-tech" style="flex:1;" onclick="closePasswordModal()"><i class="fas fa-times"></i> Close</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    <div id="passwordModal" class="drilldown-modal"><div class="modal-content" style="max-width:400px;"><h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile</h3><p style="font-size:13px; color:#64748b; margin-bottom:15px;">Logged in as: <strong id="profileEmailDisplay"></strong></p><form onsubmit="event.preventDefault(); changePassword();" class="field-box-tech"><label>Current Password</label><input type="password" id="oldPassword" required><label style="margin-top:10px;">New Password</label><input type="password" id="newPassword" required><div style="display:flex; gap:12px; margin-top:20px;"><button type="submit" class="btn-submit-tech" style="flex:1;"><i class="fas fa-key"></i> Update</button><button type="button" class="btn-danger-tech" style="flex:1;" onclick="closePasswordModal()"><i class="fas fa-times"></i> Close</button></div></form></div></div>
+    
     <div id="editModal" class="drilldown-modal">
         <div class="modal-content" style="max-width:1050px;">
             <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-tools text-cyan"></i> Action / Resolve Defect</h3>
@@ -331,38 +318,9 @@
         </div>
     </div>
 
-    <div id="drilldownModal" class="drilldown-modal">
-        <div class="modal-content">
-            <div class="modal-header-pro">
-                <h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3>
-                <div class="modal-header-actions">
-                    <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button>
-                    <button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button>
-                    <button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button>
-                </div>
-            </div>
-            <div class="records-table-container">
-                <table id="drilldownTable" class="pmc-pro-table">
-                    <thead>
-                        <tr>
-                            <th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th>
-                            <th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th>
-                            <th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th>
-                            <th>Delay</th><th>Initial</th><th>Final</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="pmc-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th></tr></thead><tbody></tbody></table></div></div></div>
 
-    <div id="imageZoomModal" class="drilldown-modal img-zoom-layer">
-        <div class="modal-content img-modal-content">
-            <button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button>
-            <img id="zoomedImage" src="" class="zoomed-view-img">
-        </div>
-    </div>
+    <div id="imageZoomModal" class="drilldown-modal img-zoom-layer"><div class="modal-content img-modal-content"><button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button><img id="zoomedImage" src="" class="zoomed-view-img"></div></div>
 
     <script src="Script.js"></script>
 </body>

@@ -126,12 +126,44 @@ function loadEntryMap() {
     }
 }
 
+// ====== 1. MAP MARKER PERSISTENCE UPGRADE ======
 function drawCanvas(type) {
     const c = canvasConfig[type]; const canvas = document.getElementById(`${type}Canvas`);
     if(!c.img || !c.ctx) return;
-    c.ctx.clearRect(0, 0, canvas.width, canvas.height); c.ctx.drawImage(c.img, 0, 0);
-    if(c.marker) { c.ctx.beginPath(); c.ctx.arc(c.marker.x, c.marker.y, 15, 0, 2 * Math.PI); c.ctx.fillStyle = "#ef4444"; c.ctx.fill(); c.ctx.lineWidth = 4; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke(); }
+    c.ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    c.ctx.drawImage(c.img, 0, 0);
+    
+    // Draw existing historical markers
+    if(type === 'entry') {
+        const p = document.getElementById("project").value;
+        const t = document.getElementById("tower").value;
+        const f = document.getElementById("floor").value;
+        
+        defects.forEach(d => {
+            if(d.project === p && d.tower === t && d.floor === f && d.status !== 'Closed' && d.map_x && d.map_y && d.map_x !== "0") {
+                c.ctx.beginPath();
+                c.ctx.arc(d.map_x, d.map_y, 10, 0, 2 * Math.PI);
+                c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; // RED for existing issues
+                c.ctx.fill();
+                c.ctx.lineWidth = 2;
+                c.ctx.strokeStyle = "#ffffff";
+                c.ctx.stroke();
+            }
+        });
+    }
+
+    // Draw active placing marker
+    if(c.marker) { 
+        c.ctx.beginPath(); 
+        c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); 
+        c.ctx.fillStyle = "#3b82f6"; // BLUE for new placement
+        c.ctx.fill(); 
+        c.ctx.lineWidth = 4; 
+        c.ctx.strokeStyle = "#ffffff"; 
+        c.ctx.stroke(); 
+    }
 }
+
 function zoomCanvas(id, factor) { const type = id.replace('Canvas', ''); canvasConfig[type].scale *= factor; document.getElementById(id).style.transform = `scale(${canvasConfig[type].scale})`; }
 function resetCanvas(id) { const type = id.replace('Canvas', ''); canvasConfig[type].scale = 1; document.getElementById(id).style.transform = `scale(1)`; }
 
@@ -213,12 +245,14 @@ async function loadDefectsFromCloud(isBackground = false) {
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
             if(document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard').classList.contains('active')) renderCharts();
+            // Redraw entry map to show any new markers if active
+            if(document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
         }
     } catch(e) { console.error(e); }
     finally { setTimeout(()=> document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC", 1000); }
 }
 
-// UPDATED: generateTableRowsHtml with Status Lock logic
+// Generate Table Rows Html with Status Lock logic
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
     return dataArray.map(d => {
@@ -305,25 +339,65 @@ function openDrillModal(title, data) {
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
 
-// Analytics, Setup, Exports (Unchanged... Included for full functionality)
+// ====== 2. BI TELEMETRY MATRICES UPGRADE ======
 let chartsObj = {};
 function renderCharts() {
     const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
     const filteredData = defects.filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj));
     Object.keys(chartsObj).forEach(k => { if(chartsObj[k]) chartsObj[k].destroy(); });
+    
     const projMap = {}; const statMap = { "Open": 0, "In Progress": 0, "Closed": 0 };
     filteredData.forEach(d => { projMap[d.project] = (projMap[d.project] || 0) + 1; if(statMap[d.status]!==undefined) statMap[d.status]++; });
 
     chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(projMap)[elements[0].index], filteredData.filter(x=>x.project===Object.keys(projMap)[elements[0].index])); } }});
     chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(statMap)[elements[0].index], filteredData.filter(x=>x.status===Object.keys(statMap)[elements[0].index])); } }});
 
-    let anaMap = {}; let anaLabel = ""; let anaKey = "";
-    if(filterAnalytic === "intensity") { anaKey = "intensity"; anaLabel = "Risk Spectrum"; } else if(filterAnalytic === "tower") { anaKey = "tower"; anaLabel = "Tower Segments"; } else if(filterAnalytic === "defect") { anaKey = "Type"; anaLabel = "Category Spread"; } else if(filterAnalytic === "floor") { anaKey = "floor"; anaLabel = "Floor Mapping"; }
-    filteredData.forEach(d => { anaMap[d[anaKey]] = (anaMap[d[anaKey]] || 0) + 1; });
-    
-    document.getElementById("analyticsTableHeader").innerHTML = `<th>${anaLabel} Dimension</th><th>Total Defect Count</th><th>Action</th>`;
-    document.getElementById("analyticsTableBody").innerHTML = Object.keys(anaMap).map(k => `<tr><td><b>${k}</b></td><td><a class="drill-link" onclick="openAnaDrill('${anaKey}','${k}')">${anaMap[k]} Records</a></td><td><button class="btn-capture-tech action-btn" onclick="openAnaDrill('${anaKey}','${k}')">View</button></td></tr>`).join('');
+    // Pivot Table Matrix Generation Logic
+    const tHead = document.getElementById("analyticsTableHeader");
+    const tBody = document.getElementById("analyticsTableBody");
+    let matrixData = {};
 
+    if(filterAnalytic === "floor") {
+        tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>FLOOR</th><th>FLAT</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, f:d.floor, fl:d.flat, o:0, ip:0, c:0, tot:0 };
+            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            matrixData[k].tot++;
+        });
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.o}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.ip}</span></td><td><span class="tech-badge" style="background:#d1fae5;color:#059669;">${m.c}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+    } 
+    else if(filterAnalytic === "tower") {
+        tHead.innerHTML = `<th>PROJECT NAME</th><th>TOWER REF</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>SUBTOTAL</th>`;
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.tower}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, o:0, ip:0, c:0, tot:0 };
+            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            matrixData[k].tot++;
+        });
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.o}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.ip}</span></td><td><span class="tech-badge" style="background:#d1fae5;color:#059669;">${m.c}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+    }
+    else if(filterAnalytic === "defect") {
+        tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.Type}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.Type, tot:0 };
+            matrixData[k].tot++;
+        });
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><span class="tech-badge" style="background:#f1f5f9;color:#334155;">${m.tot}</span></td></tr>`).join('');
+    }
+    else if(filterAnalytic === "intensity") {
+        tHead.innerHTML = `<th>PROJECT TARGET NAME</th><th>LOW RISK</th><th>MEDIUM RISK</th><th>HIGH RISK</th><th>TOTAL</th>`;
+        filteredData.forEach(d => {
+            let k = `${d.project}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, l:0, m:0, h:0, tot:0 };
+            if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++;
+            matrixData[k].tot++;
+        });
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.l}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.m}</span></td><td><span class="tech-badge" style="background:#fee2e2;color:#b91c1c;">${m.h}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+    }
+
+    const anaMap = {}; filteredData.forEach(d => { anaMap[d.intensity] = (anaMap[d.intensity] || 0) + 1; });
     chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'] }] }, options: { responsive:true, maintainAspectRatio:false }});
     const catMap = {}; filteredData.forEach(d => catMap[d.Type] = (catMap[d.Type]||0)+1);
     chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#8b5cf6' }] }, options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false }});
@@ -401,15 +475,65 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
+// ====== 3. EXCEL NATIVE IMAGE EXPORT UPGRADE ======
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
-    const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('PMC Defect Report');
-    sheet.columns = [ { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'Type', width: 20 }, { header: 'Specification', key: 'defectList', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggedDate', width: 15 }, { header: 'SLA Date', key: 'dueDate', width: 15 }, { header: 'Closed Date', key: 'closedDate', width: 15 }, { header: 'Delay', key: 'delay', width: 12 } ];
-    const hRow = sheet.getRow(1); hRow.font = { bold: true, color: { argb: 'FFFFFF' } }; hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
-    dataToExport.forEach((d) => { let mapText = "N/A"; if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X:${d.map_x}, Y:${d.map_y}`; sheet.addRow({ ...d, map: mapText }); });
-    const buf = await workbook.xlsx.writeBuffer(); const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PMC_Report_Detailed.xlsx`; a.click();
+    
+    const workbook = new ExcelJS.Workbook(); 
+    const sheet = workbook.addWorksheet('PMC Defect Report');
+    
+    // Notice the final columns are dedicated to embedding images natively
+    sheet.columns = [ 
+        { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
+        { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
+        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'Type', width: 20 }, 
+        { header: 'Specification', key: 'defectList', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
+        { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, 
+        { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggedDate', width: 15 }, 
+        { header: 'SLA Date', key: 'dueDate', width: 15 }, { header: 'Closed Date', key: 'closedDate', width: 15 }, 
+        { header: 'Delay', key: 'delay', width: 12 },
+        { header: 'Initial Photo Evidence', key: 'initial', width: 25 },
+        { header: 'Final Photo Evidence', key: 'final', width: 25 }
+    ];
+    
+    const hRow = sheet.getRow(1); 
+    hRow.font = { bold: true, color: { argb: 'FFFFFF' } }; 
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+    
+    dataToExport.forEach((d) => { 
+        let mapText = "N/A"; 
+        if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X:${d.map_x}, Y:${d.map_y}`; 
+        
+        const row = sheet.addRow({ ...d, map: mapText, initial: "", final: "" }); 
+        row.height = 70; // Set row height big enough for pictures
+        
+        // Helper to convert Base64 directly to Excel workbook memory
+        const addImgToCell = (base64Str, colIdx) => {
+            if(base64Str && base64Str.startsWith('data:image')) {
+                try {
+                    const imageId = workbook.addImage({ base64: base64Str, extension: 'jpeg' });
+                    sheet.addImage(imageId, {
+                        tl: { col: colIdx - 1, row: row.number - 1 },
+                        ext: { width: 60, height: 60 },
+                        editAs: 'oneCell'
+                    });
+                } catch(e) { console.error('Image processing skipped', e); }
+            }
+        };
+
+        // Append the very first image attached to the entry
+        if(d.initialPics && d.initialPics.length > 0) addImgToCell(d.initialPics[0], 16);
+        if(d.finalPics && d.finalPics.length > 0) addImgToCell(d.finalPics[0], 17);
+    });
+    
+    const buf = await workbook.xlsx.writeBuffer(); 
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a"); 
+    a.href = URL.createObjectURL(blob); 
+    a.download = `PMC_Report_Detailed.xlsx`; 
+    a.click();
 }
+
 function exportPDF(dataToExport){ 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     const windowObj = window.open("", "", "width=950,height=750");
