@@ -103,14 +103,23 @@ function activateApp() {
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
-function showSection(id) {
+function showSection(id, element) {
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    
     const sec = document.getElementById(id);
-    if(sec) sec.classList.add("active");
-    if(event && event.currentTarget) event.currentTarget.classList.add("active");
-    if(id === 'report') renderReportTable();
-    if(id === 'dashboard') renderCharts();
+    if (sec) {
+        sec.classList.add("active");
+    } else {
+        console.error("Section ID not found: " + id);
+    }
+    
+    if (element) {
+        element.classList.add("active");
+    }
+    
+    if (id === 'report') renderReportTable();
+    if (id === 'dashboard') renderCharts();
 }
 
 function getAllowedProjects() {
