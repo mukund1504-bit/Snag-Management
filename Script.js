@@ -420,19 +420,32 @@ function openEditModal(id) {
 
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
-// FIXED: Patch Request URL, Payload Mapping, and Method
+// UPDATED: Patch Request with URL safety check
 async function submitEditDefect() {
     const id = parseInt(document.getElementById("editDefectId").value);
     const stat = document.getElementById("editStatus").value;
     
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close defect.");
 
-    let payload = { status: stat, final_photos: editTempPhotos.join("|||") };
-    if(stat === "Closed") payload.closedDate = new Date().toISOString().slice(0,10);
-    else payload.closedDate = "-";
+    let payload = { 
+        status: stat, 
+        final_photos: editTempPhotos.join("|||") 
+    };
+    
+    if(stat === "Closed") {
+        payload.closedDate = new Date().toISOString().slice(0,10);
+    } else {
+        payload.closedDate = "-";
+    }
+
+    // URL Clean-up: Agar SUPABASE_URL mein 'rest/v1/' pehle se hai, toh sirf '/defect' judega
+    const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
+    const finalUrl = cleanUrl.includes('/rest/v1') 
+                     ? `${cleanUrl}/defect?id=eq.${id}` 
+                     : `${cleanUrl}/rest/v1/defect?id=eq.${id}`;
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?id=eq.${id}`, {
+        const res = await fetch(finalUrl, {
             method: 'PATCH',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -442,9 +455,20 @@ async function submitEditDefect() {
             },
             body: JSON.stringify(payload)
         });
-        if(res.ok) { alert("Record Updated!"); closeEditModal(); await loadDefectsFromCloud(); } 
-        else throw await res.json();
-    } catch(e) { alert("Error updating."); console.error(e); }
+
+        if(res.ok) {
+            alert("Record Updated Successfully!");
+            closeEditModal();
+            await loadDefectsFromCloud();
+        } else {
+            const errorData = await res.json();
+            console.error("Supabase Error:", errorData);
+            alert("Error updating record: " + (errorData.message || "Unknown error"));
+        }
+    } catch(e) {
+        console.error("Fetch Catch Error:", e);
+        alert("Network error. Please check console.");
+    }
 }
 
 function toggleProjectRights() {
