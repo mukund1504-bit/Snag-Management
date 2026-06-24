@@ -280,7 +280,7 @@ async function saveDefect(){
     if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
 
     const today = new Date().toISOString().slice(0,10);
-    const dueStr = document.getElementById("dueDate").value;
+    const dueStr = document.getElementById("duedate").value;
     let delay = "On Time";
     if(dueStr && new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
 
@@ -293,7 +293,7 @@ async function saveDefect(){
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
         Type: document.getElementById("defectType").value, defectlist: document.getElementById("defectlist").value, // EXACT MAPPING
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
-        status: document.getElementById("status").value, dueDate: dueStr, loggeddate: today,
+        status: document.getElementById("status").value, duedate: dueStr, loggeddate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
         map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closeddate: document.getElementById("status").value === "Closed" ? today : "-"
     };
@@ -357,7 +357,7 @@ function generateTableRowsHtml(dataArray) {
                 <td>${d.intensity}</td>
                 <td><span class="locked-badge">${d.status}</span></td>
                 <td>${d.loggeddate}</td>
-                <td>${d.dueDate}</td>
+                <td>${d.duedate}</td>
                 <td>${d.closeddate}</td>
                 <td>${d.delay}</td>
                 <td>${initialHtml}</td>
@@ -640,7 +640,7 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Specification', key: 'defectlist', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
         { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, 
         { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggeddate', width: 15 },
-        { header: 'SLA Date', key: 'dueDate', width: 15 }, { header: 'Closed Date', key: 'closeddate', width: 15 },
+        { header: 'SLA Date', key: 'duedate', width: 15 }, { header: 'Closed Date', key: 'closeddate', width: 15 },
         { header: 'Delay', key: 'delay', width: 12 }, { header: 'Initial Photos', key: 'initial', width: 28 },
         { header: 'Final Photos', key: 'final', width: 28 }
     ];

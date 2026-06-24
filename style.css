@@ -164,3 +164,8 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; }
     .nav-btn { flex: 0 0 auto; }
     .setup-split-layout { grid-template-columns: 1fr; }
 }
+/* Ensure all main sections have explicit visibility control */
+section { display: none !important; }
+section.active { display: block !important; }
+#setup { padding-bottom: 50px; }
+.admin-grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
