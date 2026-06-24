@@ -129,9 +129,20 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; }
 .edit-btn { background:#fef08a; color:#854d0e; }
 .del-btn { background:#fee2e2; color:#b91c1c; }
 
+/* MODALS - GENERAL */
 .drilldown-modal { display: none; position: fixed; inset: 0; background: rgba(9, 13, 22, 0.85); backdrop-filter: blur(5px); z-index: 9999; justify-content: center; align-items: center; padding: 20px; }
 .modal-content { background: white; width: 100%; max-width: 1300px; max-height: 90vh; border-radius: 12px; padding: 24px; overflow-y: auto; position: relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
 .modal-header-pro { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 15px; }
+
+/* NEW: EDIT MODAL PROFESSIONAL LAYOUT */
+.edit-modal-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; margin-top: 15px; }
+.edit-form-side { display: flex; flex-direction: column; gap: 15px; }
+.edit-photo-box { border: 1px solid var(--border-matrix); padding: 15px; border-radius: 8px; background: #f8fafc; }
+.edit-photo-box label { font-size: 12.5px; font-weight: bold; color: var(--text-core); }
+.photo-label-tech { font-weight: bold; font-size: 12.5px; margin-bottom: 8px; display: block; color: var(--text-core); }
+.map-label { font-size: 12.5px; font-weight: bold; color: var(--text-core); display: block; margin-bottom: 8px; }
+.edit-map-side { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+.edit-map { flex-grow: 1; min-height: 350px; margin: 0; border: 1px solid #cbd5e1; border-radius: 8px; }
 
 .img-zoom-layer { z-index: 99999; }
 .img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
@@ -146,4 +157,5 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; }
     .nav-btn { flex: 0 0 auto; }
     .setup-split-layout { grid-template-columns: 1fr; }
     .admin-grid-container { grid-template-columns: 1fr; }
+    .edit-modal-grid { grid-template-columns: 1fr; }
 }
