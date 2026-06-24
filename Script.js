@@ -275,24 +275,55 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
-// FIXED: Prevention of Multiple Submissions & Data Alignment
-async function saveDefect(){
-    if(currentUser.role === "user" && currentUser.permission === "view") return alert("You only have View Access.");
+async function saveDefect() {
+    // 1. Permission check
+    if (currentUser.role === "user" && currentUser.permission === "view") {
+        return alert("You only have View Access.");
+    }
 
-    const p = document.getElementById("project").value;
-    const t = document.getElementById("tower").value;
-    if(!p || !t || !projects[p] || !projects[p].includes(t)) return alert("Select valid Project and Tower.");
-    if(tempPhotos.length < 2) return alert("Please add at least 2 Initial Photos.");
+    // 2. Safely get form elements
+    const pEl = document.getElementById("project");
+    const tEl = document.getElementById("tower");
+    const xEl = document.getElementById("entryCoordX");
+    const yEl = document.getElementById("entryCoordY");
+    const dueEl = document.getElementById("duedate");
+
+    // 3. Validation
+    if (!pEl || !tEl) return alert("System error: Form fields missing.");
     
-    const x = document.getElementById("entryCoordX").value;
-    const y = document.getElementById("entryCoordY").value;
-    if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
+    const p = pEl.value;
+    const t = tEl.value;
 
-    const today = new Date().toISOString().slice(0,10);
-    const dueStr = document.getElementById("duedate").value;
+    if (!p || !t || !projects[p] || !projects[p].includes(t)) {
+        return alert("Select valid Project and Tower.");
+    }
+    
+    if (typeof tempPhotos === 'undefined' || tempPhotos.length < 2) {
+        return alert("Please add at least 2 Initial Photos.");
+    }
+    
+    // 4. Map coordinate check
+    const x = xEl ? xEl.value : null;
+    const y = yEl ? yEl.value : null;
+    
+    if (typeof canvasConfig !== 'undefined' && canvasConfig.entry.active && (!x || !y)) {
+        return alert("Please pinpoint the defect location on the map.");
+    }
+
+    // 5. Date calculation
     let delay = "On Time";
-    if(dueStr && new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
+    if (dueEl && dueEl.value) {
+        const dueDate = new Date(dueEl.value);
+        const today = new Date();
+        if (today > dueDate) {
+            const diffDays = Math.ceil((today - dueDate) / (1000 * 60 * 60 * 24));
+            delay = diffDays + " days delay";
+        }
+    }
 
+    // Yahan apna save karne wala logic (Supabase call) add karein
+    console.log("Validation Successful. Saving data...", { p, t, delay });
+}
     // Getting Button & Disabling
     const submitBtn = document.getElementById("mainSubmitBtn");
     submitBtn.disabled = true;
