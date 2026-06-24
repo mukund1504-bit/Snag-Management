@@ -312,7 +312,7 @@ async function saveDefect(){
     };
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/Defect`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, {
             method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
