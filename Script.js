@@ -3,12 +3,13 @@ const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
 const DEFAULT_USERS = [
-    { id: "Mukund1504@gmail.com", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
+    { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
 let USER_MATRIX = JSON.parse(localStorage.getItem("qa_users")) || DEFAULT_USERS;
 
 let currentUser = null;
 let defects = [];
+let filteredReportData = []; // To store global filtered state for reports
 let tempPhotos = []; 
 let editTempPhotos = []; 
 let currentDrilldownData = []; 
@@ -41,11 +42,26 @@ window.addEventListener("DOMContentLoaded", () => {
     if(savedUser) { currentUser = JSON.parse(savedUser); activateApp(); }
 });
 
+function getFullName(u) {
+    if(u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
+    return u.id; // Fallback for old records
+}
+
 function processLogin() {
-    const email = document.getElementById("loginEmail").value.trim(); const pass = document.getElementById("loginPassword").value; const err = document.getElementById("loginError");
-    const validUser = USER_MATRIX.find(u => u.id.toLowerCase() === email.toLowerCase() && u.pass === pass);
-    if(validUser) { currentUser = validUser; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(validUser)); activateApp(); } 
-    else { err.style.display = "block"; err.innerText = "Invalid credentials."; }
+    const loginStr = document.getElementById("loginEmail").value.trim().toLowerCase(); 
+    const pass = document.getElementById("loginPassword").value; 
+    const err = document.getElementById("loginError");
+    
+    const validUser = USER_MATRIX.find(u => 
+        (u.id.toLowerCase() === loginStr) || 
+        (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
+    );
+    
+    if(validUser && validUser.pass === pass) { 
+        currentUser = validUser; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(validUser)); activateApp(); 
+    } else { 
+        err.style.display = "block"; err.innerText = "Invalid credentials. Try full name or email."; 
+    }
 }
 function processLogout() { sessionStorage.removeItem("qa_logged_in_user"); location.reload(); }
 
@@ -56,7 +72,7 @@ function activateApp() {
     else { showSection('entry'); }
 
     refreshDropdowns(); initCanvas('entry'); initCanvas('modal');
-    loadDefectsFromCloud(false); startAutoRefresh(); 
+    loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
@@ -69,7 +85,9 @@ function showSection(id) {
     if(id === 'dashboard') renderCharts();
 }
 
-function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return currentUser.projects.filter(p => structuralHierarchy[p]); }
+// Logic modified for Project_Tower checking
+function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); }
+function getAllowedTowers(proj) { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); }
 
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
@@ -80,13 +98,21 @@ function refreshDropdowns() {
     });
     const typeSel = document.getElementById("defectType");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
+    
+    // Populate filter dropdowns
+    const uSel = document.getElementById("reportCreatedBy");
+    if(uSel) {
+        uSel.innerHTML = "<option value='All'>All Users</option>";
+        USER_MATRIX.forEach(u => uSel.appendChild(new Option(getFullName(u), getFullName(u))));
+    }
+    
     populateTowers();
 }
 
 function populateTowers() {
     const p = document.getElementById("project").value; const tSel = document.getElementById("tower");
     tSel.innerHTML = '<option value="">-- Select Tower --</option>';
-    if(p && structuralHierarchy[p]) { Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
+    if(p && structuralHierarchy[p]) { const allowedTowers = getAllowedTowers(p); allowedTowers.forEach(t => tSel.appendChild(new Option(t, t))); }
     populateFloors();
 }
 function populateFloors() {
@@ -126,41 +152,23 @@ function loadEntryMap() {
     }
 }
 
-// ====== 1. MAP MARKER PERSISTENCE UPGRADE ======
 function drawCanvas(type) {
     const c = canvasConfig[type]; const canvas = document.getElementById(`${type}Canvas`);
     if(!c.img || !c.ctx) return;
     c.ctx.clearRect(0, 0, canvas.width, canvas.height); 
     c.ctx.drawImage(c.img, 0, 0);
     
-    // Draw existing historical markers
     if(type === 'entry') {
-        const p = document.getElementById("project").value;
-        const t = document.getElementById("tower").value;
-        const f = document.getElementById("floor").value;
-        
+        const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
         defects.forEach(d => {
             if(d.project === p && d.tower === t && d.floor === f && d.status !== 'Closed' && d.map_x && d.map_y && d.map_x !== "0") {
-                c.ctx.beginPath();
-                c.ctx.arc(d.map_x, d.map_y, 10, 0, 2 * Math.PI);
-                c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; // RED for existing issues
-                c.ctx.fill();
-                c.ctx.lineWidth = 2;
-                c.ctx.strokeStyle = "#ffffff";
-                c.ctx.stroke();
+                c.ctx.beginPath(); c.ctx.arc(d.map_x, d.map_y, 10, 0, 2 * Math.PI); c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke();
             }
         });
     }
 
-    // Draw active placing marker
     if(c.marker) { 
-        c.ctx.beginPath(); 
-        c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); 
-        c.ctx.fillStyle = "#3b82f6"; // BLUE for new placement
-        c.ctx.fill(); 
-        c.ctx.lineWidth = 4; 
-        c.ctx.strokeStyle = "#ffffff"; 
-        c.ctx.stroke(); 
+        c.ctx.beginPath(); c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); c.ctx.fillStyle = "#3b82f6"; c.ctx.fill(); c.ctx.lineWidth = 4; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke(); 
     }
 }
 
@@ -188,7 +196,18 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
-// Offline / Online Saving
+// Helper: Generates a small Base64 thumbnail of the map with the marker
+function getMapThumbnailBase64(x, y) {
+    if(!canvasConfig.entry.img || !x || !y) return "";
+    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+    canvas.width = 150; canvas.height = 150;
+    // Crop around the point
+    ctx.drawImage(canvasConfig.entry.img, x - 75, y - 75, 150, 150, 0, 0, 150, 150);
+    ctx.beginPath(); ctx.arc(75, 75, 10, 0, 2 * Math.PI); ctx.fillStyle = "#ef4444"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+    return canvas.toDataURL("image/jpeg", 0.7);
+}
+
+// Offline / Online Saving (Switched to snag_management)
 async function saveDefect(){
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("View Access Only.");
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value;
@@ -201,13 +220,16 @@ async function saveDefect(){
     const today = new Date().toISOString().slice(0,10); const dueStr = document.getElementById("dueDate").value || null;
     let delay = "On Time"; if(dueStr && new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
 
+    let mapThumb = getMapThumbnailBase64(x, y);
+
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
         Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
-        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-"
+        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-",
+        created_by: getFullName(currentUser), closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-", map_thumbnail: mapThumb
     };
 
     if(!navigator.onLine) {
@@ -218,7 +240,7 @@ async function saveDefect(){
 
     try {
         const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); await loadDefectsFromCloud(true); } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
     finally { const btn = document.getElementById("mainSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; }
@@ -228,31 +250,31 @@ async function syncOfflineData() {
     let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; if(queue.length === 0) return;
     let successCount = 0;
     for(let payload of queue) {
-        try { const res = await fetch(`${SUPABASE_URL}/rest/v1/defect`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if(res.ok) successCount++; } catch(e) {}
+        try { const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if(res.ok) successCount++; } catch(e) {}
     }
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
 
-function startAutoRefresh() { autoSyncInterval = setInterval(() => { if(navigator.onLine) loadDefectsFromCloud(true); }, 20000); }
+function startAutoRefresh() { autoSyncInterval = setInterval(() => { if(navigator.onLine) loadDefectsFromCloud(true); }, 25000); }
 
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/defect?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
+        // Using snag_management
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
             if(document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard').classList.contains('active')) renderCharts();
-            // Redraw entry map to show any new markers if active
             if(document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
         }
     } catch(e) { console.error(e); }
     finally { setTimeout(()=> document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC", 1000); }
 }
 
-// Generate Table Rows Html with Status Lock logic
+// Generate Table Rows Html with Status Lock & Map Image logic
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
     return dataArray.map(d => {
@@ -260,19 +282,20 @@ function generateTableRowsHtml(dataArray) {
         const finalHtml = `<div class="img-grid-cell">${d.finalPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
-        if(d.status === "Closed") {
-            // Lock the button if closed
-            actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
-        } else if(canEdit) {
-            actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})"><i class="fas fa-bolt"></i> Action</button>`;
-        }
+        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
+        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})"><i class="fas fa-bolt"></i> Action</button>`;
         
-        let mapText = "Not Mapped"; if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X: ${d.map_x}, Y: ${d.map_y}`;
+        let mapHtml = "Not Mapped"; 
+        if(d.map_thumbnail) {
+            mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
+        } else if(d.map_x && d.map_y && d.map_x !== "0") {
+            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; // Fallback for old data
+        }
         
         return `<tr>
                 <td>${d.serial}</td><td><b>${d.project}</b></td><td>${d.tower}</td><td>${d.floor}</td><td>${d.flat}</td>
                 <td><b>${d.Type}</b></td><td>${d.defectList}</td><td>${d.remark || "-"}</td>
-                <td><span class="map-badge"><i class="fas fa-map-marker-alt text-cyan"></i> ${mapText}</span></td>
+                <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
                 <td>${d.intensity}</td><td><span class="locked-badge">${d.status}</span></td>
                 <td>${d.loggedDate}</td><td>${d.dueDate || "-"}</td><td>${d.closedDate}</td><td>${d.delay}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
@@ -280,18 +303,46 @@ function generateTableRowsHtml(dataArray) {
     }).join("");
 }
 
+// ADVANCED FILTERS APPLIED HERE
 function renderReportTable(){
-    const allowedProjects = getAllowedProjects(); const pFilt = document.getElementById("reportProject").value;
-    const filtered = defects.filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (pFilt === "All" || d.project === pFilt));
-    document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filtered);
+    const allowedProjects = getAllowedProjects(); 
+    const pFilt = document.getElementById("reportProject").value;
+    const tFilt = document.getElementById("reportTower") ? document.getElementById("reportTower").value : "All";
+    const userFilt = document.getElementById("reportCreatedBy") ? document.getElementById("reportCreatedBy").value : "All";
+    const statFilt = document.getElementById("reportStatus") ? document.getElementById("reportStatus").value : "All";
+    const dateFrom = document.getElementById("reportDateFrom") ? document.getElementById("reportDateFrom").value : "";
+    const dateTo = document.getElementById("reportDateTo") ? document.getElementById("reportDateTo").value : "";
+
+    // Dynamically update tower filter based on project selection
+    const tSel = document.getElementById("reportTower");
+    if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
+        tSel.innerHTML = "<option value='All'>All Towers</option>";
+        const allowedTowers = getAllowedTowers(pFilt);
+        allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
+        tSel.setAttribute("data-proj", pFilt);
+    } else if (pFilt === "All") {
+        tSel.innerHTML = "<option value='All'>All Towers</option>";
+        tSel.setAttribute("data-proj", "All");
+    }
+
+    filteredReportData = defects.filter(d => {
+        let match = true;
+        if(currentUser.role !== "admin" && !allowedProjects.includes(d.project)) match = false;
+        if(pFilt !== "All" && d.project !== pFilt) match = false;
+        if(tFilt !== "All" && d.tower !== tFilt) match = false;
+        if(userFilt !== "All" && d.created_by !== userFilt) match = false;
+        if(statFilt !== "All" && d.status !== statFilt) match = false;
+        if(dateFrom && new Date(d.loggedDate) < new Date(dateFrom)) match = false;
+        if(dateTo && new Date(d.loggedDate) > new Date(dateTo)) match = false;
+        return match;
+    });
+    document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filteredReportData);
 }
 
 // Modal Logics
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
     const d = defects.find(x => x.id === id); if(!d) return;
-    
-    // Prevent accidental opening if status is closed somehow
     if(d.status === "Closed") return alert("This defect has been closed and locked.");
 
     document.getElementById("editDefectId").value = id; document.getElementById("editStatus").value = d.status;
@@ -312,13 +363,12 @@ async function submitEditDefect() {
     const id = parseInt(document.getElementById("editDefectId").value);
     const stat = document.getElementById("editStatus").value;
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
-
-    if(stat === "Closed") {
-        if(!confirm("Warning: Closing this defect will LOCK the record and prevent further edits. Proceed?")) return;
-    }
+    if(stat === "Closed") { if(!confirm("Warning: Closing this defect will LOCK the record and prevent further edits. Proceed?")) return; }
 
     let payload = { status: stat, final_photos: editTempPhotos.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
-    const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/defect?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/defect?id=eq.${id}`;
+    if(stat === "Closed") payload.closed_by = getFullName(currentUser);
+
+    const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_management?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/snag_management?id=eq.${id}`;
 
     try {
         const btn = document.getElementById("editSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving...";
@@ -331,9 +381,11 @@ async function submitEditDefect() {
 
 function openZoomImage(url) { document.getElementById("zoomedImage").src = url; document.getElementById("imageZoomModal").style.display = "flex"; }
 function closeImageZoom() { document.getElementById("imageZoomModal").style.display = "none"; }
+
+// Requirement 8: Action button in drilldown. Removed `.replace(...)` to allow it.
 function openDrillModal(title, data) {
     currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
-    let html = generateTableRowsHtml(data).replace(/<td class="action-cell">.*?<\/td>/g, ""); 
+    let html = generateTableRowsHtml(data); 
     document.querySelector("#drilldownTable tbody").innerHTML = html; document.getElementById("drilldownModal").style.display = "flex";
 }
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
@@ -352,7 +404,6 @@ function renderCharts() {
     chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(projMap)[elements[0].index], filteredData.filter(x=>x.project===Object.keys(projMap)[elements[0].index])); } }});
     chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(statMap)[elements[0].index], filteredData.filter(x=>x.status===Object.keys(statMap)[elements[0].index])); } }});
 
-    // Pivot Table Matrix Generation Logic
     const tHead = document.getElementById("analyticsTableHeader");
     const tBody = document.getElementById("analyticsTableBody");
     let matrixData = {};
@@ -365,7 +416,7 @@ function renderCharts() {
             if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.o}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.ip}</span></td><td><span class="tech-badge" style="background:#d1fae5;color:#059669;">${m.c}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.tot}</a></td></tr>`).join('');
     } 
     else if(filterAnalytic === "tower") {
         tHead.innerHTML = `<th>PROJECT NAME</th><th>TOWER REF</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>SUBTOTAL</th>`;
@@ -375,7 +426,7 @@ function renderCharts() {
             if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.o}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.ip}</span></td><td><span class="tech-badge" style="background:#d1fae5;color:#059669;">${m.c}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','All')">${m.tot}</a></td></tr>`).join('');
     }
     else if(filterAnalytic === "defect") {
         tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
@@ -384,7 +435,7 @@ function renderCharts() {
             if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.Type, tot:0 };
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><span class="tech-badge" style="background:#f1f5f9;color:#334155;">${m.tot}</span></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillCat('${m.p}','${m.t}')">${m.tot}</a></td></tr>`).join('');
     }
     else if(filterAnalytic === "intensity") {
         tHead.innerHTML = `<th>PROJECT TARGET NAME</th><th>LOW RISK</th><th>MEDIUM RISK</th><th>HIGH RISK</th><th>TOTAL</th>`;
@@ -394,20 +445,21 @@ function renderCharts() {
             if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><span class="tech-badge" style="background:#e0f2fe;color:#0369a1;">${m.l}</span></td><td><span class="tech-badge" style="background:#fef3c7;color:#d97706;">${m.m}</span></td><td><span class="tech-badge" style="background:#fee2e2;color:#b91c1c;">${m.h}</span></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
     }
 
-    const anaMap = {}; filteredData.forEach(d => { anaMap[d.intensity] = (anaMap[d.intensity] || 0) + 1; });
-    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'] }] }, options: { responsive:true, maintainAspectRatio:false }});
+    // Fix 9: Accuracy in Intensity Pie chart mapping
+    const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
+    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
     const catMap = {}; filteredData.forEach(d => catMap[d.Type] = (catMap[d.Type]||0)+1);
     chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#8b5cf6' }] }, options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false }});
 }
 
-function openAnaDrill(key, val) {
-    const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value;
-    const filtered = defects.filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj) && d[key] === val);
-    openDrillModal(`${val} Insights`, filtered);
-}
+function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
+function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
+function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.Type===t); openDrillModal(`${p} - ${t}`, data); }
+function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
+
 
 function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
@@ -419,10 +471,15 @@ function renderAdminTables() {
     }
     const cBody = document.querySelector("#categoryTable tbody");
     if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editCategory('${c}')">Edit</button><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del</button></td></tr>`).join('');
+    
+    renderMapTable();
+}
+
+function renderMapTable() {
     const fBody = document.querySelector("#floorMapTable tbody");
     if(fBody) {
         fBody.innerHTML = Object.keys(floorMaps).map(k => {
-            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn edit-btn" onclick="editMap('${k}')">Edit</button><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
         }).join('');
     }
 }
@@ -445,29 +502,99 @@ function editCategory(c) { document.getElementById("setupCatName").value = c; do
 function delCategory(c) { if(confirm("Delete Category?")) { delete defectMatrix[c]; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); } }
 function resetCategoryForm() { document.getElementById("categoryForm").reset(); document.getElementById("editCategoryKey").value=""; document.getElementById("btnSaveCategory").innerHTML="<i class='fas fa-save'></i> Save"; }
 
+// Advanced Map Sync Logic
+async function loadMapsFromCloud() {
+    if(!navigator.onLine) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
+        if(res.ok) {
+            const data = await res.json();
+            data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
+            localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps));
+            if(document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
+        }
+    } catch(e) { console.error("Map sync error", e); }
+}
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
-function saveMapDrawing(e) {
-    const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const f = document.getElementById("mapSetupFloor").value; if(!p || !t || !f) { alert("Select Project, Tower and Floor first!"); e.target.value=""; return; }
-    const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = ev => { const img = new Image(); img.onload = () => { const canvas = document.createElement("canvas"); let scale = Math.min(1, 1200/Math.max(img.width, img.height)); canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height); floorMaps[`${p}_${t}_${f}`] = canvas.toDataURL("image/jpeg", 0.7); localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); alert("Floor Map Successfully Saved!"); renderAdminTables(); }; img.src = ev.target.result; }; reader.readAsDataURL(file);
+function previewMapDrawing(e) {
+    const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = ev => { const img = new Image(); img.onload = () => { const canvas = document.createElement("canvas"); let scale = Math.min(1, 1200/Math.max(img.width, img.height)); canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height); document.getElementById("tempMapBase64").value = canvas.toDataURL("image/jpeg", 0.7); }; img.src = ev.target.result; }; reader.readAsDataURL(file);
 }
-function delMap(k) { if(confirm("Delete Floor Map?")) { delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderAdminTables(); } }
+async function submitMapDrawing() {
+    const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const f = document.getElementById("mapSetupFloor").value; 
+    const base64 = document.getElementById("tempMapBase64").value;
+    if(!p || !t || !f || !base64) return alert("Select Project, Tower, Floor and upload an image first!");
+    const mapKey = `${p}_${t}_${f}`;
+    
+    try {
+        const btn = document.getElementById("btnSubmitMap"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
+        const payload = { map_key: mapKey, base64_image: base64 };
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps?on_conflict=map_key`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" }, body: JSON.stringify(payload) });
+        if(res.ok) { 
+            floorMaps[mapKey] = base64; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
+            alert("Floor Map Successfully Saved to Backend!"); 
+            renderMapTable(); 
+            document.getElementById("tempMapBase64").value = ""; document.getElementById("mapSetupFile").value = "";
+        } else throw await res.json();
+    } catch(err) { alert("Error saving map: " + JSON.stringify(err)); }
+    finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
+}
+function editMap(k) {
+    const parts = k.split('_'); document.getElementById("mapSetupProject").value = parts[0]; populateMapSetupTowers();
+    document.getElementById("mapSetupTower").value = parts[1]; populateMapSetupFloors(); document.getElementById("mapSetupFloor").value = parts[2];
+    alert("Please upload a new image and click Submit to replace.");
+}
+async function delMap(k) { 
+    if(!confirm("Delete Floor Map from Database?")) return;
+    try {
+        const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_maps?map_key=eq.${k}` : `${SUPABASE_URL}/rest/v1/snag_maps?map_key=eq.${k}`;
+        await fetch(finalUrl, { method: "DELETE", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }});
+        delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderMapTable();
+    } catch(e) { console.error("Could not delete from backend", e); }
+}
 
 function toggleProjectRights() { document.getElementById("projectRightsContainer").style.display = (document.getElementById("suRole").value === "admin") ? "none" : "block"; }
-function renderUserSetupCheckboxes() { const cont = document.getElementById("projectCheckboxes"); if(cont) cont.innerHTML = Object.keys(structuralHierarchy).map(p => `<label><input type="checkbox" class="proj-chk" value="${p}"> ${p}</label>`).join(''); }
+function renderUserSetupCheckboxes() { 
+    const cont = document.getElementById("projectCheckboxes"); if(!cont) return;
+    let html = "";
+    Object.keys(structuralHierarchy).forEach(p => { 
+        Object.keys(structuralHierarchy[p]).forEach(t => {
+            html += `<label><input type="checkbox" class="proj-chk" value="${p}_${t}"> <b>${p}</b> - ${t}</label>`;
+        });
+    });
+    cont.innerHTML = html;
+}
 function saveSystemUser() {
+    const fName = document.getElementById("suFirst").value.trim(); const lName = document.getElementById("suLast").value.trim(); const mName = document.getElementById("suMiddle").value.trim();
     const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value; let selProjects = [];
-    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project."); }
-    const existIdx = USER_MATRIX.findIndex(u => u.id.toLowerCase() === email.toLowerCase()); const newUser = { id: email, pass: pass, role: role, projects: selProjects, permission: rights };
-    if(existIdx >= 0) USER_MATRIX[existIdx] = newUser; else USER_MATRIX.push(newUser); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); alert("User Access Saved!"); document.getElementById("suEmail").value = ""; document.getElementById("suPass").value = ""; renderUserTable();
+    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project/tower."); }
+    
+    const existIdx = USER_MATRIX.findIndex(u => u.id.toLowerCase() === email.toLowerCase()); 
+    const newUser = { id: email, firstName: fName, middleName: mName, lastName: lName, pass: pass, role: role, projects: selProjects, permission: rights };
+    
+    if(existIdx >= 0) USER_MATRIX[existIdx] = newUser; else USER_MATRIX.push(newUser); 
+    localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); alert("User Access Saved!"); resetUserForm(); renderUserTable(); refreshDropdowns();
+}
+function resetUserForm() {
+    document.getElementById("suFirst").value = ""; document.getElementById("suLast").value = ""; document.getElementById("suMiddle").value = "";
+    document.getElementById("suEmail").value = ""; document.getElementById("suPass").value = ""; document.getElementById("editUserKey").value = "";
+    document.querySelectorAll(".proj-chk").forEach(cb => cb.checked = false); document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-user-plus'></i> Save User";
+}
+function editUser(email) {
+    const u = USER_MATRIX.find(x => x.id === email); if(!u) return;
+    document.getElementById("suFirst").value = u.firstName || ""; document.getElementById("suLast").value = u.lastName || ""; document.getElementById("suMiddle").value = u.middleName || "";
+    document.getElementById("suEmail").value = u.id; document.getElementById("suPass").value = u.pass; document.getElementById("suRole").value = u.role; toggleProjectRights();
+    document.getElementById("suRights").value = u.permission; document.getElementById("editUserKey").value = u.id;
+    document.querySelectorAll(".proj-chk").forEach(cb => { if(u.projects.includes("All") || u.projects.includes(cb.value)) cb.checked = true; else cb.checked = false; });
+    document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-save'></i> Update User";
 }
 function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody"); if(!tbody) return;
-    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${u.id}</b></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
+    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')">Edit</button><button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
 }
 function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); } }
 
-function openPasswordModal() { document.getElementById("profileEmailDisplay").innerText = currentUser.id; document.getElementById("passwordModal").style.display = "flex"; }
+function openPasswordModal() { document.getElementById("profileEmailDisplay").innerText = getFullName(currentUser); document.getElementById("passwordModal").style.display = "flex"; }
 function closePasswordModal() { document.getElementById("passwordModal").style.display = "none"; }
 function changePassword() {
     const oldP = document.getElementById("oldPassword").value; const newP = document.getElementById("newPassword").value; if(oldP !== currentUser.pass) return alert("Incorrect current password!");
@@ -482,16 +609,16 @@ async function exportExcelWithPhotos(dataToExport) {
     const workbook = new ExcelJS.Workbook(); 
     const sheet = workbook.addWorksheet('PMC Defect Report');
     
-    // Notice the final columns are dedicated to embedding images natively
     sheet.columns = [ 
         { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
         { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
         { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'Type', width: 20 }, 
         { header: 'Specification', key: 'defectList', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
-        { header: 'Map Coord', key: 'map', width: 15 }, { header: 'Risk', key: 'intensity', width: 12 }, 
-        { header: 'Status', key: 'status', width: 12 }, { header: 'Logged Date', key: 'loggedDate', width: 15 }, 
-        { header: 'SLA Date', key: 'dueDate', width: 15 }, { header: 'Closed Date', key: 'closedDate', width: 15 }, 
-        { header: 'Delay', key: 'delay', width: 12 },
+        { header: 'Created By', key: 'created_by', width: 18 }, { header: 'Closed By', key: 'closed_by', width: 18 },
+        { header: 'Risk', key: 'intensity', width: 12 }, { header: 'Status', key: 'status', width: 12 }, 
+        { header: 'Logged Date', key: 'loggedDate', width: 15 }, { header: 'SLA Date', key: 'dueDate', width: 15 }, 
+        { header: 'Closed Date', key: 'closedDate', width: 15 }, { header: 'Delay', key: 'delay', width: 12 },
+        { header: 'Map Location View', key: 'map', width: 25 },
         { header: 'Initial Photo Evidence', key: 'initial', width: 25 },
         { header: 'Final Photo Evidence', key: 'final', width: 25 }
     ];
@@ -501,37 +628,26 @@ async function exportExcelWithPhotos(dataToExport) {
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
     
     dataToExport.forEach((d) => { 
-        let mapText = "N/A"; 
-        if(d.map_x && d.map_y && d.map_x !== "0") mapText = `X:${d.map_x}, Y:${d.map_y}`; 
-        
-        const row = sheet.addRow({ ...d, map: mapText, initial: "", final: "" }); 
+        const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
         row.height = 70; // Set row height big enough for pictures
         
-        // Helper to convert Base64 directly to Excel workbook memory
         const addImgToCell = (base64Str, colIdx) => {
             if(base64Str && base64Str.startsWith('data:image')) {
                 try {
                     const imageId = workbook.addImage({ base64: base64Str, extension: 'jpeg' });
-                    sheet.addImage(imageId, {
-                        tl: { col: colIdx - 1, row: row.number - 1 },
-                        ext: { width: 60, height: 60 },
-                        editAs: 'oneCell'
-                    });
-                } catch(e) { console.error('Image processing skipped', e); }
+                    sheet.addImage(imageId, { tl: { col: colIdx - 1, row: row.number - 1 }, ext: { width: 60, height: 60 }, editAs: 'oneCell' });
+                } catch(e) { console.error('Image skipped', e); }
             }
         };
 
-        // Append the very first image attached to the entry
-        if(d.initialPics && d.initialPics.length > 0) addImgToCell(d.initialPics[0], 16);
-        if(d.finalPics && d.finalPics.length > 0) addImgToCell(d.finalPics[0], 17);
+        if(d.map_thumbnail) addImgToCell(d.map_thumbnail, 17);
+        if(d.initialPics && d.initialPics.length > 0) addImgToCell(d.initialPics[0], 18);
+        if(d.finalPics && d.finalPics.length > 0) addImgToCell(d.finalPics[0], 19);
     });
     
     const buf = await workbook.xlsx.writeBuffer(); 
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); 
-    a.href = URL.createObjectURL(blob); 
-    a.download = `PMC_Report_Detailed.xlsx`; 
-    a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PMC_Report_Detailed.xlsx`; a.click();
 }
 
 function exportPDF(dataToExport){ 

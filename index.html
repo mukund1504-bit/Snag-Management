@@ -16,8 +16,8 @@
             <h2 style="margin-top:0; color:var(--primary-slate);"><i class="fas fa-shield-alt text-cyan"></i> PMC Secure Login</h2>
             <form id="loginForm" onsubmit="event.preventDefault(); processLogin();">
                 <div class="field-box-tech" style="margin-bottom: 15px;">
-                    <label>Email Address</label>
-                    <input type="email" id="loginEmail" required placeholder="Enter authorized email">
+                    <label>Email ID OR Full Name</label>
+                    <input type="text" id="loginEmail" required placeholder="Enter email or registered name">
                 </div>
                 <div class="field-box-tech" style="margin-bottom: 20px;">
                     <label>Password</label>
@@ -126,14 +126,18 @@
                     </div>
                 </div>
                 <div class="report-header-controls-tech">
-                    <div class="filter-group-tech">
-                        <label><i class="fas fa-filter"></i> Structural Scope Filter:</label>
-                        <select id="reportProject" onchange="renderReportTable()"><option value="All">All Authorized Projects</option></select>
+                    <div class="advanced-filter-grid">
+                        <div class="field-box-tech"><label>Project Scope:</label><select id="reportProject" onchange="renderReportTable()"><option value="All">All Projects</option></select></div>
+                        <div class="field-box-tech"><label>Tower Segment:</label><select id="reportTower" onchange="renderReportTable()"><option value="All">All Towers</option></select></div>
+                        <div class="field-box-tech"><label>Audit ID/Name:</label><select id="reportCreatedBy" onchange="renderReportTable()"><option value="All">All Users</option></select></div>
+                        <div class="field-box-tech"><label>Status State:</label><select id="reportStatus" onchange="renderReportTable()"><option value="All">All Status</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
+                        <div class="field-box-tech"><label>Date From:</label><input type="date" id="reportDateFrom" onchange="renderReportTable()"></div>
+                        <div class="field-box-tech"><label>Date To:</label><input type="date" id="reportDateTo" onchange="renderReportTable()"></div>
                     </div>
-                    <div class="actions-group-tech">
+                    <div class="actions-group-tech" style="margin-top: 15px; width: 100%; justify-content: flex-end;">
                         <button class="btn-capture-tech" onclick="loadDefectsFromCloud(false)"><i class="fas fa-redo"></i> Force Refresh</button>
-                        <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(defects)"><i class="fas fa-file-excel"></i> Export MS-Excel</button>
-                        <button class="btn-export-tech pdf" onclick="exportPDF(defects)"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                        <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(filteredReportData)"><i class="fas fa-file-excel"></i> Export Matrix</button>
+                        <button class="btn-export-tech pdf" onclick="exportPDF(filteredReportData)"><i class="fas fa-file-pdf"></i> Generate PDF</button>
                     </div>
                 </div>
 
@@ -143,6 +147,7 @@
                             <tr>
                                 <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
                                 <th>Defect Category</th><th>Specification Matrix</th><th>Engineering Remarks</th><th>Map Location</th>
+                                <th>Created By</th><th>Closed By</th>
                                 <th>Risk Spectrum</th><th>Status Vector</th><th>Logged Date</th><th>SLA Due Date</th><th>Closed Date</th>
                                 <th>Delay Axis</th><th>Initial Photos</th><th>Final Photos</th><th>Actions</th>
                             </tr>
@@ -205,18 +210,27 @@
                         <h4 class="card-title-tech" style="color:#b91c1c;"><i class="fas fa-user-shield"></i> Security & Access Management</h4>
                         <div class="setup-split-layout">
                             <form onsubmit="event.preventDefault(); saveSystemUser();" class="setup-form-pro">
-                                <label>Email Address / User ID</label><input type="email" id="suEmail" required placeholder="user@company.com">
-                                <label>Password</label><input type="text" id="suPass" required placeholder="Default Password">
+                                <input type="hidden" id="editUserKey">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                    <div class="field-box-tech"><label>First Name*</label><input type="text" id="suFirst" required></div>
+                                    <div class="field-box-tech"><label>Last Name*</label><input type="text" id="suLast" required></div>
+                                </div>
+                                <label>Middle Name</label><input type="text" id="suMiddle">
+                                <label>Email Address / Login ID*</label><input type="email" id="suEmail" required>
+                                <label>Password*</label><input type="text" id="suPass" required>
                                 <label>System Role</label>
                                 <select id="suRole" onchange="toggleProjectRights()"><option value="admin">Super Admin</option><option value="user" selected>Standard User</option></select>
                                 <div id="projectRightsContainer" class="rights-container">
-                                    <label class="rights-label">Assign Project Access:</label><div id="projectCheckboxes" class="checkbox-grid"></div>
+                                    <label class="rights-label">Assign Project & Tower Access:</label><div id="projectCheckboxes" class="checkbox-grid"></div>
                                     <label class="rights-label" style="margin-top:12px;">Action Rights:</label>
                                     <select id="suRights"><option value="edit">Full Rights (Log/Edit/Update)</option><option value="view">View Only</option></select>
                                 </div>
-                                <button type="submit" class="btn-submit-tech" style="margin-top:15px; background:#b91c1c;"><i class="fas fa-user-plus"></i> Save User</button>
+                                <div style="display:flex; gap:10px; margin-top:15px;">
+                                    <button type="submit" id="btnSaveUser" class="btn-submit-tech" style="background:#b91c1c; flex:1;"><i class="fas fa-user-plus"></i> Save User</button>
+                                    <button type="button" class="btn-danger-tech" onclick="resetUserForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
+                                </div>
                             </form>
-                            <div class="records-table-container"><table id="usersTable" class="pmc-pro-table"><thead><tr><th>User ID</th><th>Role</th><th>Allowed Projects</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+                            <div class="records-table-container"><table id="usersTable" class="pmc-pro-table"><thead><tr><th>User Name / ID</th><th>Role</th><th>Allowed Access</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
                         </div>
                     </div>
 
@@ -255,12 +269,16 @@
 
                     <div class="admin-card admin-span-full">
                         <h4 class="card-title-tech"><i class="fas fa-map"></i> Floor Plan Drawing Mapping</h4>
-                        <div class="form-grid">
-                            <div class="field-box-tech"><label>Project</label><select id="mapSetupProject" onchange="populateMapSetupTowers()"></select></div>
-                            <div class="field-box-tech"><label>Tower</label><select id="mapSetupTower" onchange="populateMapSetupFloors()"></select></div>
-                            <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor"></select></div>
-                            <div class="field-box-tech"><label>Upload Blueprint</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="saveMapDrawing(event)"></div>
-                        </div>
+                        <form onsubmit="event.preventDefault(); submitMapDrawing();" class="form-grid">
+                            <input type="hidden" id="tempMapBase64">
+                            <div class="field-box-tech"><label>Project</label><select id="mapSetupProject" onchange="populateMapSetupTowers()" required></select></div>
+                            <div class="field-box-tech"><label>Tower</label><select id="mapSetupTower" onchange="populateMapSetupFloors()" required></select></div>
+                            <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor" required></select></div>
+                            <div class="field-box-tech"><label>Upload Blueprint</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="previewMapDrawing(event)"></div>
+                            <div class="field-box-tech full-width" style="align-items:flex-start;">
+                                <button type="submit" id="btnSubmitMap" class="btn-submit-tech" style="width:auto;"><i class="fas fa-upload"></i> Submit Map to Backend</button>
+                            </div>
+                        </form>
                         <div class="records-table-container mini-table" style="margin-top:20px;">
                             <table id="floorMapTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Map Preview</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
@@ -318,7 +336,7 @@
         </div>
     </div>
 
-    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="pmc-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th></tr></thead><tbody></tbody></table></div></div></div>
+    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="pmc-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
 
     <div id="imageZoomModal" class="drilldown-modal img-zoom-layer"><div class="modal-content img-modal-content"><button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button><img id="zoomedImage" src="" class="zoomed-view-img"></div></div>
 
