@@ -79,17 +79,22 @@ function activateApp() {
     document.getElementById("profileRoleDisplay").innerText = currentUser.role.toUpperCase();
 
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
-    else { document.getElementById("adminModuleContainer").style.display = "block"; document.getElementById("superAdminSectionContainer").style.display = "block"; }
+    else { document.getElementById("adminModuleContainer").style.display = "block"; document.getElementById("superAdminSectionContainer").style.display = "grid"; }
 
     loadDynamicHubContent();
     document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2);
 
     refreshDropdowns(); initCanvas('entry'); initCanvas('modal');
     loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
-    if(currentUser.role === "admin") { renderUserSetupCheckboxes(); renderUserTable(); }
+    
+    // FULLY RESTORED ADMIN RENDER
+    if(currentUser.role === "admin") { 
+        renderAdminTables();
+        renderUserSetupCheckboxes(); 
+        renderUserTable(); 
+    }
 }
 
-// Enterprise Hub Routing Control
 function switchHubSection(section) {
     document.getElementById("enterpriseLandingHub").style.display = "none";
     document.getElementById("workspaceContentModules").style.display = "block";
@@ -135,6 +140,8 @@ function commitCustomHierarchyJSON() {
         structuralHierarchy = JSON.parse(rawJson);
         localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy));
         refreshDropdowns();
+        renderAdminTables();
+        renderUserSetupCheckboxes();
         alert("Structural Hierarchy successfully compiled and injected!");
     } catch(e) { alert("Invalid JSON Schema format. Please verify braces."); }
 }
@@ -346,7 +353,6 @@ async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
-        // Cache Buster to prevent mobile browsers from pulling old data
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&nocache=${Date.now()}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
@@ -516,6 +522,48 @@ function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project=
 function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.Type===t); openDrillModal(`${p} - ${t}`, data); }
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
+// ==========================================
+// RESTORED: ADMIN TABLES & SETUP FUNCTIONS
+// ==========================================
+function renderAdminTables() {
+    const hBody = document.querySelector("#hierarchyTable tbody");
+    if(hBody) {
+        let hHtml = "";
+        Object.keys(structuralHierarchy).forEach(p => { 
+            Object.keys(structuralHierarchy[p]).forEach(t => {
+                hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editHierarchy('${p}','${t}')">Edit</button><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}')">Del</button></td></tr>`;
+            }); 
+        }); 
+        hBody.innerHTML = hHtml;
+    }
+    const cBody = document.querySelector("#categoryTable tbody");
+    if(cBody) {
+        cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editCategory('${c}')">Edit</button><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del</button></td></tr>`).join('');
+    }
+    renderMapTable();
+}
+
+// Hierarchy Management
+function saveHierarchy() {
+    const p = document.getElementById("setupProjName").value.trim(); const t = document.getElementById("setupTowerName").value.trim(); const f = document.getElementById("setupFloors").value.split(",").map(s=>s.trim()).filter(Boolean); const editKey = document.getElementById("editHierarchyKey").value;
+    if(editKey) { const [oldP, oldT] = editKey.split("|||"); if(oldP !== p || oldT !== t) delete structuralHierarchy[oldP][oldT]; }
+    if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; structuralHierarchy[p][t] = f;
+    localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes(); alert("Hierarchy Saved!"); resetHierarchyForm();
+    document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2);
+}
+function editHierarchy(p, t) { document.getElementById("setupProjName").value = p; document.getElementById("setupTowerName").value = t; document.getElementById("setupFloors").value = structuralHierarchy[p][t].join(", "); document.getElementById("editHierarchyKey").value = `${p}|||${t}`; document.getElementById("btnSaveHierarchy").innerHTML = "<i class='fas fa-save'></i> Update"; }
+function delHierarchy(p, t) { if(confirm(`Delete ${t} from ${p}?`)) { delete structuralHierarchy[p][t]; if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p]; localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2); } }
+function resetHierarchyForm() { document.getElementById("hierarchyForm").reset(); document.getElementById("editHierarchyKey").value=""; document.getElementById("btnSaveHierarchy").innerHTML="<i class='fas fa-save'></i> Save"; }
+
+// Category Management
+function saveCategory() {
+    const c = document.getElementById("setupCatName").value.trim(); const s = document.getElementById("setupSpecs").value.split(",").map(x=>x.trim()).filter(Boolean); const editKey = document.getElementById("editCategoryKey").value;
+    if(editKey && editKey !== c) delete defectMatrix[editKey]; defectMatrix[c] = s; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); alert("Category Saved!"); resetCategoryForm();
+}
+function editCategory(c) { document.getElementById("setupCatName").value = c; document.getElementById("setupSpecs").value = defectMatrix[c].join(", "); document.getElementById("editCategoryKey").value = c; document.getElementById("btnSaveCategory").innerHTML = "<i class='fas fa-save'></i> Update"; }
+function delCategory(c) { if(confirm("Delete Category?")) { delete defectMatrix[c]; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); } }
+function resetCategoryForm() { document.getElementById("categoryForm").reset(); document.getElementById("editCategoryKey").value=""; document.getElementById("btnSaveCategory").innerHTML="<i class='fas fa-save'></i> Save"; }
+
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
     try {
@@ -527,6 +575,15 @@ async function loadMapsFromCloud() {
             if(document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
         }
     } catch(e) { console.error("Map sync error", e); }
+}
+
+function renderMapTable() {
+    const fBody = document.querySelector("#floorMapTable tbody");
+    if(fBody) {
+        fBody.innerHTML = Object.keys(floorMaps).map(k => {
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
+        }).join('');
+    }
 }
 
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
@@ -547,10 +604,19 @@ async function submitMapDrawing() {
         if(res.ok) { 
             floorMaps[mapKey] = base64; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
             alert("Floor Map Successfully Saved!"); 
+            renderMapTable();
             document.getElementById("tempMapBase64").value = ""; document.getElementById("mapSetupFile").value = "";
         } else throw await res.json();
     } catch(err) { alert("Error saving map: " + JSON.stringify(err)); }
     finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Upload Map to CSMS"; }
+}
+async function delMap(k) { 
+    if(!confirm("Delete Floor Map from Database?")) return;
+    try {
+        const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_maps?map_key=eq.${k}` : `${SUPABASE_URL}/rest/v1/snag_maps?map_key=eq.${k}`;
+        await fetch(finalUrl, { method: "DELETE", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }});
+        delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderMapTable();
+    } catch(e) { console.error("Could not delete from backend", e); }
 }
 
 function toggleProjectRights() { document.getElementById("projectRightsContainer").style.display = (document.getElementById("suRole").value === "admin") ? "none" : "block"; }
@@ -589,12 +655,9 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
-// === UPGRADED EXCEL EXPORT (Multiple Photos in 2x2 Grid) ===
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
-    
-    const workbook = new ExcelJS.Workbook(); 
-    const sheet = workbook.addWorksheet('CSMS Defect Report');
+    const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('CSMS Defect Report');
     
     sheet.columns = [ 
         { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
@@ -616,39 +679,24 @@ async function exportExcelWithPhotos(dataToExport) {
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        // Increased height to accommodate the 2x2 grid nicely
         row.height = 110;
-        
-        // Helper to map multiple images into a cell layout
         const addImgGridToCell = (picsArray, colIdx) => {
             if (!picsArray) return;
             picsArray.forEach((b64, idx) => {
-                if(b64 && b64.startsWith('data:image') && idx < 4) { // Max 4 photos grid
+                if(b64 && b64.startsWith('data:image') && idx < 4) { 
                     try {
                         const imageId = workbook.addImage({ base64: b64, extension: 'jpeg' });
-                        // Create 2x2 layout by offsetting Top-Left via fractional columns
-                        const xOffset = (idx % 2) * 0.5; // Left or Right half
-                        const yOffset = Math.floor(idx / 2) * 0.5; // Top or Bottom half
-                        sheet.addImage(imageId, { 
-                            tl: { col: colIdx - 1 + xOffset, row: row.number - 1 + yOffset }, 
-                            ext: { width: 55, height: 55 }, 
-                            editAs: 'oneCell' 
-                        });
+                        const xOffset = (idx % 2) * 0.5; const yOffset = Math.floor(idx / 2) * 0.5;
+                        sheet.addImage(imageId, { tl: { col: colIdx - 1 + xOffset, row: row.number - 1 + yOffset }, ext: { width: 55, height: 55 }, editAs: 'oneCell' });
                     } catch(e) { console.error('Image skipped', e); }
                 }
             });
         };
 
         if(d.map_thumbnail && d.map_thumbnail.startsWith('data:image')) {
-            try {
-                const imageId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' });
-                sheet.addImage(imageId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 90, height: 90 }, editAs: 'oneCell' });
-            } catch(e) { console.error('Map skipped', e); }
+            try { const imageId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' }); sheet.addImage(imageId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 90, height: 90 }, editAs: 'oneCell' }); } catch(e) { console.error('Map skipped', e); }
         }
-
-        // Apply grid for initial and final
-        addImgGridToCell(d.initialPics, 18);
-        addImgGridToCell(d.finalPics, 19);
+        addImgGridToCell(d.initialPics, 18); addImgGridToCell(d.finalPics, 19);
     });
     
     const buf = await workbook.xlsx.writeBuffer(); 
