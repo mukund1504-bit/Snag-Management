@@ -9,7 +9,7 @@ let USER_MATRIX = JSON.parse(localStorage.getItem("qa_users")) || DEFAULT_USERS;
 
 let currentUser = null;
 let defects = [];
-let filteredReportData = [];
+let filteredReportData = []; // To store global filtered state for reports
 let tempPhotos = []; 
 let editTempPhotos = []; 
 let currentDrilldownData = []; 
@@ -26,13 +26,6 @@ let defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || {
 };
 
 let floorMaps = JSON.parse(localStorage.getItem("qa_floorMaps")) || {};
-
-let hubConfig = JSON.parse(localStorage.getItem("csms_hub_config")) || {
-    aboutTitle: "About CSMS System",
-    aboutDesc: "Construction Snag Management System (CSMS) provides centralized enterprise engineering tracking mechanisms designed to minimize construction liability, accelerate compliance checking, and structure site-wide inspection analytics efficiently.",
-    productDesc: "Equipped with real-time digital coordinate blueprint mapping capabilities, interactive multi-photo structural logs, encrypted credential systems, and deep integration configurations matching advanced corporate standards.",
-    whyDesc: "Our framework eliminates legacy offline documentation gaps by maintaining multi-tenant visibility layers, tracking precise SLA closure delays, and delivering crystal-clear graphical analytics dashboards directly onto your web ecosystem."
-};
 
 let canvasConfig = {
     entry: { ctx: null, img: null, scale: 1, marker: null, active: true },
@@ -51,7 +44,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
 function getFullName(u) {
     if(u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
-    return u.id;
+    return u.id; // Fallback for old records
 }
 
 function processLogin() {
@@ -74,84 +67,20 @@ function processLogout() { sessionStorage.removeItem("qa_logged_in_user"); locat
 
 function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "block";
-    document.getElementById("displayUserLabel").innerText = getFullName(currentUser);
-    document.getElementById("profileNameDisplay").innerText = getFullName(currentUser);
-    document.getElementById("profileRoleDisplay").innerText = currentUser.role.toUpperCase();
-
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
-    else { document.getElementById("adminModuleContainer").style.display = "block"; document.getElementById("superAdminSectionContainer").style.display = "grid"; }
-
-    loadDynamicHubContent();
-    document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2);
+    if(currentUser.role === "user" && currentUser.permission === "view") { document.getElementById("navEntryBtn").style.display = "none"; showSection('dashboard'); } 
+    else { showSection('entry'); }
 
     refreshDropdowns(); initCanvas('entry'); initCanvas('modal');
     loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
-    
-    // FULLY RESTORED ADMIN RENDER
-    if(currentUser.role === "admin") { 
-        renderAdminTables();
-        renderUserSetupCheckboxes(); 
-        renderUserTable(); 
-    }
+    if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
-function switchHubSection(section) {
-    document.getElementById("enterpriseLandingHub").style.display = "none";
-    document.getElementById("workspaceContentModules").style.display = "block";
-    if(section === 'control') showSection('entry', document.querySelectorAll('.nav-pill')[0]);
-    if(section === 'matrix') showSection('report', document.querySelectorAll('.nav-pill')[1]);
-    if(section === 'telemetry') showSection('dashboard', document.querySelectorAll('.nav-pill')[2]);
-    if(section === 'profile') showSection('setup', document.querySelectorAll('.nav-pill')[3]);
-}
-
-function returnToHubPortal() {
-    document.getElementById("workspaceContentModules").style.display = "none";
-    document.getElementById("enterpriseLandingHub").style.display = "block";
-    document.querySelectorAll('.nav-pill').forEach(b => b.classList.remove("active"));
-}
-
-function loadDynamicHubContent() {
-    document.getElementById("lblAboutTitle").innerText = hubConfig.aboutTitle;
-    document.getElementById("txtAboutDesc").innerText = hubConfig.aboutDesc;
-    document.getElementById("txtProductDesc").innerText = hubConfig.productDesc;
-    document.getElementById("txtWhyDesc").innerText = hubConfig.whyDesc;
-    
-    if(document.getElementById("cfgAboutTitle")) {
-        document.getElementById("cfgAboutTitle").value = hubConfig.aboutTitle;
-        document.getElementById("cfgAboutDesc").value = hubConfig.aboutDesc;
-        document.getElementById("cfgProductDesc").value = hubConfig.productDesc;
-        document.getElementById("cfgWhyDesc").value = hubConfig.whyDesc;
-    }
-}
-
-function saveDynamicHubContent() {
-    hubConfig.aboutTitle = document.getElementById("cfgAboutTitle").value;
-    hubConfig.aboutDesc = document.getElementById("cfgAboutDesc").value;
-    hubConfig.productDesc = document.getElementById("cfgProductDesc").value;
-    hubConfig.whyDesc = document.getElementById("cfgWhyDesc").value;
-    localStorage.setItem("csms_hub_config", JSON.stringify(hubConfig));
-    loadDynamicHubContent();
-    alert("Enterprise Hub Content Updated Successfully!");
-}
-
-function commitCustomHierarchyJSON() {
-    try {
-        const rawJson = document.getElementById("hierarchyConfigTextarea").value;
-        structuralHierarchy = JSON.parse(rawJson);
-        localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy));
-        refreshDropdowns();
-        renderAdminTables();
-        renderUserSetupCheckboxes();
-        alert("Structural Hierarchy successfully compiled and injected!");
-    } catch(e) { alert("Invalid JSON Schema format. Please verify braces."); }
-}
-
-function showSection(id, element) {
+function showSection(id) {
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
-    document.querySelectorAll(".nav-pill").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
     const sec = document.getElementById(id); if(sec) sec.classList.add("active");
-    if(element) element.classList.add("active"); else if (event && event.currentTarget) event.currentTarget.classList.add("active");
-    
+    if(event && event.currentTarget) event.currentTarget.classList.add("active");
     if(id === 'report') renderReportTable();
     if(id === 'dashboard') renderCharts();
 }
@@ -167,7 +96,7 @@ function refreshDropdowns() {
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
     const typeSel = document.getElementById("defectType");
-    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
+    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
@@ -189,9 +118,10 @@ function populateFloors() {
     if(p && t && structuralHierarchy[p][t]) { structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
     document.getElementById("entryMapWarning").style.display = "none"; canvasConfig.entry.marker = null; drawCanvas('entry'); document.getElementById("entryCoordX").value = ""; document.getElementById("entryCoordY").value = "";
 }
+
 function populateDefectList() {
     const type = document.getElementById("defectType").value; const lSel = document.getElementById("defectList");
-    lSel.innerHTML = '<option value="">-- Select Specification --</option>';
+    lSel.innerHTML = '<option value="">-- Select Specific Defect --</option>';
     if(defectMatrix[type]) defectMatrix[type].forEach(def => lSel.appendChild(new Option(def, def)));
 }
 
@@ -206,6 +136,7 @@ function initCanvas(type) {
         });
     }
 }
+
 function loadEntryMap() {
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
     const base64Img = floorMaps[`${p}_${t}_${f}`]; const warn = document.getElementById("entryMapWarning");
@@ -217,11 +148,13 @@ function loadEntryMap() {
         if(canvasConfig.entry.ctx) canvasConfig.entry.ctx.clearRect(0, 0, document.getElementById('entryCanvas').width, document.getElementById('entryCanvas').height);
     }
 }
+
 function drawCanvas(type) {
     const c = canvasConfig[type]; const canvas = document.getElementById(`${type}Canvas`);
     if(!c.img || !c.ctx) return;
     c.ctx.clearRect(0, 0, canvas.width, canvas.height); 
     c.ctx.drawImage(c.img, 0, 0);
+    
     if(type === 'entry') {
         const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
         defects.forEach(d => {
@@ -230,8 +163,12 @@ function drawCanvas(type) {
             }
         });
     }
-    if(c.marker) { c.ctx.beginPath(); c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); c.ctx.fillStyle = "#3b82f6"; c.ctx.fill(); c.ctx.lineWidth = 4; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke(); }
+
+    if(c.marker) { 
+        c.ctx.beginPath(); c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); c.ctx.fillStyle = "#3b82f6"; c.ctx.fill(); c.ctx.lineWidth = 4; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke(); 
+    }
 }
+
 function zoomCanvas(id, factor) { const type = id.replace('Canvas', ''); canvasConfig[type].scale *= factor; document.getElementById(id).style.transform = `scale(${canvasConfig[type].scale})`; }
 function resetCanvas(id) { const type = id.replace('Canvas', ''); canvasConfig[type].scale = 1; document.getElementById(id).style.transform = `scale(1)`; }
 
@@ -265,18 +202,37 @@ function getMapThumbnailBase64(x, y) {
     return canvas.toDataURL("image/jpeg", 0.7);
 }
 
+// ==== NEW UPGRADE: Supabase Storage Bucket Helper ====
 async function uploadImageToSupabase(base64Str, prefix) {
-    if (!base64Str || !base64Str.startsWith('data:image')) return base64Str;
+    if (!base64Str || !base64Str.startsWith('data:image')) return base64Str; // Already a URL or empty
     try {
-        const res = await fetch(base64Str); const blob = await res.blob();
+        const res = await fetch(base64Str);
+        const blob = await res.blob();
         const fileName = `${prefix}_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
-        const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snag_management/${fileName}`;
-        const uploadRes = await fetch(uploadUrl, { method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': blob.type || 'image/jpeg' }, body: blob });
-        if (uploadRes.ok) return `${SUPABASE_URL}/storage/v1/object/public/snag_management/${fileName}`;
-    } catch(e) { console.error("Upload error", e); }
+        const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snag_management/${fileName}`; // Changed to specific folder/bucket based on prompt
+        
+        const uploadRes = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 
+                'apikey': SUPABASE_KEY, 
+                'Authorization': `Bearer ${SUPABASE_KEY}`, 
+                'Content-Type': blob.type || 'image/jpeg' 
+            },
+            body: blob
+        });
+        
+        if (uploadRes.ok) {
+            return `${SUPABASE_URL}/storage/v1/object/public/snag_management/${fileName}`;
+        } else {
+            console.warn("Storage upload failed, fallback to base64.");
+        }
+    } catch(e) { 
+        console.error("Upload error", e); 
+    }
     return base64Str; 
 }
 
+// Offline / Online Saving (Integrated Storage Upload)
 async function saveDefect(){
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("View Access Only.");
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value;
@@ -291,6 +247,7 @@ async function saveDefect(){
 
     let mapThumb = getMapThumbnailBase64(x, y);
 
+    // If offline, save base64 locally. It will upload when synced online.
     if(!navigator.onLine) {
         const payload = {
             project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
@@ -307,7 +264,9 @@ async function saveDefect(){
     }
 
     try {
-        const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Processing...";
+        const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Processing & Uploading...";
+        
+        // UPGRADE: Uploading to Supabase Storage before saving to DB
         let uploadedPhotos = [];
         for(let b64 of tempPhotos) { uploadedPhotos.push(await uploadImageToSupabase(b64, 'init')); }
         let uploadedThumb = await uploadImageToSupabase(mapThumb, 'map_thumb');
@@ -325,7 +284,7 @@ async function saveDefect(){
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); await loadDefectsFromCloud(true); } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
-    finally { const btn = document.getElementById("mainSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Commit Record to CSMS Server"; }
+    finally { const btn = document.getElementById("mainSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; }
 }
 
 async function syncOfflineData() {
@@ -333,12 +292,16 @@ async function syncOfflineData() {
     let successCount = 0;
     for(let payload of queue) {
         try { 
+            // Attempt to upload the offline base64 data to Bucket during sync
             if (payload.photos) {
-                let pArr = payload.photos.split("|||"); let nArr = [];
+                let pArr = payload.photos.split("|||");
+                let nArr = [];
                 for(let b of pArr) nArr.push(await uploadImageToSupabase(b, 'init_sync'));
                 payload.photos = nArr.join("|||");
             }
-            if (payload.map_thumbnail) payload.map_thumbnail = await uploadImageToSupabase(payload.map_thumbnail, 'map_sync');
+            if (payload.map_thumbnail) {
+                payload.map_thumbnail = await uploadImageToSupabase(payload.map_thumbnail, 'map_sync');
+            }
 
             const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
             if(res.ok) successCount++; 
@@ -353,7 +316,7 @@ async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&nocache=${Date.now()}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
@@ -376,8 +339,9 @@ function generateTableRowsHtml(dataArray) {
         else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
+        // UPDATE 2: Increased thumbnail view size from 45px to 90px
         if(d.map_thumbnail) {
-            mapHtml = `<img src="${d.map_thumbnail}" class="report-map-img" onclick="openZoomImage('${d.map_thumbnail}')" />`;
+            mapHtml = `<img src="${d.map_thumbnail}" style="width:90px; height:90px; border-radius:6px; cursor:pointer; object-fit: cover;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
         } else if(d.map_x && d.map_y && d.map_x !== "0") {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
@@ -453,10 +417,14 @@ async function submitEditDefect() {
     if(stat === "Closed") { if(!confirm("Warning: Closing this defect will LOCK the record and prevent further edits. Proceed?")) return; }
 
     const btn = document.getElementById("editSubmitBtn"); 
+    
     try {
-        btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Uploading...";
+        btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Uploading & Saving...";
+        
         let uploadedFinal = [];
-        for (let b64 of editTempPhotos) { uploadedFinal.push(await uploadImageToSupabase(b64, 'final')); }
+        for (let b64 of editTempPhotos) {
+            uploadedFinal.push(await uploadImageToSupabase(b64, 'final'));
+        }
 
         let payload = { status: stat, final_photos: uploadedFinal.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
         if(stat === "Closed") payload.closed_by = getFullName(currentUser);
@@ -471,7 +439,12 @@ async function submitEditDefect() {
 
 function openZoomImage(url) { document.getElementById("zoomedImage").src = url; document.getElementById("imageZoomModal").style.display = "flex"; }
 function closeImageZoom() { document.getElementById("imageZoomModal").style.display = "none"; }
-function openDrillModal(title, data) { currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`; let html = generateTableRowsHtml(data); document.querySelector("#drilldownTable tbody").innerHTML = html; document.getElementById("drilldownModal").style.display = "flex"; }
+
+function openDrillModal(title, data) {
+    currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
+    let html = generateTableRowsHtml(data); 
+    document.querySelector("#drilldownTable tbody").innerHTML = html; document.getElementById("drilldownModal").style.display = "flex";
+}
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
 let chartsObj = {};
@@ -492,22 +465,41 @@ function renderCharts() {
 
     if(filterAnalytic === "floor") {
         tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>FLOOR</th><th>FLAT</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
-        filteredData.forEach(d => { let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`; if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, f:d.floor, fl:d.flat, o:0, ip:0, c:0, tot:0 }; if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++; matrixData[k].tot++; });
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, f:d.floor, fl:d.flat, o:0, ip:0, c:0, tot:0 };
+            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            matrixData[k].tot++;
+        });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.tot}</a></td></tr>`).join('');
     } 
     else if(filterAnalytic === "tower") {
         tHead.innerHTML = `<th>PROJECT NAME</th><th>TOWER REF</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>SUBTOTAL</th>`;
-        filteredData.forEach(d => { let k = `${d.project}_${d.tower}`; if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, o:0, ip:0, c:0, tot:0 }; if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++; matrixData[k].tot++; });
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.tower}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, o:0, ip:0, c:0, tot:0 };
+            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            matrixData[k].tot++;
+        });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','All')">${m.tot}</a></td></tr>`).join('');
     }
     else if(filterAnalytic === "defect") {
         tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
-        filteredData.forEach(d => { let k = `${d.project}_${d.Type}`; if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.Type, tot:0 }; matrixData[k].tot++; });
+        filteredData.forEach(d => {
+            let k = `${d.project}_${d.Type}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.Type, tot:0 };
+            matrixData[k].tot++;
+        });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillCat('${m.p}','${m.t}')">${m.tot}</a></td></tr>`).join('');
     }
     else if(filterAnalytic === "intensity") {
         tHead.innerHTML = `<th>PROJECT TARGET NAME</th><th>LOW RISK</th><th>MEDIUM RISK</th><th>HIGH RISK</th><th>TOTAL</th>`;
-        filteredData.forEach(d => { let k = `${d.project}`; if(!matrixData[k]) matrixData[k] = { p:d.project, l:0, m:0, h:0, tot:0 }; if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++; matrixData[k].tot++; });
+        filteredData.forEach(d => {
+            let k = `${d.project}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, l:0, m:0, h:0, tot:0 };
+            if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++;
+            matrixData[k].tot++;
+        });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
     }
 
@@ -522,40 +514,40 @@ function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project=
 function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.Type===t); openDrillModal(`${p} - ${t}`, data); }
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
-// ==========================================
-// RESTORED: ADMIN TABLES & SETUP FUNCTIONS
-// ==========================================
+
 function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
     if(hBody) {
         let hHtml = "";
-        Object.keys(structuralHierarchy).forEach(p => { 
-            Object.keys(structuralHierarchy[p]).forEach(t => {
-                hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editHierarchy('${p}','${t}')">Edit</button><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}')">Del</button></td></tr>`;
-            }); 
-        }); 
-        hBody.innerHTML = hHtml;
+        Object.keys(structuralHierarchy).forEach(p => { Object.keys(structuralHierarchy[p]).forEach(t => {
+            hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editHierarchy('${p}','${t}')">Edit</button><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}')">Del</button></td></tr>`;
+        }); }); hBody.innerHTML = hHtml;
     }
     const cBody = document.querySelector("#categoryTable tbody");
-    if(cBody) {
-        cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editCategory('${c}')">Edit</button><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del</button></td></tr>`).join('');
-    }
+    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editCategory('${c}')">Edit</button><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del</button></td></tr>`).join('');
+    
     renderMapTable();
 }
 
-// Hierarchy Management
+function renderMapTable() {
+    const fBody = document.querySelector("#floorMapTable tbody");
+    if(fBody) {
+        fBody.innerHTML = Object.keys(floorMaps).map(k => {
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn edit-btn" onclick="editMap('${k}')">Edit</button><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
+        }).join('');
+    }
+}
+
 function saveHierarchy() {
     const p = document.getElementById("setupProjName").value.trim(); const t = document.getElementById("setupTowerName").value.trim(); const f = document.getElementById("setupFloors").value.split(",").map(s=>s.trim()).filter(Boolean); const editKey = document.getElementById("editHierarchyKey").value;
     if(editKey) { const [oldP, oldT] = editKey.split("|||"); if(oldP !== p || oldT !== t) delete structuralHierarchy[oldP][oldT]; }
     if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; structuralHierarchy[p][t] = f;
     localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes(); alert("Hierarchy Saved!"); resetHierarchyForm();
-    document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2);
 }
 function editHierarchy(p, t) { document.getElementById("setupProjName").value = p; document.getElementById("setupTowerName").value = t; document.getElementById("setupFloors").value = structuralHierarchy[p][t].join(", "); document.getElementById("editHierarchyKey").value = `${p}|||${t}`; document.getElementById("btnSaveHierarchy").innerHTML = "<i class='fas fa-save'></i> Update"; }
-function delHierarchy(p, t) { if(confirm(`Delete ${t} from ${p}?`)) { delete structuralHierarchy[p][t]; if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p]; localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); document.getElementById("hierarchyConfigTextarea").value = JSON.stringify(structuralHierarchy, null, 2); } }
+function delHierarchy(p, t) { if(confirm(`Delete ${t} from ${p}?`)) { delete structuralHierarchy[p][t]; if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p]; localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); } }
 function resetHierarchyForm() { document.getElementById("hierarchyForm").reset(); document.getElementById("editHierarchyKey").value=""; document.getElementById("btnSaveHierarchy").innerHTML="<i class='fas fa-save'></i> Save"; }
 
-// Category Management
 function saveCategory() {
     const c = document.getElementById("setupCatName").value.trim(); const s = document.getElementById("setupSpecs").value.split(",").map(x=>x.trim()).filter(Boolean); const editKey = document.getElementById("editCategoryKey").value;
     if(editKey && editKey !== c) delete defectMatrix[editKey]; defectMatrix[c] = s; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); alert("Category Saved!"); resetCategoryForm();
@@ -567,7 +559,7 @@ function resetCategoryForm() { document.getElementById("categoryForm").reset(); 
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps?nocache=${Date.now()}`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
             data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
@@ -576,16 +568,6 @@ async function loadMapsFromCloud() {
         }
     } catch(e) { console.error("Map sync error", e); }
 }
-
-function renderMapTable() {
-    const fBody = document.querySelector("#floorMapTable tbody");
-    if(fBody) {
-        fBody.innerHTML = Object.keys(floorMaps).map(k => {
-            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
-        }).join('');
-    }
-}
-
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
 function previewMapDrawing(e) {
@@ -603,12 +585,17 @@ async function submitMapDrawing() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps?on_conflict=map_key`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" }, body: JSON.stringify(payload) });
         if(res.ok) { 
             floorMaps[mapKey] = base64; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
-            alert("Floor Map Successfully Saved!"); 
-            renderMapTable();
+            alert("Floor Map Successfully Saved to Backend!"); 
+            renderMapTable(); 
             document.getElementById("tempMapBase64").value = ""; document.getElementById("mapSetupFile").value = "";
         } else throw await res.json();
     } catch(err) { alert("Error saving map: " + JSON.stringify(err)); }
-    finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Upload Map to CSMS"; }
+    finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
+}
+function editMap(k) {
+    const parts = k.split('_'); document.getElementById("mapSetupProject").value = parts[0]; populateMapSetupTowers();
+    document.getElementById("mapSetupTower").value = parts[1]; populateMapSetupFloors(); document.getElementById("mapSetupFloor").value = parts[2];
+    alert("Please upload a new image and click Submit to replace.");
 }
 async function delMap(k) { 
     if(!confirm("Delete Floor Map from Database?")) return;
@@ -624,26 +611,39 @@ function renderUserSetupCheckboxes() {
     const cont = document.getElementById("projectCheckboxes"); if(!cont) return;
     let html = "";
     Object.keys(structuralHierarchy).forEach(p => { 
-        Object.keys(structuralHierarchy[p]).forEach(t => { html += `<label><input type="checkbox" class="proj-chk" value="${p}_${t}"> <b>${p}</b> - ${t}</label>`; });
+        Object.keys(structuralHierarchy[p]).forEach(t => {
+            html += `<label><input type="checkbox" class="proj-chk" value="${p}_${t}"> <b>${p}</b> - ${t}</label>`;
+        });
     });
     cont.innerHTML = html;
 }
 function saveSystemUser() {
-    const fName = document.getElementById("suFirst").value.trim(); const lName = document.getElementById("suLast").value.trim(); const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value; let selProjects = [];
+    const fName = document.getElementById("suFirst").value.trim(); const lName = document.getElementById("suLast").value.trim(); const mName = document.getElementById("suMiddle").value.trim();
+    const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value; let selProjects = [];
     if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project/tower."); }
     
     const existIdx = USER_MATRIX.findIndex(u => u.id.toLowerCase() === email.toLowerCase()); 
-    const newUser = { id: email, firstName: fName, lastName: lName, pass: pass, role: role, projects: selProjects, permission: rights };
+    const newUser = { id: email, firstName: fName, middleName: mName, lastName: lName, pass: pass, role: role, projects: selProjects, permission: rights };
+    
     if(existIdx >= 0) USER_MATRIX[existIdx] = newUser; else USER_MATRIX.push(newUser); 
     localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); alert("User Access Saved!"); resetUserForm(); renderUserTable(); refreshDropdowns();
 }
 function resetUserForm() {
-    document.getElementById("suFirst").value = ""; document.getElementById("suLast").value = ""; document.getElementById("suEmail").value = ""; document.getElementById("suPass").value = ""; document.getElementById("editUserKey").value = "";
+    document.getElementById("suFirst").value = ""; document.getElementById("suLast").value = ""; document.getElementById("suMiddle").value = "";
+    document.getElementById("suEmail").value = ""; document.getElementById("suPass").value = ""; document.getElementById("editUserKey").value = "";
     document.querySelectorAll(".proj-chk").forEach(cb => cb.checked = false); document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-user-plus'></i> Save User";
+}
+function editUser(email) {
+    const u = USER_MATRIX.find(x => x.id === email); if(!u) return;
+    document.getElementById("suFirst").value = u.firstName || ""; document.getElementById("suLast").value = u.lastName || ""; document.getElementById("suMiddle").value = u.middleName || "";
+    document.getElementById("suEmail").value = u.id; document.getElementById("suPass").value = u.pass; document.getElementById("suRole").value = u.role; toggleProjectRights();
+    document.getElementById("suRights").value = u.permission; document.getElementById("editUserKey").value = u.id;
+    document.querySelectorAll(".proj-chk").forEach(cb => { if(u.projects.includes("All") || u.projects.includes(cb.value)) cb.checked = true; else cb.checked = false; });
+    document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-save'></i> Update User";
 }
 function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody"); if(!tbody) return;
-    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
+    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')">Edit</button><button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
 }
 function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); } }
 
@@ -657,7 +657,9 @@ function changePassword() {
 
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
-    const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('CSMS Defect Report');
+    
+    const workbook = new ExcelJS.Workbook(); 
+    const sheet = workbook.addWorksheet('PMC Defect Report');
     
     sheet.columns = [ 
         { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
@@ -669,8 +671,8 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Logged Date', key: 'loggedDate', width: 15 }, { header: 'SLA Date', key: 'dueDate', width: 15 }, 
         { header: 'Closed Date', key: 'closedDate', width: 15 }, { header: 'Delay', key: 'delay', width: 12 },
         { header: 'Map Location View', key: 'map', width: 25 },
-        { header: 'Initial Photos (All)', key: 'initial', width: 28 },
-        { header: 'Final Photos (All)', key: 'final', width: 28 }
+        { header: 'Initial Photo Evidence', key: 'initial', width: 25 },
+        { header: 'Final Photo Evidence', key: 'final', width: 25 }
     ];
     
     const hRow = sheet.getRow(1); 
@@ -679,36 +681,32 @@ async function exportExcelWithPhotos(dataToExport) {
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        row.height = 110;
-        const addImgGridToCell = (picsArray, colIdx) => {
-            if (!picsArray) return;
-            picsArray.forEach((b64, idx) => {
-                if(b64 && b64.startsWith('data:image') && idx < 4) { 
-                    try {
-                        const imageId = workbook.addImage({ base64: b64, extension: 'jpeg' });
-                        const xOffset = (idx % 2) * 0.5; const yOffset = Math.floor(idx / 2) * 0.5;
-                        sheet.addImage(imageId, { tl: { col: colIdx - 1 + xOffset, row: row.number - 1 + yOffset }, ext: { width: 55, height: 55 }, editAs: 'oneCell' });
-                    } catch(e) { console.error('Image skipped', e); }
-                }
-            });
+        row.height = 70;
+        
+        const addImgToCell = (base64Str, colIdx) => {
+            if(base64Str && base64Str.startsWith('data:image')) {
+                try {
+                    const imageId = workbook.addImage({ base64: base64Str, extension: 'jpeg' });
+                    sheet.addImage(imageId, { tl: { col: colIdx - 1, row: row.number - 1 }, ext: { width: 60, height: 60 }, editAs: 'oneCell' });
+                } catch(e) { console.error('Image skipped', e); }
+            }
         };
 
-        if(d.map_thumbnail && d.map_thumbnail.startsWith('data:image')) {
-            try { const imageId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' }); sheet.addImage(imageId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 90, height: 90 }, editAs: 'oneCell' }); } catch(e) { console.error('Map skipped', e); }
-        }
-        addImgGridToCell(d.initialPics, 18); addImgGridToCell(d.finalPics, 19);
+        if(d.map_thumbnail) addImgToCell(d.map_thumbnail, 17);
+        if(d.initialPics && d.initialPics.length > 0) addImgToCell(d.initialPics[0], 18);
+        if(d.finalPics && d.finalPics.length > 0) addImgToCell(d.finalPics[0], 19);
     });
     
     const buf = await workbook.xlsx.writeBuffer(); 
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_Detailed.xlsx`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PMC_Report_Detailed.xlsx`; a.click();
 }
 
 function exportPDF(dataToExport){ 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     const windowObj = window.open("", "", "width=950,height=750");
     const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
-    let html = `<h1>CSMS Quality Audit</h1>`;
+    let html = `<h1>PMC Quality Audit</h1>`;
     dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.Type}</div><div><b>Status:</b> ${d.status}<br/><b>Dates:</b> ${d.loggedDate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
     windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
 }
