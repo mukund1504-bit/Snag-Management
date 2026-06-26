@@ -182,15 +182,27 @@ function showSection(id) {
     sessionStorage.setItem("active_section", id); // Save active state
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-    const sec = document.getElementById(id); if(sec) sec.classList.add("active");
+    
+    const sec = document.getElementById(id); 
+    if(sec) sec.classList.add("active");
+    
     if(event && event.currentTarget) event.currentTarget.classList.add("active");
     else {
         // Find correct nav button for auto-load
         const btns = document.querySelectorAll(".nav-btn");
         btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
     }
+    
+    // Tab switching par UI update karne ki conditions:
     if(id === 'report') renderReportTable();
     if(id === 'dashboard') renderCharts();
+    
+    // YEH LINE MISSING THI - Jab Setup tab open ho toh tables refresh hongi
+    if(id === 'setup' && currentUser && currentUser.role === "admin") {
+        renderAdminTables(); 
+        renderUserSetupCheckboxes(); 
+        renderUserTable();
+    }
 }
 
 function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); }
