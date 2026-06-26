@@ -8,10 +8,24 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // Set PDF worker URL for Blueprint generation
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+// Utility: Safe Storage Loading to prevent crashes
+function getSafeStorage(key, defaultValue) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (e) {
+        console.warn("Storage corrupt, resetting key:", key);
+        localStorage.removeItem(key);
+        return defaultValue;
+    }
+}
+
 const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
-let USER_MATRIX = JSON.parse(localStorage.getItem("qa_users")) || DEFAULT_USERS;
+
+// Global Variables with Safe Load
+let USER_MATRIX = getSafeStorage("qa_users", DEFAULT_USERS);
 
 let currentUser = null;
 let defects = [];
@@ -22,7 +36,7 @@ let currentDrilldownData = [];
 let autoSyncInterval;
 
 // Point C Upgrade: Updated Structural Hierarchy to 3 Levels (Project -> Tower -> Floor -> [Flats])
-let structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")) || {
+let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
     "Fragrance": { 
         "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
         "Tower-B": { "GF": ["B-01"], "1st Floor": ["B-101", "B-102"] }
@@ -31,15 +45,15 @@ let structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")
         "B1": { "Basement": ["P-1"], "GF": ["G-1"] }, 
         "STP": { "Area-1": ["Zone-A"] } 
     }
-};
+});
 
 // Point C Upgrade: Category structure stays same, just updated via single-spec additions in admin
-let defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || {
+let defectMatrix = getSafeStorage("qa_defectMatrix", {
     "RCC Structure": ["Level uneven", "Honeycomb", "Crack Shown", "Poor Quality"],
     "Plumbing Work": ["Leak", "Broken", "Clogging"]
-};
+});
 
-let floorMaps = JSON.parse(localStorage.getItem("qa_floorMaps")) || {};
+let floorMaps = getSafeStorage("qa_floorMaps", {});
 
 let canvasConfig = {
     entry: { ctx: null, img: null, scale: 1, marker: null, active: true },
@@ -51,8 +65,8 @@ window.addEventListener('online', () => { document.getElementById('networkStatus
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
 window.addEventListener('storage', () => {
-    structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")) || structuralHierarchy;
-    defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || defectMatrix;
+    structuralHierarchy = getSafeStorage("qa_strict_hierarchy", structuralHierarchy);
+    defectMatrix = getSafeStorage("qa_defectMatrix", defectMatrix);
     refreshDropdowns();
 });
 
@@ -71,8 +85,17 @@ setInterval(() => {
 
 window.addEventListener("DOMContentLoaded", () => {
     if(!navigator.onLine) { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; }
-    const savedUser = sessionStorage.getItem("qa_logged_in_user");
-    if(savedUser) { currentUser = JSON.parse(savedUser); activateApp(); }
+    
+    try {
+        const savedUser = sessionStorage.getItem("qa_logged_in_user");
+        if(savedUser) { 
+            currentUser = JSON.parse(savedUser); 
+            activateApp(); 
+        }
+    } catch (e) {
+        console.error("Initialization error, clearing session:", e);
+        sessionStorage.clear();
+    }
     
     document.getElementById("defectForm").addEventListener('input', saveDraftState);
     document.getElementById("defectForm").addEventListener('change', saveDraftState);
@@ -380,20 +403,31 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
+// Sync function with Cache Busting
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
-        if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
+        if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
+        
+        // Cache busting: timestamp added to prevent browser from showing old data
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&_=${new Date().getTime()}`, { 
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        
         if(res.ok) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
+            
+            // Render logic
             if(document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard').classList.contains('active')) renderCharts();
             if(document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
         }
     } catch(e) { console.error(e); }
-    finally { setTimeout(()=> document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC", 1000); }
+    finally { 
+        if(document.getElementById("liveSyncBadge")) 
+            document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC"; 
+    }
 }
 
 function generateTableRowsHtml(dataArray) {
