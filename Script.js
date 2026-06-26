@@ -9,7 +9,7 @@ let USER_MATRIX = JSON.parse(localStorage.getItem("qa_users")) || DEFAULT_USERS;
 
 let currentUser = null;
 let defects = [];
-let filteredReportData = []; // To store global filtered state for reports
+let filteredReportData = []; 
 let tempPhotos = []; 
 let editTempPhotos = []; 
 let currentDrilldownData = []; 
@@ -32,19 +32,30 @@ let canvasConfig = {
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-// NETWORK MONITORING
+// NETWORK & STORAGE MONITORING
 window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
+
+// REQ 1: Listen for local changes to instantly sync config updates across tabs
+window.addEventListener('storage', () => {
+    structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")) || structuralHierarchy;
+    defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || defectMatrix;
+    refreshDropdowns();
+});
 
 window.addEventListener("DOMContentLoaded", () => {
     if(!navigator.onLine) { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; }
     const savedUser = sessionStorage.getItem("qa_logged_in_user");
     if(savedUser) { currentUser = JSON.parse(savedUser); activateApp(); }
+    
+    // REQ 8: Attach form input listeners to save draft state immediately
+    document.getElementById("defectForm").addEventListener('input', saveDraftState);
+    document.getElementById("defectForm").addEventListener('change', saveDraftState);
 });
 
 function getFullName(u) {
     if(u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
-    return u.id; // Fallback for old records
+    return u.id; 
 }
 
 function processLogin() {
@@ -71,9 +82,35 @@ function activateApp() {
     if(currentUser.role === "user" && currentUser.permission === "view") { document.getElementById("navEntryBtn").style.display = "none"; showSection('dashboard'); } 
     else { showSection('entry'); }
 
-    refreshDropdowns(); initCanvas('entry'); initCanvas('modal');
+    refreshDropdowns(); 
+    restoreDraftState(); // REQ 8: Restore selection automatically
+    
+    initCanvas('entry'); initCanvas('modal');
     loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
+}
+
+// REQ 8: Save Form State to handle Page Refresh
+function saveDraftState() {
+    const formObj = {};
+    ['project','tower','floor','flatNo','defectType','defectList','intensity','status','dueDate','remark'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) formObj[id] = el.value;
+    });
+    sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
+}
+
+function restoreDraftState() {
+    const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
+    if(!draft) return;
+    if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
+    if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
+    if(draft.floor) { document.getElementById("floor").value = draft.floor; loadEntryMap(); }
+    ['flatNo','defectType','intensity','status','dueDate','remark'].forEach(id => {
+        if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
+    });
+    if(draft.defectType) populateDefectList();
+    if(draft.defectList) document.getElementById("defectList").value = draft.defectList;
 }
 
 function showSection(id) {
@@ -85,7 +122,6 @@ function showSection(id) {
     if(id === 'dashboard') renderCharts();
 }
 
-// Logic modified for Project_Tower checking
 function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); }
 function getAllowedTowers(proj) { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); }
 
@@ -99,27 +135,43 @@ function refreshDropdowns() {
     const typeSel = document.getElementById("defectType");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
-    // Populate filter dropdowns
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
         uSel.innerHTML = "<option value='All'>All Users</option>";
         USER_MATRIX.forEach(u => uSel.appendChild(new Option(getFullName(u), getFullName(u))));
     }
-    
-    populateTowers();
+}
+
+// REQ 7: Clear Canvas strictly
+function clearMapCanvas() {
+    document.getElementById("entryMapWarning").style.display = "block"; 
+    canvasConfig.entry.marker = null; 
+    canvasConfig.entry.img = null;
+    canvasConfig.entry.active = false;
+    if(canvasConfig.entry.ctx) {
+        const canvas = document.getElementById('entryCanvas');
+        canvasConfig.entry.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    document.getElementById("entryCoordX").value = ""; 
+    document.getElementById("entryCoordY").value = "";
+    drawCanvas('entry');
 }
 
 function populateTowers() {
     const p = document.getElementById("project").value; const tSel = document.getElementById("tower");
     tSel.innerHTML = '<option value="">-- Select Tower --</option>';
     if(p && structuralHierarchy[p]) { const allowedTowers = getAllowedTowers(p); allowedTowers.forEach(t => tSel.appendChild(new Option(t, t))); }
+    
+    document.getElementById("floor").innerHTML = '<option value="">-- Select Floor --</option>';
+    clearMapCanvas(); // Force map clearance immediately
     populateFloors();
 }
+
 function populateFloors() {
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const fSel = document.getElementById("floor");
     fSel.innerHTML = '<option value="">-- Select Floor --</option>';
     if(p && t && structuralHierarchy[p][t]) { structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
-    document.getElementById("entryMapWarning").style.display = "none"; canvasConfig.entry.marker = null; drawCanvas('entry'); document.getElementById("entryCoordX").value = ""; document.getElementById("entryCoordY").value = "";
+    clearMapCanvas(); // Map logic strict clearance
 }
 
 function populateDefectList() {
@@ -147,8 +199,7 @@ function loadEntryMap() {
         warn.style.display = "none"; canvasConfig.entry.active = true;
         const img = new Image(); img.onload = () => { canvasConfig.entry.img = img; const canvas = document.getElementById('entryCanvas'); canvas.width = img.width; canvas.height = img.height; drawCanvas('entry'); }; img.src = base64Img;
     } else {
-        warn.style.display = "block"; canvasConfig.entry.active = false; canvasConfig.entry.img = null; canvasConfig.entry.marker = null;
-        if(canvasConfig.entry.ctx) canvasConfig.entry.ctx.clearRect(0, 0, document.getElementById('entryCanvas').width, document.getElementById('entryCanvas').height);
+        clearMapCanvas();
     }
 }
 
@@ -196,18 +247,15 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
-// Helper: Generates a small Base64 thumbnail of the map with the marker
 function getMapThumbnailBase64(x, y) {
     if(!canvasConfig.entry.img || !x || !y) return "";
     const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
     canvas.width = 150; canvas.height = 150;
-    // Crop around the point
     ctx.drawImage(canvasConfig.entry.img, x - 75, y - 75, 150, 150, 0, 0, 150, 150);
     ctx.beginPath(); ctx.arc(75, 75, 10, 0, 2 * Math.PI); ctx.fillStyle = "#ef4444"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
     return canvas.toDataURL("image/jpeg", 0.7);
 }
 
-// Offline / Online Saving (Switched to snag_management)
 async function saveDefect(){
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("View Access Only.");
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value;
@@ -235,13 +283,13 @@ async function saveDefect(){
     if(!navigator.onLine) {
         let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; queue.push(payload); localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
         alert("Offline Mode: Record saved locally. Will auto-sync when online.");
-        document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); return;
+        document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); return;
     }
 
     try {
         const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); await loadDefectsFromCloud(true); } else throw await res.json();
+        if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); await loadDefectsFromCloud(true); } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
     finally { const btn = document.getElementById("mainSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; }
 }
@@ -255,13 +303,20 @@ async function syncOfflineData() {
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
 
-function startAutoRefresh() { autoSyncInterval = setInterval(() => { if(navigator.onLine) loadDefectsFromCloud(true); }, 25000); }
+// REQ 1: Added Map sync inside interval to ensure fast reflection across devices
+function startAutoRefresh() { 
+    autoSyncInterval = setInterval(() => { 
+        if(navigator.onLine) { 
+            loadDefectsFromCloud(true); 
+            loadMapsFromCloud(); 
+        } 
+    }, 25000); 
+}
 
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
-        // Using snag_management
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
@@ -274,7 +329,6 @@ async function loadDefectsFromCloud(isBackground = false) {
     finally { setTimeout(()=> document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC", 1000); }
 }
 
-// Generate Table Rows Html with Status Lock & Map Image logic
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
     return dataArray.map(d => {
@@ -289,7 +343,7 @@ function generateTableRowsHtml(dataArray) {
         if(d.map_thumbnail) {
             mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
         } else if(d.map_x && d.map_y && d.map_x !== "0") {
-            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; // Fallback for old data
+            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
         return `<tr>
@@ -303,7 +357,6 @@ function generateTableRowsHtml(dataArray) {
     }).join("");
 }
 
-// ADVANCED FILTERS APPLIED HERE
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     const pFilt = document.getElementById("reportProject").value;
@@ -313,7 +366,6 @@ function renderReportTable(){
     const dateFrom = document.getElementById("reportDateFrom") ? document.getElementById("reportDateFrom").value : "";
     const dateTo = document.getElementById("reportDateTo") ? document.getElementById("reportDateTo").value : "";
 
-    // Dynamically update tower filter based on project selection
     const tSel = document.getElementById("reportTower");
     if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
         tSel.innerHTML = "<option value='All'>All Towers</option>";
@@ -339,7 +391,6 @@ function renderReportTable(){
     document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filteredReportData);
 }
 
-// Modal Logics
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
     const d = defects.find(x => x.id === id); if(!d) return;
@@ -382,7 +433,6 @@ async function submitEditDefect() {
 function openZoomImage(url) { document.getElementById("zoomedImage").src = url; document.getElementById("imageZoomModal").style.display = "flex"; }
 function closeImageZoom() { document.getElementById("imageZoomModal").style.display = "none"; }
 
-// Requirement 8: Action button in drilldown. Removed `.replace(...)` to allow it.
 function openDrillModal(title, data) {
     currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
     let html = generateTableRowsHtml(data); 
@@ -390,8 +440,6 @@ function openDrillModal(title, data) {
 }
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
-
-// ====== 2. BI TELEMETRY MATRICES UPGRADE ======
 let chartsObj = {};
 function renderCharts() {
     const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
@@ -448,7 +496,6 @@ function renderCharts() {
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
     }
 
-    // Fix 9: Accuracy in Intensity Pie chart mapping
     const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
     chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
     const catMap = {}; filteredData.forEach(d => catMap[d.Type] = (catMap[d.Type]||0)+1);
@@ -502,7 +549,6 @@ function editCategory(c) { document.getElementById("setupCatName").value = c; do
 function delCategory(c) { if(confirm("Delete Category?")) { delete defectMatrix[c]; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); } }
 function resetCategoryForm() { document.getElementById("categoryForm").reset(); document.getElementById("editCategoryKey").value=""; document.getElementById("btnSaveCategory").innerHTML="<i class='fas fa-save'></i> Save"; }
 
-// Advanced Map Sync Logic
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
     try {
@@ -602,12 +648,12 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
-// ====== 3. EXCEL NATIVE IMAGE EXPORT UPGRADE ======
+// REQ 3: EXCEL EXPORT WITH MULTIPLE PHOTOS (2x2 GRID)
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     
     const workbook = new ExcelJS.Workbook(); 
-    const sheet = workbook.addWorksheet('PMC Defect Report');
+    const sheet = workbook.addWorksheet('CSMS Defect Report');
     
     sheet.columns = [ 
         { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
@@ -629,32 +675,47 @@ async function exportExcelWithPhotos(dataToExport) {
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        row.height = 70; // Set row height big enough for pictures
+        row.height = 110; // Row height increased for multiple pictures
         
-        const addImgToCell = (base64Str, colIdx) => {
-            if(base64Str && base64Str.startsWith('data:image')) {
-                try {
-                    const imageId = workbook.addImage({ base64: base64Str, extension: 'jpeg' });
-                    sheet.addImage(imageId, { tl: { col: colIdx - 1, row: row.number - 1 }, ext: { width: 60, height: 60 }, editAs: 'oneCell' });
-                } catch(e) { console.error('Image skipped', e); }
-            }
+        const addImgGridToCell = (picsArray, colIdx) => {
+            if(!picsArray || picsArray.length === 0) return;
+            picsArray.forEach((base64Str, i) => {
+                if(base64Str && base64Str.startsWith('data:image')) {
+                    try {
+                        const imageId = workbook.addImage({ base64: base64Str, extension: 'jpeg' });
+                        let colOffset = (i % 2) * 0.48; 
+                        let rowOffset = Math.floor(i / 2) * 0.48;
+                        
+                        sheet.addImage(imageId, {
+                            tl: { col: colIdx - 1 + colOffset + 0.01, row: row.number - 1 + rowOffset + 0.01 },
+                            ext: { width: 52, height: 52 },
+                            editAs: 'oneCell'
+                        });
+                    } catch(e) { console.error('Image skipped', e); }
+                }
+            });
         };
 
-        if(d.map_thumbnail) addImgToCell(d.map_thumbnail, 17);
-        if(d.initialPics && d.initialPics.length > 0) addImgToCell(d.initialPics[0], 18);
-        if(d.finalPics && d.finalPics.length > 0) addImgToCell(d.finalPics[0], 19);
+        if(d.map_thumbnail) {
+            try {
+                const mapId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' });
+                sheet.addImage(mapId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 100, height: 100 }, editAs: 'oneCell' });
+            } catch(e) {}
+        }
+        addImgGridToCell(d.initialPics, 18);
+        addImgGridToCell(d.finalPics, 19);
     });
     
     const buf = await workbook.xlsx.writeBuffer(); 
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PMC_Report_Detailed.xlsx`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_Detailed.xlsx`; a.click();
 }
 
 function exportPDF(dataToExport){ 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     const windowObj = window.open("", "", "width=950,height=750");
     const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
-    let html = `<h1>PMC Quality Audit</h1>`;
+    let html = `<h1>CSMS Quality Audit</h1>`;
     dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.Type}</div><div><b>Status:</b> ${d.status}<br/><b>Dates:</b> ${d.loggedDate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
     windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
 }

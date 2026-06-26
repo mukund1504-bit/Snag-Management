@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PMC Quality Inspection & Defect Audit</title>
+    <title>CSMS Quality Inspection & Defect Audit</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -13,7 +13,7 @@
 
     <div id="loginOverlay" class="login-wrapper">
         <div class="login-box-tech">
-            <h2 style="margin-top:0; color:var(--primary-slate);"><i class="fas fa-shield-alt text-cyan"></i> PMC Secure Login</h2>
+            <h2 style="margin-top:0; color:var(--primary-slate);"><i class="fas fa-shield-alt text-cyan"></i> CSMS Secure Login</h2>
             <form id="loginForm" onsubmit="event.preventDefault(); processLogin();">
                 <div class="field-box-tech" style="margin-bottom: 15px;">
                     <label>Email ID OR Full Name</label>
@@ -32,7 +32,7 @@
     <div id="appContainer" style="display: none;">
         <header>
             <div class="logo-area">
-                <h2><i class="fas fa-digital-tachograph text-cyan"></i> PROJECT MONITORING COMMITTEE</h2>
+                <h2><i class="fas fa-digital-tachograph text-cyan"></i> Construction Snag Management System (CSMS)</h2>
                 <div id="networkStatus" class="network-badge online"><i class="fas fa-wifi"></i> Online</div>
             </div>
             <nav>
@@ -142,7 +142,7 @@
                 </div>
 
                 <div class="records-table-container">
-                    <table id="defectsTable" class="pmc-pro-table">
+                    <table id="defectsTable" class="csms-pro-table">
                         <thead>
                             <tr>
                                 <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
@@ -181,7 +181,7 @@
                 </div>
                 
                 <div class="records-table-container" style="margin-bottom: 20px;">
-                    <table id="analyticsTable" class="pmc-pro-table">
+                    <table id="analyticsTable" class="csms-pro-table">
                         <thead><tr id="analyticsTableHeader"></tr></thead>
                         <tbody id="analyticsTableBody"></tbody>
                     </table>
@@ -230,7 +230,7 @@
                                     <button type="button" class="btn-danger-tech" onclick="resetUserForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
                                 </div>
                             </form>
-                            <div class="records-table-container"><table id="usersTable" class="pmc-pro-table"><thead><tr><th>User Name / ID</th><th>Role</th><th>Allowed Access</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+                            <div class="records-table-container"><table id="usersTable" class="csms-pro-table"><thead><tr><th>User Name / ID</th><th>Role</th><th>Allowed Access</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
                         </div>
                     </div>
 
@@ -247,7 +247,7 @@
                             </div>
                         </form>
                         <div class="records-table-container mini-table">
-                            <table id="hierarchyTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floors</th><th>Action</th></tr></thead><tbody></tbody></table>
+                            <table id="hierarchyTable" class="csms-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floors</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
 
@@ -263,7 +263,7 @@
                             </div>
                         </form>
                         <div class="records-table-container mini-table">
-                            <table id="categoryTable" class="pmc-pro-table"><thead><tr><th>Category</th><th>Specs</th><th>Action</th></tr></thead><tbody></tbody></table>
+                            <table id="categoryTable" class="csms-pro-table"><thead><tr><th>Category</th><th>Specs</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
 
@@ -280,7 +280,7 @@
                             </div>
                         </form>
                         <div class="records-table-container mini-table" style="margin-top:20px;">
-                            <table id="floorMapTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Map Preview</th><th>Action</th></tr></thead><tbody></tbody></table>
+                            <table id="floorMapTable" class="csms-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Map Preview</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
                 </div>
@@ -336,7 +336,7 @@
         </div>
     </div>
 
-    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="pmc-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
+    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="csms-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
 
     <div id="imageZoomModal" class="drilldown-modal img-zoom-layer"><div class="modal-content img-modal-content"><button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button><img id="zoomedImage" src="" class="zoomed-view-img"></div></div>
 
