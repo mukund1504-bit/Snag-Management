@@ -86,9 +86,8 @@ section.active { display: block !important; }
 
 .map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; min-height:500px; max-height: 800px; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
 .map-viewport-container { position: relative; flex: 1; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; }
-/* UPDATE 1: Fix mobile map rendering by removing flex constraints which caused coordinate clipping */
-#blueprint-wrapper { width: 100%; height: 100%; position: relative; cursor: crosshair; overflow: auto; display: block; }
-canvas { transition: transform 0.2s ease; transform-origin: top left; }
+#blueprint-wrapper { width: 100%; height: 100%; position: relative; cursor: crosshair; overflow: auto; display: flex; align-items: center; justify-content: center; }
+canvas { transition: transform 0.2s ease; transform-origin: center center; }
 .zoom-controls-floating { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
 .zoom-btn { background: #ffffff; border: 1px solid #cbd5e1; width: 35px; height: 35px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #1e293b; font-weight: bold; }
 .zoom-btn:hover { background: #0f172a; color: #ffffff; }
@@ -175,9 +174,9 @@ canvas { transition: transform 0.2s ease; transform-origin: top left; }
         display: flex; 
         flex-direction: column; 
     }
+    /* Controls the EXACT mobile sequence */
     .part-1 { order: 1; }
-    /* Height explicitly managed for mobile */
-    .part-2 { order: 2; height: auto; min-height: 450px; position: relative; top: 0; margin-bottom: 20px;} 
+    .part-2 { order: 2; height: 450px; position: relative; top: 0; margin-bottom: 20px;} 
     .part-3 { order: 3; }
     .part-4 { order: 4; }
     .form-submit-btn { order: 5; margin-bottom: 20px; }

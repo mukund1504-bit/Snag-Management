@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSMS - Construction Snag Management System</title>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <title>PMC Quality Inspection & Defect Audit</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,7 +13,7 @@
 
     <div id="loginOverlay" class="login-wrapper">
         <div class="login-box-tech">
-            <h2 style="margin-top:0; color:var(--primary-slate);"><i class="fas fa-shield-alt text-cyan"></i> CSMS Secure Login</h2>
+            <h2 style="margin-top:0; color:var(--primary-slate);"><i class="fas fa-shield-alt text-cyan"></i> PMC Secure Login</h2>
             <form id="loginForm" onsubmit="event.preventDefault(); processLogin();">
                 <div class="field-box-tech" style="margin-bottom: 15px;">
                     <label>Email ID OR Full Name</label>
@@ -26,380 +23,322 @@
                     <label>Password</label>
                     <input type="password" id="loginPassword" required placeholder="Enter password">
                 </div>
-                <button type="submit" class="btn-action-tech-pro" style="width:100%; justify-content:center;">
-                    <i class="fas fa-sign-in-alt"></i> Authenticate Credentials
-                </button>
+                <button type="submit" class="btn-submit-tech"><i class="fas fa-sign-in-alt"></i> Authenticate & Enter</button>
+                <p id="loginError" style="color:var(--crimson-fail); font-size:13px; font-weight:bold; margin-top:10px; display:none;"></p>
             </form>
         </div>
     </div>
 
-    <div id="mainAppContent" style="display:none;">
-        <header class="app-header-matrix">
-            <div class="brand-block-tech">
-                <i class="fas fa-cubes logo-icon-glow"></i>
-                <div>
-                    <h1>Construction Snag Management System (CSMS)</h1>
-                    <p>Enterprise Quality Audit & Risk Mitigation Infrastructure</p>
-                </div>
+    <div id="appContainer" style="display: none;">
+        <header>
+            <div class="logo-area">
+                <h2><i class="fas fa-digital-tachograph text-cyan"></i> PROJECT MONITORING COMMITTEE</h2>
+                <div id="networkStatus" class="network-badge online"><i class="fas fa-wifi"></i> Online</div>
             </div>
-            <div class="user-badge-matrix">
-                <i class="fas fa-user-shield text-cyan"></i>
-                <span id="displayUserLabel">Loading Profile...</span>
-                <button onclick="triggerSystemLogout()" class="btn-logout-tech"><i class="fas fa-power-off"></i></button>
-            </div>
+            <nav>
+                <button class="nav-btn" id="navEntryBtn" onclick="showSection('entry')"><i class="fas fa-sliders-h"></i> Control Center</button>
+                <button class="nav-btn" onclick="showSection('report')"><i class="fas fa-database"></i> Records Matrix</button>
+                <button class="nav-btn" onclick="showSection('dashboard')"><i class="fas fa-chart-pie"></i> BI Telemetry</button>
+                <button class="nav-btn" id="navSetupBtn" onclick="showSection('setup')"><i class="fas fa-cogs"></i> System Setup</button>
+                <button class="nav-btn profile-btn" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i> My Profile</button>
+                <button class="nav-btn logout-btn" onclick="processLogout()"><i class="fas fa-power-off"></i> Logout</button>
+            </nav>
         </header>
 
-        <div id="enterpriseLandingHub" class="container-fluid-pro">
-            <div class="hub-welcome-banner">
-                <h2>Welcome to CSMS Operational Framework</h2>
-                <p>Select an authorized mission-critical module or read organizational documentation below.</p>
-            </div>
-            
-            <div class="hub-navigation-grid">
-                <div class="hub-card" onclick="switchHubSection('control')">
-                    <div class="hub-icon"><i class="fas fa-tachometer-alt"></i></div>
-                    <h3>Control Centre</h3>
-                    <p>Real-time telemetry logging, map interactions, and active defect registry actions.</p>
+        <main>
+            <section id="entry">
+                <div class="card-header-tech">
+                    <div class="tech-title-wrapper">
+                        <span class="tech-badge">SYS-READY</span>
+                        <h3><i class="fas fa-layer-group"></i> Field Defect Telemetry & Logging</h3>
+                    </div>
                 </div>
-                <div class="hub-card" onclick="switchHubSection('matrix')">
-                    <div class="hub-icon"><i class="fas fa-th-list"></i></div>
-                    <h3>Record Matrix</h3>
-                    <p>Advanced filtered repositories, analytics grid sorting, and structured documentation exports.</p>
-                </div>
-                <div class="hub-card" onclick="switchHubSection('telemetry')">
-                    <div class="hub-icon"><i class="fas fa-chart-pie"></i></div>
-                    <h3>BI Telemetry</h3>
-                    <p>Executive interactive analytics charts, risk metrics, and structural operational insights.</p>
-                </div>
-                <div class="hub-card" onclick="switchHubSection('profile')">
-                    <div class="hub-icon"><i class="fas fa-sliders-h"></i></div>
-                    <h3>My Profile & Config</h3>
-                    <p>Manage hierarchy structures, custom profile workflows, and edit dynamic marketing info blocks.</p>
-                </div>
-            </div>
 
-            <div class="hub-marketing-section">
-                <div class="marketing-card">
-                    <h3><i class="fas fa-info-circle text-cyan"></i> <span id="lblAboutTitle">About CSMS System</span></h3>
-                    <p id="txtAboutDesc">Construction Snag Management System (CSMS) provides centralized enterprise engineering tracking mechanisms designed to minimize construction liability, accelerate compliance checking, and structure site-wide inspection analytics efficiently.</p>
-                </div>
-                <div class="marketing-card">
-                    <h3><i class="fas fa-shield-alt text-cyan"></i> <span id="lblProductTitle">Product Information</span></h3>
-                    <p id="txtProductDesc">Equipped with real-time digital coordinate blueprint mapping capabilities, interactive multi-photo structural logs, encrypted credential systems, and deep integration configurations matching advanced corporate standards.</p>
-                </div>
-                <div class="marketing-card">
-                    <h3><i class="fas fa-check-double text-cyan"></i> <span id="lblWhyTitle">Why Implement CSMS?</span></h3>
-                    <p id="txtWhyDesc">Our framework eliminates legacy offline documentation gaps by maintaining multi-tenant visibility layers, tracking precise SLA closure delays, and delivering crystal-clear graphical analytics dashboards directly onto your web ecosystem.</p>
-                </div>
-            </div>
-        </div>
+                <form id="defectForm" onsubmit="event.preventDefault(); saveDefect();">
+                    <div class="form-map-grid">
+                        
+                        <div class="form-section-card-tech part-1">
+                            <h4 class="card-title-tech"><i class="fas fa-project-diagram"></i> 01 / Spatial Architecture Blueprint</h4>
+                            <div class="form-grid">
+                                <div class="field-box-tech"><label>Target Project</label><select id="project" onchange="populateTowers()" required></select></div>
+                                <div class="field-box-tech"><label>Structural Tower</label><select id="tower" onchange="populateFloors()" required></select></div>
+                                <div class="field-box-tech"><label>Floor Level Vector</label><select id="floor" onchange="loadEntryMap()" required></select></div>
+                                <div class="field-box-tech"><label>Flat / Unit Registry</label><input type="text" id="flatNo" placeholder="e.g. Unit-102" required></div>
+                            </div>
+                        </div>
 
-        <div id="workspaceContentModules" style="display:none; padding:0 20px;">
-            <div class="nav-container-pro">
-                <div class="nav-pills-matrix">
-                    <button class="nav-pill active" onclick="showSection('controlCentreSection', this)"><i class="fas fa-sliders-h"></i> Control Centre</button>
-                    <button class="nav-pill" onclick="showSection('recordMatrixSection', this)"><i class="fas fa-database"></i> Record Matrix</button>
-                    <button class="nav-pill" onclick="showSection('telemetrySection', this)"><i class="fas fa-chart-bar"></i> BI Telemetry</button>
-                    <button class="nav-pill" onclick="showSection('profileSection', this)"><i class="fas fa-user-cog"></i> My Profile</button>
-                    <button class="nav-pill return-hub-btn" onclick="returnToHubPortal()"><i class="fas fa-home"></i> Main Hub Menu</button>
-                </div>
-            </div>
+                        <div class="map-precision-card part-2">
+                            <div class="card-header-pro">
+                                <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:var(--primary-slate); color:white;"><i class="fas fa-crosshairs"></i> 02 / Visual Precision Map</h4>
+                            </div>
+                            <div class="map-viewport-container">
+                                <div class="zoom-controls-floating">
+                                    <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 1.2)">＋</button>
+                                    <button type="button" class="zoom-btn" onclick="zoomCanvas('entryCanvas', 0.8)">－</button>
+                                    <button type="button" class="zoom-btn" onclick="resetCanvas('entryCanvas')">⟲</button>
+                                </div>
+                                <div id="blueprint-wrapper">
+                                    <canvas id="entryCanvas"></canvas>
+                                </div>
+                            </div>
+                            <p id="entryMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No Drawing mapped to this floor. Please upload in Setup.</p>
+                            <input type="hidden" id="entryCoordX"><input type="hidden" id="entryCoordY">
+                            <div class="map-instructions">Existing issues marked in RED. Click map to place NEW BLUE marker.</div>
+                        </div>
 
-            <div id="controlCentreSection" class="app-section active">
-                <div class="form-map-grid">
-                    <div class="matrix-card-pro part-1">
-                        <div class="card-header-tech"><i class="fas fa-edit text-cyan"></i> Technical Log Attributes</div>
-                        <form id="defectForm" onsubmit="event.preventDefault(); saveDefectRecord();" style="padding:16px; display:grid; gap:14px;">
-                            <input type="hidden" id="editRecordId">
-                            <div class="row-flex-tech">
-                                <div class="field-box-tech">
-                                    <label>Project Name</label>
-                                    <select id="formProject" required onchange="populateFormTowers()"></select>
-                                </div>
-                                <div class="field-box-tech">
-                                    <label>Tower ID</label>
-                                    <select id="formTower" required onchange="populateFormFloors()"></select>
-                                </div>
+                        <div class="form-section-card-tech part-3">
+                            <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
+                            <div class="form-grid">
+                                <div class="field-box-tech"><label>Defect Category</label><select id="defectType" onchange="populateDefectList()" required></select></div>
+                                <div class="field-box-tech"><label>Specification Matrix</label><select id="defectList" required><option value="">-- Select --</option></select></div>
+                                <div class="field-box-tech"><label>Risk Spectrum</label><select id="intensity" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
+                                <div class="field-box-tech"><label>Status Vector</label><select id="status" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
+                                <div class="field-box-tech full-width"><label>Target SLA Due Date</label><input type="date" id="dueDate" required></div>
                             </div>
-                            <div class="row-flex-tech">
-                                <div class="field-box-tech">
-                                    <label>Floor Level</label>
-                                    <select id="formFloor" required onchange="populateFormFlats()"></select>
-                                </div>
-                                <div class="field-box-tech">
-                                    <label>Unit / Flat Reference</label>
-                                    <select id="formFlat" required></select>
-                                </div>
+                        </div>
+
+                        <div class="form-section-card-tech part-4">
+                            <h4 class="card-title-tech"><i class="fas fa-images"></i> 04 / Visual Evidence (Initial Photos)</h4>
+                            <div class="field-box-tech full-width" style="margin-top: 5px; margin-bottom: 10px;">
+                                <label>Engineering Remarks</label>
+                                <textarea id="remark" rows="2" placeholder="Detail the structural deviation here..."></textarea>
                             </div>
-                            <div class="row-flex-tech">
-                                <div class="field-box-tech">
-                                    <label>Category Group</label>
-                                    <select id="formCategory" required></select>
+                            <div class="photo-section-tech">
+                                <div class="photo-controls">
+                                    <button type="button" class="btn-capture-tech" onclick="triggerPhoto()"><i class="fas fa-camera"></i> Capture Initial Img</button>
+                                    <button type="button" class="btn-danger-tech" onclick="clearTempPhotos()"><i class="fas fa-trash-alt"></i> Clear</button>
+                                    <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="onPhotoPicked(event)">
                                 </div>
-                                <div class="field-box-tech">
-                                    <label>Inspection Specification</label>
-                                    <input type="text" id="formSpecification" placeholder="e.g. Wall Plaster Crack, Tile Chip" required>
-                                </div>
+                                <div id="photoPreview" class="preview-wrap"></div>
                             </div>
-                            <div class="field-box-tech">
-                                <label>Detailed Observations & Remarks</label>
-                                <textarea id="formRemarks" rows="2" placeholder="Describe the severity, location identifiers and actionable items..."></textarea>
-                            </div>
-                            <div class="row-flex-tech">
-                                <div class="field-box-tech">
-                                    <label>Risk Rating Vector</label>
-                                    <select id="formRisk" required>
-                                        <option value="Low">Low Risk</option>
-                                        <option value="Medium" selected>Medium Risk</option>
-                                        <option value="High">High Risk / Critical</option>
-                                    </select>
+                        </div>
+                        
+                        <button type="submit" id="mainSubmitBtn" class="btn-submit-tech form-submit-btn"><i class="fas fa-save"></i> SUBMIT ENTRY</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="report">
+                <div class="card-header-tech">
+                    <div class="tech-title-wrapper">
+                        <span class="tech-badge live" id="liveSyncBadge"><i class="fas fa-sync fa-spin"></i> LIVE SYNC</span>
+                        <h3><i class="fas fa-server"></i> Consolidated Architecture Records Matrix</h3>
+                    </div>
+                </div>
+                <div class="report-header-controls-tech">
+                    <div class="advanced-filter-grid">
+                        <div class="field-box-tech"><label>Project Scope:</label><select id="reportProject" onchange="renderReportTable()"><option value="All">All Projects</option></select></div>
+                        <div class="field-box-tech"><label>Tower Segment:</label><select id="reportTower" onchange="renderReportTable()"><option value="All">All Towers</option></select></div>
+                        <div class="field-box-tech"><label>Audit ID/Name:</label><select id="reportCreatedBy" onchange="renderReportTable()"><option value="All">All Users</option></select></div>
+                        <div class="field-box-tech"><label>Status State:</label><select id="reportStatus" onchange="renderReportTable()"><option value="All">All Status</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
+                        <div class="field-box-tech"><label>Date From:</label><input type="date" id="reportDateFrom" onchange="renderReportTable()"></div>
+                        <div class="field-box-tech"><label>Date To:</label><input type="date" id="reportDateTo" onchange="renderReportTable()"></div>
+                    </div>
+                    <div class="actions-group-tech" style="margin-top: 15px; width: 100%; justify-content: flex-end;">
+                        <button class="btn-capture-tech" onclick="loadDefectsFromCloud(false)"><i class="fas fa-redo"></i> Force Refresh</button>
+                        <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(filteredReportData)"><i class="fas fa-file-excel"></i> Export Matrix</button>
+                        <button class="btn-export-tech pdf" onclick="exportPDF(filteredReportData)"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                    </div>
+                </div>
+
+                <div class="records-table-container">
+                    <table id="defectsTable" class="pmc-pro-table">
+                        <thead>
+                            <tr>
+                                <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
+                                <th>Defect Category</th><th>Specification Matrix</th><th>Engineering Remarks</th><th>Map Location</th>
+                                <th>Created By</th><th>Closed By</th>
+                                <th>Risk Spectrum</th><th>Status Vector</th><th>Logged Date</th><th>SLA Due Date</th><th>Closed Date</th>
+                                <th>Delay Axis</th><th>Initial Photos</th><th>Final Photos</th><th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="dashboard">
+                <div class="card-header-tech">
+                    <div class="tech-title-wrapper">
+                        <span class="tech-badge bi">BI-ACTIVE</span>
+                        <h3><i class="fas fa-chart-line"></i> Business Intelligence Telemetry Hub</h3>
+                    </div>
+                </div>
+                <div class="report-header-controls-tech" style="margin-bottom: 25px;">
+                    <div class="filter-group-tech">
+                        <label>Target Project Dimension:</label>
+                        <select id="dashboardProjectFilter" onchange="renderCharts()"><option value="All">All Authorized Projects</option></select>
+                    </div>
+                    <div class="filter-group-tech">
+                        <label>Analytical Cross-Section Mapping:</label>
+                        <select id="dashboardAnalyticFilter" onchange="renderCharts()">
+                            <option value="floor">Floor Vector & Flat Units Distribution</option>
+                            <option value="defect">Structural Defect Classification Matrix</option>
+                            <option value="tower">Tower Segregation Breakdown</option>
+                            <option value="intensity">Risk Profiles (Intensity Distribution)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="records-table-container" style="margin-bottom: 20px;">
+                    <table id="analyticsTable" class="pmc-pro-table">
+                        <thead><tr id="analyticsTableHeader"></tr></thead>
+                        <tbody id="analyticsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="dashboard-display-container-tech">
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-bar"></i> Primary Distribution</h4><div class="chart-container-wrapper"><canvas id="primaryChart"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-chart-pie"></i> Status Workflow Vector</h4><div class="chart-container-wrapper"><canvas id="statusChart"></canvas></div></div>
+                </div>
+                <div class="dashboard-display-container-tech" style="margin-top:20px;">
+                    <div class="chart-card-tech"><h4><i class="fas fa-exclamation-triangle"></i> Intensity Spread</h4><div class="chart-container-wrapper"><canvas id="intensityChartCanvas"></canvas></div></div>
+                    <div class="chart-card-tech"><h4><i class="fas fa-layer-group"></i> Category Trend</h4><div class="chart-container-wrapper"><canvas id="categoryChartCanvas"></canvas></div></div>
+                </div>
+            </section>
+
+            <section id="setup">
+                <div class="card-header-tech">
+                    <div class="tech-title-wrapper">
+                        <span class="tech-badge" style="background:#b91c1c; color:white;">ADMIN SECURE</span>
+                        <h3><i class="fas fa-cogs"></i> Master Database & Security Configuration</h3>
+                    </div>
+                </div>
+
+                <div class="admin-grid-container">
+                    <div class="admin-card user-mgmt-card admin-span-full">
+                        <h4 class="card-title-tech" style="color:#b91c1c;"><i class="fas fa-user-shield"></i> Security & Access Management</h4>
+                        <div class="setup-split-layout">
+                            <form onsubmit="event.preventDefault(); saveSystemUser();" class="setup-form-pro">
+                                <input type="hidden" id="editUserKey">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                    <div class="field-box-tech"><label>First Name*</label><input type="text" id="suFirst" required></div>
+                                    <div class="field-box-tech"><label>Last Name*</label><input type="text" id="suLast" required></div>
                                 </div>
-                                <div class="field-box-tech">
-                                    <label>Operational Status State</label>
-                                    <select id="formStatus" required onchange="toggleFormClosureFields()">
-                                        <option value="Open" selected>Open / Pending Remediation</option>
-                                        <option value="Closed">Closed / Validated Pass</option>
-                                    </select>
+                                <label>Middle Name</label><input type="text" id="suMiddle">
+                                <label>Email Address / Login ID*</label><input type="email" id="suEmail" required>
+                                <label>Password*</label><input type="text" id="suPass" required>
+                                <label>System Role</label>
+                                <select id="suRole" onchange="toggleProjectRights()"><option value="admin">Super Admin</option><option value="user" selected>Standard User</option></select>
+                                <div id="projectRightsContainer" class="rights-container">
+                                    <label class="rights-label">Assign Project & Tower Access:</label><div id="projectCheckboxes" class="checkbox-grid"></div>
+                                    <label class="rights-label" style="margin-top:12px;">Action Rights:</label>
+                                    <select id="suRights"><option value="edit">Full Rights (Log/Edit/Update)</option><option value="view">View Only</option></select>
                                 </div>
-                            </div>
-                            <div id="closureFieldsContainer" style="display:none; border-left:3px solid var(--emerald-pass); padding-left:10px; margin-top:5px; gap:14px; flex-direction:column;">
-                                <div class="field-box-tech">
-                                    <label>Closure Resolution Actions</label>
-                                    <textarea id="formClosureRemarks" rows="2" placeholder="Provide operational resolution notes..."></textarea>
+                                <div style="display:flex; gap:10px; margin-top:15px;">
+                                    <button type="submit" id="btnSaveUser" class="btn-submit-tech" style="background:#b91c1c; flex:1;"><i class="fas fa-user-plus"></i> Save User</button>
+                                    <button type="button" class="btn-danger-tech" onclick="resetUserForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
                                 </div>
-                                <div class="field-box-tech">
-                                    <label>Verification Documents / Closure Images</label>
-                                    <input type="file" id="formClosurePicsInput" multiple accept="image/*" onchange="uploadPhotosPipeline(this, 'final')">
-                                    <div id="finalPhotosPreview" class="photo-preview-row"></div>
-                                </div>
-                            </div>
-                            <div class="field-box-tech" id="initialUploadContainer">
-                                <label>Initial Defect Verification Evidence Images (Upload Multiple)</label>
-                                <input type="file" id="formInitialPicsInput" multiple accept="image/*" onchange="uploadPhotosPipeline(this, 'initial')">
-                                <div id="initialPhotosPreview" class="photo-preview-row"></div>
+                            </form>
+                            <div class="records-table-container"><table id="usersTable" class="pmc-pro-table"><thead><tr><th>User Name / ID</th><th>Role</th><th>Allowed Access</th><th>Rights</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <h4 class="card-title-tech"><i class="fas fa-sitemap"></i> Structural Hierarchy Manager</h4>
+                        <form id="hierarchyForm" onsubmit="event.preventDefault(); saveHierarchy();" class="setup-form-pro">
+                            <input type="hidden" id="editHierarchyKey">
+                            <label>Project Name</label><input type="text" id="setupProjName" required placeholder="e.g. Fragrance">
+                            <label>Tower Name</label><input type="text" id="setupTowerName" required placeholder="e.g. Tower-A">
+                            <label>Applicable Floors (Comma separated)</label><input type="text" id="setupFloors" required placeholder="GF, 1st, 2nd">
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button type="submit" id="btnSaveHierarchy" class="btn-submit-tech" style="flex:1;"><i class="fas fa-save"></i> Save</button>
+                                <button type="button" class="btn-danger-tech" onclick="resetHierarchyForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
                             </div>
                         </form>
+                        <div class="records-table-container mini-table">
+                            <table id="hierarchyTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floors</th><th>Action</th></tr></thead><tbody></tbody></table>
+                        </div>
                     </div>
 
-                    <div class="matrix-card-pro part-2">
-                        <div class="card-header-tech"><i class="fas fa-map-marked-alt text-cyan"></i> Blueprint Positioning Platform</div>
-                        <div class="map-viewport-container">
-                            <div id="blueprint-wrapper">
-                                <canvas id="entryCanvas" width="800" height="600"></canvas>
+                    <div class="admin-card">
+                        <h4 class="card-title-tech"><i class="fas fa-tags"></i> Defect Category Manager</h4>
+                        <form id="categoryForm" onsubmit="event.preventDefault(); saveCategory();" class="setup-form-pro">
+                            <input type="hidden" id="editCategoryKey">
+                            <label>Category Name</label><input type="text" id="setupCatName" required placeholder="e.g. Plumbing Work">
+                            <label>Specifications (Comma separated)</label><textarea id="setupSpecs" rows="3" required placeholder="Leakage, Broken Pipe"></textarea>
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button type="submit" id="btnSaveCategory" class="btn-submit-tech" style="flex:1;"><i class="fas fa-save"></i> Save</button>
+                                <button type="button" class="btn-danger-tech" onclick="resetCategoryForm()" style="flex:1;"><i class="fas fa-times"></i> Clear</button>
                             </div>
-                        </div>
-                        <div style="padding:10px; font-size:11px; color:var(--text-core); background:#f1f5f9; display:flex; justify-content:space-between; align-items:center;">
-                            <span><i class="fas fa-mouse-pointer text-cyan"></i> Tap blueprints to bind exact X/Y coordinate markers.</span>
-                            <button class="btn-danger-tech" onclick="clearSelectedCoordinates()" style="padding:3px 8px; font-size:11px;"><i class="fas fa-eraser"></i> Clear Coordinates</button>
+                        </form>
+                        <div class="records-table-container mini-table">
+                            <table id="categoryTable" class="pmc-pro-table"><thead><tr><th>Category</th><th>Specs</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
                     </div>
 
-                    <div class="part-3" style="display:flex; justify-content:flex-end;">
-                        <button type="button" onclick="document.getElementById('defectForm').requestSubmit();" class="form-submit-btn">
-                            <i class="fas fa-cloud-upload-alt"></i> Commit Record Fields to CSMS Server
-                        </button>
-                    </div>
-
-                    <div class="matrix-card-pro part-4" style="margin-top:20px;">
-                        <div class="card-header-tech"><i class="fas fa-rss text-cyan"></i> Live Inspection Stream Log</div>
-                        <div class="live-stream-scroller" id="liveStreamFeedContainer"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="recordMatrixSection" class="app-section">
-                <div class="matrix-card-pro" style="margin-bottom: 20px;">
-                    <div class="card-header-tech"><i class="fas fa-filter text-cyan"></i> Horizontal Matrix Query Filters</div>
-                    <div class="control-filter-grid-pro">
-                        <div class="filter-item-tech">
-                            <label>Project Scope</label>
-                            <select id="filterProject" onchange="runMatrixFiltering()"></select>
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Tower Segment</label>
-                            <select id="filterTower" onchange="runMatrixFiltering()"></select>
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Audit Category</label>
-                            <select id="filterCategory" onchange="runMatrixFiltering()"></select>
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Status State</label>
-                            <select id="filterStatus" onchange="runMatrixFiltering()">
-                                <option value="All">All Statuses</option>
-                                <option value="Open">Open Only</option>
-                                <option value="Closed">Closed Only</option>
-                            </select>
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Risk Level</label>
-                            <select id="filterRisk" onchange="runMatrixFiltering()">
-                                <option value="All">All Risk Ratings</option>
-                                <option value="Low">Low Risk</option>
-                                <option value="Medium">Medium Risk</option>
-                                <option value="High">High Risk</option>
-                            </select>
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Logged From</label>
-                            <input type="date" id="filterDateFrom" onchange="runMatrixFiltering()">
-                        </div>
-                        <div class="filter-item-tech">
-                            <label>Logged To</label>
-                            <input type="date" id="filterDateTo" onchange="runMatrixFiltering()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="matrix-card-pro">
-                    <div class="card-header-tech" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                        <span><i class="fas fa-table text-cyan"></i> Database Metrics Master Grid Table</span>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn-export-tech xls" onclick="exportExcelWithPhotos(filteredReportData)"><i class="fas fa-file-excel"></i> Export Smart Grid Grid Excel</button>
-                        </div>
-                    </div>
-                    <div class="records-table-container">
-                        <table class="pmc-pro-table" id="masterRecordsTable">
-                            <thead>
-                                <tr>
-                                    <th>Ref ID</th>
-                                    <th>Project Structure</th>
-                                    <th>Tower</th>
-                                    <th>Floor</th>
-                                    <th>Flat / Room</th>
-                                    <th>Category Group</th>
-                                    <th>Technical Specification</th>
-                                    <th>Risk</th>
-                                    <th>Status</th>
-                                    <th>Logged On</th>
-                                    <th>Closed On</th>
-                                    <th>Action Control</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div id="telemetrySection" class="app-section">
-                <div class="telemetry-dashboard-grid">
-                    <div class="matrix-card-pro telemetry-stat-card bg-slate">
-                        <div class="stat-title">Total Snags Uncovered</div>
-                        <div class="stat-value" id="statTotalSnags">0</div>
-                    </div>
-                    <div class="matrix-card-pro telemetry-stat-card bg-amber">
-                        <div class="stat-title">Active Pending Remediation</div>
-                        <div class="stat-value" id="statOpenSnags">0</div>
-                    </div>
-                    <div class="matrix-card-pro telemetry-stat-card bg-emerald">
-                        <div class="stat-title">Validated Quality Approvals</div>
-                        <div class="stat-value" id="statClosedSnags">0</div>
-                    </div>
-                    <div class="matrix-card-pro telemetry-stat-card bg-crimson">
-                        <div class="stat-title">Platform Resolution Rate</div>
-                        <div class="stat-value" id="statResolutionRate">0%</div>
-                    </div>
-                </div>
-
-                <div class="charts-layout-matrix-pro" style="margin-top:20px;">
-                    <div class="matrix-card-pro">
-                        <div class="card-header-tech"><i class="fas fa-chart-pie text-cyan"></i> Risk Distribution Metrics</div>
-                        <div style="padding:15px; position:relative; height:320px; display:flex; justify-content:center;">
-                            <canvas id="chartRiskMetrics"></canvas>
-                        </div>
-                    </div>
-                    <div class="matrix-card-pro">
-                        <div class="card-header-tech"><i class="fas fa-chart-bar text-cyan"></i> Functional Snag Density by Category</div>
-                        <div style="padding:15px; position:relative; height:320px; display:flex; justify-content:center;">
-                            <canvas id="chartCategoryMetrics"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="profileSection" class="app-section">
-                <div class="charts-layout-matrix-pro" style="grid-template-columns: 1fr 1.2fr; gap:20px;">
-                    <div class="matrix-card-pro">
-                        <div class="card-header-tech"><i class="fas fa-user-circle text-cyan"></i> Account Verification Parameters</div>
-                        <div style="padding:20px; display:grid; gap:12px;" id="profileDetailsCard">
+                    <div class="admin-card admin-span-full">
+                        <h4 class="card-title-tech"><i class="fas fa-map"></i> Floor Plan Drawing Mapping</h4>
+                        <form onsubmit="event.preventDefault(); submitMapDrawing();" class="form-grid">
+                            <input type="hidden" id="tempMapBase64">
+                            <div class="field-box-tech"><label>Project</label><select id="mapSetupProject" onchange="populateMapSetupTowers()" required></select></div>
+                            <div class="field-box-tech"><label>Tower</label><select id="mapSetupTower" onchange="populateMapSetupFloors()" required></select></div>
+                            <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor" required></select></div>
+                            <div class="field-box-tech"><label>Upload Blueprint</label><input type="file" id="mapSetupFile" accept="image/*" class="file-input-pro" onchange="previewMapDrawing(event)"></div>
+                            <div class="field-box-tech full-width" style="align-items:flex-start;">
+                                <button type="submit" id="btnSubmitMap" class="btn-submit-tech" style="width:auto;"><i class="fas fa-upload"></i> Submit Map to Backend</button>
                             </div>
-                    </div>
-
-                    <div class="matrix-card-pro" id="superAdminSectionContainer" style="display:none;">
-                        <div class="card-header-tech"><i class="fas fa-user-shield text-amber"></i> CSMS Super Admin Content Controls</div>
-                        <div style="padding:20px; display:grid; gap:16px;">
-                            <div style="background:var(--bg-mesh); padding:12px; border-radius:6px; border:1px solid var(--border-matrix);">
-                                <h4 style="margin:0 0 10px 0; color:var(--primary-slate);"><i class="fas fa-edit"></i> Edit Landing Hub Text Blocks</h4>
-                                <div class="field-box-tech" style="margin-bottom:10px;">
-                                    <label>About CSMS Title</label>
-                                    <input type="text" id="cfgAboutTitle">
-                                </div>
-                                <div class="field-box-tech" style="margin-bottom:10px;">
-                                    <label>About CSMS Description Text</label>
-                                    <textarea id="cfgAboutDesc" rows="2"></textarea>
-                                </div>
-                                <div class="field-box-tech" style="margin-bottom:10px;">
-                                    <label>Product Info Description</label>
-                                    <textarea id="cfgProductDesc" rows="2"></textarea>
-                                </div>
-                                <div class="field-box-tech" style="margin-bottom:10px;">
-                                    <label>Why Choose CSMS Description</label>
-                                    <textarea id="cfgWhyDesc" rows="2"></textarea>
-                                </div>
-                                <button class="btn-action-tech-pro" onclick="saveDynamicHubContent()" style="padding:6px 12px; font-size:12px;"><i class="fas fa-save"></i> Save Content Blocks</button>
-                            </div>
-
-                            <div style="background:var(--bg-mesh); padding:12px; border-radius:6px; border:1px solid var(--border-matrix);">
-                                <h4 style="margin:0 0 10px 0; color:var(--primary-slate);"><i class="fas fa-network-wired"></i> System Structural Hierarchy Adjuster</h4>
-                                <div class="field-box-tech">
-                                    <label>Raw Structural Blueprint Matrix (JSON Configuration)</label>
-                                    <textarea id="hierarchyConfigTextarea" rows="8" style="font-family:monospace; font-size:12px; line-height:1.4; background:#1e293b; color:#38bdf8;"></textarea>
-                                </div>
-                                <button class="btn-action-tech-pro" onclick="commitCustomHierarchyJSON()" style="margin-top:10px; width:100%; justify-content:center;"><i class="fas fa-network-wired"></i> Commit Operational Structural Tree</button>
-                            </div>
+                        </form>
+                        <div class="records-table-container mini-table" style="margin-top:20px;">
+                            <table id="floorMapTable" class="pmc-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Map Preview</th><th>Action</th></tr></thead><tbody></tbody></table>
                         </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="passwordModal" class="drilldown-modal"><div class="modal-content" style="max-width:400px;"><h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-user-circle text-cyan"></i> User Profile</h3><p style="font-size:13px; color:#64748b; margin-bottom:15px;">Logged in as: <strong id="profileEmailDisplay"></strong></p><form onsubmit="event.preventDefault(); changePassword();" class="field-box-tech"><label>Current Password</label><input type="password" id="oldPassword" required><label style="margin-top:10px;">New Password</label><input type="password" id="newPassword" required><div style="display:flex; gap:12px; margin-top:20px;"><button type="submit" class="btn-submit-tech" style="flex:1;"><i class="fas fa-key"></i> Update</button><button type="button" class="btn-danger-tech" style="flex:1;" onclick="closePasswordModal()"><i class="fas fa-times"></i> Close</button></div></form></div></div>
+    
+    <div id="editModal" class="drilldown-modal">
+        <div class="modal-content" style="max-width:1050px;">
+            <h3 style="margin-top:0; border-bottom: 2px solid #334155; padding-bottom:12px;"><i class="fas fa-tools text-cyan"></i> Action / Resolve Defect</h3>
+            <div class="edit-modal-grid">
+                <div class="edit-form-side">
+                    <input type="hidden" id="editDefectId">
+                    <div class="field-box-tech" style="margin-bottom: 15px;">
+                        <label>Update Status Vector:</label>
+                        <select id="editStatus">
+                            <option value="Open">Open Audit</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Closed">Closed / Certified (Locks Record)</option>
+                        </select>
+                    </div>
+                    <div class="edit-photo-box">
+                        <label><i class="fas fa-images"></i> Initial Uploaded Photos</label>
+                        <div id="editInitialPhotoWrap" class="preview-wrap"></div>
+                    </div>
+                    <div class="photo-section-tech" style="margin-top:0;">
+                        <label class="photo-label-tech"><i class="fas fa-camera"></i> Final Evidence Photos (Post-Repair)</label>
+                        <div class="photo-controls">
+                            <button type="button" class="btn-capture-tech" onclick="triggerEditPhoto()"><i class="fas fa-plus"></i> Add Photo</button>
+                            <input type="file" id="editPhotoInput" accept="image/*" style="display:none;" onchange="onEditPhotoPicked(event)">
+                        </div>
+                        <div id="editPhotoPreview" class="preview-wrap"></div>
+                    </div>
+                    <div style="display:flex; gap:12px; margin-top:20px;">
+                        <button id="editSubmitBtn" class="btn-submit-tech" style="margin-top:0; flex:1;" onclick="submitEditDefect()"><i class="fas fa-save"></i> Save Updates</button>
+                        <button class="btn-danger-tech" style="flex:1;" onclick="closeEditModal()"><i class="fas fa-times"></i> Cancel</button>
+                    </div>
+                </div>
+                <div class="edit-map-side">
+                    <label class="map-label"><i class="fas fa-map-marker-alt text-cyan"></i> Logged Map Location</label>
+                    <div class="map-viewport-container edit-map">
+                        <div class="zoom-controls-floating">
+                            <button type="button" class="zoom-btn" onclick="zoomCanvas('modalCanvas', 1.2)">＋</button>
+                            <button type="button" class="zoom-btn" onclick="zoomCanvas('modalCanvas', 0.8)">－</button>
+                            <button type="button" class="zoom-btn" onclick="resetCanvas('modalCanvas')">⟲</button>
+                        </div>
+                        <div id="blueprint-wrapper"><canvas id="modalCanvas"></canvas></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="drilldownModal" class="drilldown-modal">
-        <div class="modal-content">
-            <div class="modal-header-pro">
-                <h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3>
-                <div class="modal-header-actions">
-                    <button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button>
-                </div>
-            </div>
-            <div class="records-table-container">
-                <table id="drilldownTable" class="pmc-pro-table">
-                    <thead>
-                        <tr>
-                            <th>Sl No</th>
-                            <th>Project</th>
-                            <th>Tower</th>
-                            <th>Floor</th>
-                            <th>Flat</th>
-                            <th>Category</th>
-                            <th>Specification</th>
-                            <th>Remarks</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="pmc-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
 
-    <div id="imageZoomModal" class="drilldown-modal img-zoom-layer">
-        <div class="modal-content img-modal-content">
-            <button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button>
-            <img id="zoomedImage" src="" class="zoomed-view-img">
-        </div>
-    </div>
+    <div id="imageZoomModal" class="drilldown-modal img-zoom-layer"><div class="modal-content img-modal-content"><button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button><img id="zoomedImage" src="" class="zoomed-view-img"></div></div>
 
     <script src="Script.js"></script>
 </body>

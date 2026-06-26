@@ -85,6 +85,7 @@ function showSection(id) {
     if(id === 'dashboard') renderCharts();
 }
 
+// Logic modified for Project_Tower checking
 function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); }
 function getAllowedTowers(proj) { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); }
 
@@ -98,11 +99,13 @@ function refreshDropdowns() {
     const typeSel = document.getElementById("defectType");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
+    // Populate filter dropdowns
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
         uSel.innerHTML = "<option value='All'>All Users</option>";
         USER_MATRIX.forEach(u => uSel.appendChild(new Option(getFullName(u), getFullName(u))));
     }
+    
     populateTowers();
 }
 
@@ -193,46 +196,18 @@ function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
 
+// Helper: Generates a small Base64 thumbnail of the map with the marker
 function getMapThumbnailBase64(x, y) {
     if(!canvasConfig.entry.img || !x || !y) return "";
     const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
     canvas.width = 150; canvas.height = 150;
+    // Crop around the point
     ctx.drawImage(canvasConfig.entry.img, x - 75, y - 75, 150, 150, 0, 0, 150, 150);
     ctx.beginPath(); ctx.arc(75, 75, 10, 0, 2 * Math.PI); ctx.fillStyle = "#ef4444"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
     return canvas.toDataURL("image/jpeg", 0.7);
 }
 
-// ==== NEW UPGRADE: Supabase Storage Bucket Helper ====
-async function uploadImageToSupabase(base64Str, prefix) {
-    if (!base64Str || !base64Str.startsWith('data:image')) return base64Str; // Already a URL or empty
-    try {
-        const res = await fetch(base64Str);
-        const blob = await res.blob();
-        const fileName = `${prefix}_${Date.now()}_${Math.floor(Math.random()*1000)}.jpg`;
-        const uploadUrl = `${SUPABASE_URL}/storage/v1/object/snag_management/${fileName}`; // Changed to specific folder/bucket based on prompt
-        
-        const uploadRes = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: { 
-                'apikey': SUPABASE_KEY, 
-                'Authorization': `Bearer ${SUPABASE_KEY}`, 
-                'Content-Type': blob.type || 'image/jpeg' 
-            },
-            body: blob
-        });
-        
-        if (uploadRes.ok) {
-            return `${SUPABASE_URL}/storage/v1/object/public/snag_management/${fileName}`;
-        } else {
-            console.warn("Storage upload failed, fallback to base64.");
-        }
-    } catch(e) { 
-        console.error("Upload error", e); 
-    }
-    return base64Str; 
-}
-
-// Offline / Online Saving (Integrated Storage Upload)
+// Offline / Online Saving (Switched to snag_management)
 async function saveDefect(){
     if(currentUser.role === "user" && currentUser.permission === "view") return alert("View Access Only.");
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value;
@@ -247,40 +222,24 @@ async function saveDefect(){
 
     let mapThumb = getMapThumbnailBase64(x, y);
 
-    // If offline, save base64 locally. It will upload when synced online.
+    const payload = {
+        project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
+        Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
+        remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
+        status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
+        photos: tempPhotos.join("|||"), final_photos: "", 
+        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-",
+        created_by: getFullName(currentUser), closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-", map_thumbnail: mapThumb
+    };
+
     if(!navigator.onLine) {
-        const payload = {
-            project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-            Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
-            remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
-            status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
-            photos: tempPhotos.join("|||"), final_photos: "", 
-            map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-",
-            created_by: getFullName(currentUser), closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-", map_thumbnail: mapThumb
-        };
         let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; queue.push(payload); localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
         alert("Offline Mode: Record saved locally. Will auto-sync when online.");
         document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); return;
     }
 
     try {
-        const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Processing & Uploading...";
-        
-        // UPGRADE: Uploading to Supabase Storage before saving to DB
-        let uploadedPhotos = [];
-        for(let b64 of tempPhotos) { uploadedPhotos.push(await uploadImageToSupabase(b64, 'init')); }
-        let uploadedThumb = await uploadImageToSupabase(mapThumb, 'map_thumb');
-
-        const payload = {
-            project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-            Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
-            remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
-            status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
-            photos: uploadedPhotos.join("|||"), final_photos: "", 
-            map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-",
-            created_by: getFullName(currentUser), closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-", map_thumbnail: uploadedThumb
-        };
-
+        const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); canvasConfig.entry.marker = null; drawCanvas('entry'); await loadDefectsFromCloud(true); } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
@@ -291,21 +250,7 @@ async function syncOfflineData() {
     let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; if(queue.length === 0) return;
     let successCount = 0;
     for(let payload of queue) {
-        try { 
-            // Attempt to upload the offline base64 data to Bucket during sync
-            if (payload.photos) {
-                let pArr = payload.photos.split("|||");
-                let nArr = [];
-                for(let b of pArr) nArr.push(await uploadImageToSupabase(b, 'init_sync'));
-                payload.photos = nArr.join("|||");
-            }
-            if (payload.map_thumbnail) {
-                payload.map_thumbnail = await uploadImageToSupabase(payload.map_thumbnail, 'map_sync');
-            }
-
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); 
-            if(res.ok) successCount++; 
-        } catch(e) { console.error("Sync error", e); }
+        try { const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if(res.ok) successCount++; } catch(e) {}
     }
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
@@ -316,6 +261,7 @@ async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Loading...";
+        // Using snag_management
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
         if(res.ok) {
             const data = await res.json();
@@ -328,6 +274,7 @@ async function loadDefectsFromCloud(isBackground = false) {
     finally { setTimeout(()=> document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC", 1000); }
 }
 
+// Generate Table Rows Html with Status Lock & Map Image logic
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
     return dataArray.map(d => {
@@ -339,11 +286,10 @@ function generateTableRowsHtml(dataArray) {
         else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
-        // UPDATE 2: Increased thumbnail view size from 45px to 90px
         if(d.map_thumbnail) {
-            mapHtml = `<img src="${d.map_thumbnail}" style="width:90px; height:90px; border-radius:6px; cursor:pointer; object-fit: cover;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
+            mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
         } else if(d.map_x && d.map_y && d.map_x !== "0") {
-            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
+            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; // Fallback for old data
         }
         
         return `<tr>
@@ -357,6 +303,7 @@ function generateTableRowsHtml(dataArray) {
     }).join("");
 }
 
+// ADVANCED FILTERS APPLIED HERE
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     const pFilt = document.getElementById("reportProject").value;
@@ -366,6 +313,7 @@ function renderReportTable(){
     const dateFrom = document.getElementById("reportDateFrom") ? document.getElementById("reportDateFrom").value : "";
     const dateTo = document.getElementById("reportDateTo") ? document.getElementById("reportDateTo").value : "";
 
+    // Dynamically update tower filter based on project selection
     const tSel = document.getElementById("reportTower");
     if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
         tSel.innerHTML = "<option value='All'>All Towers</option>";
@@ -391,6 +339,7 @@ function renderReportTable(){
     document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filteredReportData);
 }
 
+// Modal Logics
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
     const d = defects.find(x => x.id === id); if(!d) return;
@@ -416,30 +365,24 @@ async function submitEditDefect() {
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
     if(stat === "Closed") { if(!confirm("Warning: Closing this defect will LOCK the record and prevent further edits. Proceed?")) return; }
 
-    const btn = document.getElementById("editSubmitBtn"); 
-    
+    let payload = { status: stat, final_photos: editTempPhotos.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
+    if(stat === "Closed") payload.closed_by = getFullName(currentUser);
+
+    const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_management?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/snag_management?id=eq.${id}`;
+
     try {
-        btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Uploading & Saving...";
-        
-        let uploadedFinal = [];
-        for (let b64 of editTempPhotos) {
-            uploadedFinal.push(await uploadImageToSupabase(b64, 'final'));
-        }
-
-        let payload = { status: stat, final_photos: uploadedFinal.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
-        if(stat === "Closed") payload.closed_by = getFullName(currentUser);
-
-        const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_management?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/snag_management?id=eq.${id}`;
+        const btn = document.getElementById("editSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving...";
         const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
         else throw await res.json();
     } catch(e) { alert("Network error. Update Failed."); }
-    finally { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Updates"; }
+    finally { const btn = document.getElementById("editSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Updates"; }
 }
 
 function openZoomImage(url) { document.getElementById("zoomedImage").src = url; document.getElementById("imageZoomModal").style.display = "flex"; }
 function closeImageZoom() { document.getElementById("imageZoomModal").style.display = "none"; }
 
+// Requirement 8: Action button in drilldown. Removed `.replace(...)` to allow it.
 function openDrillModal(title, data) {
     currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
     let html = generateTableRowsHtml(data); 
@@ -447,6 +390,8 @@ function openDrillModal(title, data) {
 }
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
+
+// ====== 2. BI TELEMETRY MATRICES UPGRADE ======
 let chartsObj = {};
 function renderCharts() {
     const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
@@ -503,6 +448,7 @@ function renderCharts() {
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
     }
 
+    // Fix 9: Accuracy in Intensity Pie chart mapping
     const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
     chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
     const catMap = {}; filteredData.forEach(d => catMap[d.Type] = (catMap[d.Type]||0)+1);
@@ -556,6 +502,7 @@ function editCategory(c) { document.getElementById("setupCatName").value = c; do
 function delCategory(c) { if(confirm("Delete Category?")) { delete defectMatrix[c]; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); } }
 function resetCategoryForm() { document.getElementById("categoryForm").reset(); document.getElementById("editCategoryKey").value=""; document.getElementById("btnSaveCategory").innerHTML="<i class='fas fa-save'></i> Save"; }
 
+// Advanced Map Sync Logic
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
     try {
@@ -655,6 +602,7 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
+// ====== 3. EXCEL NATIVE IMAGE EXPORT UPGRADE ======
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     
@@ -681,7 +629,7 @@ async function exportExcelWithPhotos(dataToExport) {
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        row.height = 70;
+        row.height = 70; // Set row height big enough for pictures
         
         const addImgToCell = (base64Str, colIdx) => {
             if(base64Str && base64Str.startsWith('data:image')) {
