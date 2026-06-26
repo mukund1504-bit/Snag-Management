@@ -2,6 +2,12 @@
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
+// Point H: Initialize Supabase Client for Realtime Sync
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Set PDF worker URL for Blueprint generation
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
 const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
@@ -15,11 +21,19 @@ let editTempPhotos = [];
 let currentDrilldownData = []; 
 let autoSyncInterval;
 
+// Point C Upgrade: Updated Structural Hierarchy to 3 Levels (Project -> Tower -> Floor -> [Flats])
 let structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")) || {
-    "Fragrance": { "Tower-A": ["GF", "1st Floor", "2nd Floor"], "Tower-B": ["GF", "1st Floor"] },
-    "Eutopia": { "B1": ["Basement", "GF"], "STP": ["Area-1"] }
+    "Fragrance": { 
+        "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
+        "Tower-B": { "GF": ["B-01"], "1st Floor": ["B-101", "B-102"] }
+    },
+    "Eutopia": { 
+        "B1": { "Basement": ["P-1"], "GF": ["G-1"] }, 
+        "STP": { "Area-1": ["Zone-A"] } 
+    }
 };
 
+// Point C Upgrade: Category structure stays same, just updated via single-spec additions in admin
 let defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || {
     "RCC Structure": ["Level uneven", "Honeycomb", "Crack Shown", "Poor Quality"],
     "Plumbing Work": ["Leak", "Broken", "Clogging"]
@@ -36,21 +50,40 @@ let canvasConfig = {
 window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
-// REQ 1: Listen for local changes to instantly sync config updates across tabs
 window.addEventListener('storage', () => {
     structuralHierarchy = JSON.parse(localStorage.getItem("qa_strict_hierarchy")) || structuralHierarchy;
     defectMatrix = JSON.parse(localStorage.getItem("qa_defectMatrix")) || defectMatrix;
     refreshDropdowns();
 });
 
+// Point E: Idle Timeout (Auto Logout after 1 Hour)
+let idleTime = 0;
+function resetIdleTimer() { idleTime = 0; }
+document.onmousemove = resetIdleTimer;
+document.onkeypress = resetIdleTimer;
+setInterval(() => {
+    idleTime++;
+    if(idleTime >= 60 && currentUser) { 
+        alert("Session Expired due to inactivity. You have been logged out securely.");
+        manualLogout(); 
+    }
+}, 60000); // 1 minute per tick
+
 window.addEventListener("DOMContentLoaded", () => {
     if(!navigator.onLine) { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; }
     const savedUser = sessionStorage.getItem("qa_logged_in_user");
     if(savedUser) { currentUser = JSON.parse(savedUser); activateApp(); }
     
-    // REQ 8: Attach form input listeners to save draft state immediately
     document.getElementById("defectForm").addEventListener('input', saveDraftState);
     document.getElementById("defectForm").addEventListener('change', saveDraftState);
+
+    // Point H: Subscribe to real-time events on Supabase
+    supabaseClient.channel('public:snag_management').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_management' }, payload => {
+        if(navigator.onLine) {
+            console.log("Realtime Sync Triggered", payload);
+            loadDefectsFromCloud(true); // Silent refresh
+        }
+    }).subscribe();
 });
 
 function getFullName(u) {
@@ -74,23 +107,32 @@ function processLogin() {
         err.style.display = "block"; err.innerText = "Invalid credentials. Try full name or email."; 
     }
 }
-function processLogout() { sessionStorage.removeItem("qa_logged_in_user"); location.reload(); }
+function manualLogout() { 
+    sessionStorage.removeItem("qa_logged_in_user"); 
+    sessionStorage.removeItem("active_section");
+    location.reload(); 
+}
 
 function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "block";
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
-    if(currentUser.role === "user" && currentUser.permission === "view") { document.getElementById("navEntryBtn").style.display = "none"; showSection('dashboard'); } 
-    else { showSection('entry'); }
+    
+    // Point E: State Persistence - Resume where user left off
+    let targetSection = sessionStorage.getItem("active_section") || 'entry';
+    if(currentUser.role === "user" && currentUser.permission === "view") { 
+        document.getElementById("navEntryBtn").style.display = "none"; 
+        if(targetSection === 'entry') targetSection = 'dashboard';
+    } 
+    showSection(targetSection);
 
     refreshDropdowns(); 
-    restoreDraftState(); // REQ 8: Restore selection automatically
+    restoreDraftState(); 
     
     initCanvas('entry'); initCanvas('modal');
     loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
-// REQ 8: Save Form State to handle Page Refresh
 function saveDraftState() {
     const formObj = {};
     ['project','tower','floor','flatNo','defectType','defectList','intensity','status','dueDate','remark'].forEach(id => {
@@ -105,7 +147,7 @@ function restoreDraftState() {
     if(!draft) return;
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
-    if(draft.floor) { document.getElementById("floor").value = draft.floor; loadEntryMap(); }
+    if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); loadEntryMap(); }
     ['flatNo','defectType','intensity','status','dueDate','remark'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
@@ -114,10 +156,16 @@ function restoreDraftState() {
 }
 
 function showSection(id) {
+    sessionStorage.setItem("active_section", id); // Save active state
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
     const sec = document.getElementById(id); if(sec) sec.classList.add("active");
     if(event && event.currentTarget) event.currentTarget.classList.add("active");
+    else {
+        // Find correct nav button for auto-load
+        const btns = document.querySelectorAll(".nav-btn");
+        btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
+    }
     if(id === 'report') renderReportTable();
     if(id === 'dashboard') renderCharts();
 }
@@ -142,7 +190,6 @@ function refreshDropdowns() {
     }
 }
 
-// REQ 7: Clear Canvas strictly
 function clearMapCanvas() {
     document.getElementById("entryMapWarning").style.display = "block"; 
     canvasConfig.entry.marker = null; 
@@ -163,21 +210,26 @@ function populateTowers() {
     if(p && structuralHierarchy[p]) { const allowedTowers = getAllowedTowers(p); allowedTowers.forEach(t => tSel.appendChild(new Option(t, t))); }
     
     document.getElementById("floor").innerHTML = '<option value="">-- Select Floor --</option>';
-    clearMapCanvas(); // Force map clearance immediately
-    populateFloors();
+    document.getElementById("flatNo").innerHTML = '<option value="">-- Select Unit --</option>';
+    clearMapCanvas(); 
 }
 
 function populateFloors() {
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const fSel = document.getElementById("floor");
     fSel.innerHTML = '<option value="">-- Select Floor --</option>';
-    if(p && t && structuralHierarchy[p][t]) { structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
-    clearMapCanvas(); // Map logic strict clearance
+    if(p && t && structuralHierarchy[p][t]) { Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
+    document.getElementById("flatNo").innerHTML = '<option value="">-- Select Unit --</option>';
+    clearMapCanvas(); 
 }
 
-function populateDefectList() {
-    const type = document.getElementById("defectType").value; const lSel = document.getElementById("defectList");
-    lSel.innerHTML = '<option value="">-- Select Specific Defect --</option>';
-    if(defectMatrix[type]) defectMatrix[type].forEach(def => lSel.appendChild(new Option(def, def)));
+// Point C: New Function to populate dropdown mapping
+function populateFlats() {
+    const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value; 
+    const unitSel = document.getElementById("flatNo");
+    unitSel.innerHTML = '<option value="">-- Select Unit --</option>';
+    if(p && t && f && structuralHierarchy[p][t][f]) {
+        structuralHierarchy[p][t][f].forEach(unit => unitSel.appendChild(new Option(unit, unit)));
+    }
 }
 
 function initCanvas(type) {
@@ -186,8 +238,17 @@ function initCanvas(type) {
     if(type === 'entry') {
         canvas.addEventListener("click", (e) => {
             if(!canvasConfig.entry.active) return;
-            const rect = canvas.getBoundingClientRect(); const x = (e.clientX - rect.left) / canvasConfig.entry.scale; const y = (e.clientY - rect.top) / canvasConfig.entry.scale;
-            canvasConfig.entry.marker = {x, y}; document.getElementById("entryCoordX").value = x; document.getElementById("entryCoordY").value = y; drawCanvas(type);
+            // Point A Fix: Exact Mapping for Map Click
+            const rect = canvas.getBoundingClientRect(); 
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX; 
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            canvasConfig.entry.marker = {x, y}; 
+            document.getElementById("entryCoordX").value = x; 
+            document.getElementById("entryCoordY").value = y; 
+            drawCanvas(type);
         });
     }
 }
@@ -265,8 +326,15 @@ async function saveDefect(){
     const x = document.getElementById("entryCoordX").value; const y = document.getElementById("entryCoordY").value;
     if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
 
-    const today = new Date().toISOString().slice(0,10); const dueStr = document.getElementById("dueDate").value || null;
-    let delay = "On Time"; if(dueStr && new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
+    // Point F: SLA Due Date Automation (Current Date + 10 Days if empty)
+    const today = new Date().toISOString().slice(0,10); 
+    let dueStr = document.getElementById("dueDate").value;
+    if(!dueStr) {
+        let d = new Date(); d.setDate(d.getDate() + 10);
+        dueStr = d.toISOString().slice(0,10);
+    }
+
+    let delay = "On Time"; if(new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
 
     let mapThumb = getMapThumbnailBase64(x, y);
 
@@ -303,7 +371,6 @@ async function syncOfflineData() {
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
 
-// REQ 1: Added Map sync inside interval to ensure fast reflection across devices
 function startAutoRefresh() { 
     autoSyncInterval = setInterval(() => { 
         if(navigator.onLine) { 
@@ -512,12 +579,17 @@ function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
     if(hBody) {
         let hHtml = "";
-        Object.keys(structuralHierarchy).forEach(p => { Object.keys(structuralHierarchy[p]).forEach(t => {
-            hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editHierarchy('${p}','${t}')">Edit</button><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}')">Del</button></td></tr>`;
-        }); }); hBody.innerHTML = hHtml;
+        Object.keys(structuralHierarchy).forEach(p => { 
+            Object.keys(structuralHierarchy[p]).forEach(t => {
+                Object.keys(structuralHierarchy[p][t]).forEach(f => {
+                    hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td>${f}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t][f].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}','${f}')">Del Floor</button></td></tr>`;
+                });
+            }); 
+        }); 
+        hBody.innerHTML = hHtml;
     }
     const cBody = document.querySelector("#categoryTable tbody");
-    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn edit-btn" onclick="editCategory('${c}')">Edit</button><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del</button></td></tr>`).join('');
+    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del Cat</button></td></tr>`).join('');
     
     renderMapTable();
 }
@@ -526,28 +598,68 @@ function renderMapTable() {
     const fBody = document.querySelector("#floorMapTable tbody");
     if(fBody) {
         fBody.innerHTML = Object.keys(floorMaps).map(k => {
-            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn edit-btn" onclick="editMap('${k}')">Edit</button><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
         }).join('');
     }
 }
 
+// Point C: Hierarchy Saved one by one including Flats
 function saveHierarchy() {
-    const p = document.getElementById("setupProjName").value.trim(); const t = document.getElementById("setupTowerName").value.trim(); const f = document.getElementById("setupFloors").value.split(",").map(s=>s.trim()).filter(Boolean); const editKey = document.getElementById("editHierarchyKey").value;
-    if(editKey) { const [oldP, oldT] = editKey.split("|||"); if(oldP !== p || oldT !== t) delete structuralHierarchy[oldP][oldT]; }
-    if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; structuralHierarchy[p][t] = f;
-    localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes(); alert("Hierarchy Saved!"); resetHierarchyForm();
-}
-function editHierarchy(p, t) { document.getElementById("setupProjName").value = p; document.getElementById("setupTowerName").value = t; document.getElementById("setupFloors").value = structuralHierarchy[p][t].join(", "); document.getElementById("editHierarchyKey").value = `${p}|||${t}`; document.getElementById("btnSaveHierarchy").innerHTML = "<i class='fas fa-save'></i> Update"; }
-function delHierarchy(p, t) { if(confirm(`Delete ${t} from ${p}?`)) { delete structuralHierarchy[p][t]; if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p]; localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); refreshDropdowns(); renderAdminTables(); } }
-function resetHierarchyForm() { document.getElementById("hierarchyForm").reset(); document.getElementById("editHierarchyKey").value=""; document.getElementById("btnSaveHierarchy").innerHTML="<i class='fas fa-save'></i> Save"; }
+    const p = document.getElementById("setupProjName").value.trim(); 
+    const t = document.getElementById("setupTowerName").value.trim(); 
+    const f = document.getElementById("setupFloorName").value.trim();
+    const flats = document.getElementById("setupFlats").value.split(",").map(s=>s.trim()).filter(Boolean);
+    
+    if(!p || !t || !f || flats.length === 0) return alert("All fields are required including at least one unit/flat.");
 
-function saveCategory() {
-    const c = document.getElementById("setupCatName").value.trim(); const s = document.getElementById("setupSpecs").value.split(",").map(x=>x.trim()).filter(Boolean); const editKey = document.getElementById("editCategoryKey").value;
-    if(editKey && editKey !== c) delete defectMatrix[editKey]; defectMatrix[c] = s; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); alert("Category Saved!"); resetCategoryForm();
+    if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; 
+    if(!structuralHierarchy[p][t]) structuralHierarchy[p][t] = {};
+    
+    // Updates/Overwrites one floor at a time
+    structuralHierarchy[p][t][f] = flats;
+    
+    localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); 
+    refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes(); 
+    alert("Floor Mapping Saved Successfully!"); 
+    resetHierarchyForm();
 }
-function editCategory(c) { document.getElementById("setupCatName").value = c; document.getElementById("setupSpecs").value = defectMatrix[c].join(", "); document.getElementById("editCategoryKey").value = c; document.getElementById("btnSaveCategory").innerHTML = "<i class='fas fa-save'></i> Update"; }
-function delCategory(c) { if(confirm("Delete Category?")) { delete defectMatrix[c]; localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); refreshDropdowns(); renderAdminTables(); } }
-function resetCategoryForm() { document.getElementById("categoryForm").reset(); document.getElementById("editCategoryKey").value=""; document.getElementById("btnSaveCategory").innerHTML="<i class='fas fa-save'></i> Save"; }
+function delHierarchy(p, t, f) { 
+    if(confirm(`Delete Floor ${f} from ${t}?`)) { 
+        delete structuralHierarchy[p][t][f]; 
+        if(Object.keys(structuralHierarchy[p][t]).length === 0) delete structuralHierarchy[p][t]; 
+        if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p];
+        localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); 
+        refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes();
+    } 
+}
+function resetHierarchyForm() { 
+    document.getElementById("setupFloorName").value = "";
+    document.getElementById("setupFlats").value = "";
+}
+
+// Point C: Category saved one by one (Appending specs)
+function saveCategory() {
+    const c = document.getElementById("setupCatName").value.trim(); 
+    const s = document.getElementById("setupSpecName").value.trim(); 
+    
+    if(!c || !s) return alert("Category and Spec are required.");
+
+    if(!defectMatrix[c]) defectMatrix[c] = [];
+    if(!defectMatrix[c].includes(s)) defectMatrix[c].push(s);
+
+    localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
+    refreshDropdowns(); renderAdminTables(); 
+    alert("Specification Added Successfully!"); 
+    document.getElementById("setupSpecName").value = ""; // Only clear spec for easy multiple entry
+}
+function delCategory(c) { 
+    if(confirm(`Delete Complete Category: ${c}?`)) { 
+        delete defectMatrix[c]; 
+        localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
+        refreshDropdowns(); renderAdminTables(); 
+    } 
+}
+function resetCategoryForm() { document.getElementById("categoryForm").reset(); }
 
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
@@ -562,14 +674,57 @@ async function loadMapsFromCloud() {
     } catch(e) { console.error("Map sync error", e); }
 }
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
-function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) structuralHierarchy[p][t].forEach(f => fSel.appendChild(new Option(f, f))); }
-function previewMapDrawing(e) {
-    const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = ev => { const img = new Image(); img.onload = () => { const canvas = document.createElement("canvas"); let scale = Math.min(1, 1200/Math.max(img.width, img.height)); canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height); document.getElementById("tempMapBase64").value = canvas.toDataURL("image/jpeg", 0.7); }; img.src = ev.target.result; }; reader.readAsDataURL(file);
+function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
+
+// Point G: PDF + Image Processing for Blueprints
+async function previewMapDrawing(e) {
+    const file = e.target.files[0]; if(!file) return; 
+    const btn = document.getElementById("btnSubmitMap");
+    btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Processing File...";
+
+    try {
+        if(file.type === "application/pdf") {
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                const typedarray = new Uint8Array(this.result);
+                const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                const page = await pdf.getPage(1); // Read Page 1
+                const viewport = page.getViewport({ scale: 2.0 }); // High-Quality Scale
+                
+                const canvas = document.createElement("canvas");
+                canvas.width = viewport.width; canvas.height = viewport.height;
+                const ctx = canvas.getContext("2d");
+                
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                document.getElementById("tempMapBase64").value = canvas.toDataURL("image/jpeg", 0.7);
+                btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend";
+                alert("PDF Processed Successfully! You can now submit it.");
+            };
+            fileReader.readAsArrayBuffer(file);
+        } else {
+            // Normal Image Handling
+            const reader = new FileReader(); 
+            reader.onload = ev => { 
+                const img = new Image(); img.onload = () => { 
+                    const canvas = document.createElement("canvas"); let scale = Math.min(1, 1200/Math.max(img.width, img.height)); 
+                    canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height); 
+                    document.getElementById("tempMapBase64").value = canvas.toDataURL("image/jpeg", 0.7); 
+                    btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend";
+                }; 
+                img.src = ev.target.result; 
+            }; 
+            reader.readAsDataURL(file);
+        }
+    } catch(err) {
+        alert("Error processing file.");
+        btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend";
+    }
 }
+
 async function submitMapDrawing() {
     const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const f = document.getElementById("mapSetupFloor").value; 
     const base64 = document.getElementById("tempMapBase64").value;
-    if(!p || !t || !f || !base64) return alert("Select Project, Tower, Floor and upload an image first!");
+    if(!p || !t || !f || !base64) return alert("Select Project, Tower, Floor and upload an image/pdf first!");
     const mapKey = `${p}_${t}_${f}`;
     
     try {
@@ -585,11 +740,7 @@ async function submitMapDrawing() {
     } catch(err) { alert("Error saving map: " + JSON.stringify(err)); }
     finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
 }
-function editMap(k) {
-    const parts = k.split('_'); document.getElementById("mapSetupProject").value = parts[0]; populateMapSetupTowers();
-    document.getElementById("mapSetupTower").value = parts[1]; populateMapSetupFloors(); document.getElementById("mapSetupFloor").value = parts[2];
-    alert("Please upload a new image and click Submit to replace.");
-}
+
 async function delMap(k) { 
     if(!confirm("Delete Floor Map from Database?")) return;
     try {
@@ -648,7 +799,7 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
-// REQ 3: EXCEL EXPORT WITH MULTIPLE PHOTOS (2x2 GRID)
+// Point B Fix: EXCEL EXPORT PROFESSIONAL FORMATTING
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     
@@ -664,18 +815,24 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Risk', key: 'intensity', width: 12 }, { header: 'Status', key: 'status', width: 12 }, 
         { header: 'Logged Date', key: 'loggedDate', width: 15 }, { header: 'SLA Date', key: 'dueDate', width: 15 }, 
         { header: 'Closed Date', key: 'closedDate', width: 15 }, { header: 'Delay', key: 'delay', width: 12 },
-        { header: 'Map Location View', key: 'map', width: 25 },
-        { header: 'Initial Photo Evidence', key: 'initial', width: 25 },
-        { header: 'Final Photo Evidence', key: 'final', width: 25 }
+        { header: 'Map Location View', key: 'map', width: 20 },
+        { header: 'Initial Photo Evidence', key: 'initial', width: 20 },
+        { header: 'Final Photo Evidence', key: 'final', width: 20 }
     ];
     
+    // Better column alignment 
+    sheet.columns.forEach(col => {
+        col.alignment = { vertical: 'middle', wrapText: true };
+    });
+
     const hRow = sheet.getRow(1); 
     hRow.font = { bold: true, color: { argb: 'FFFFFF' } }; 
     hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+    hRow.alignment = { vertical: 'middle', horizontal: 'center' };
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        row.height = 110; // Row height increased for multiple pictures
+        row.height = 75; // Reduced from 110 for a professional compact view
         
         const addImgGridToCell = (picsArray, colIdx) => {
             if(!picsArray || picsArray.length === 0) return;
@@ -687,8 +844,8 @@ async function exportExcelWithPhotos(dataToExport) {
                         let rowOffset = Math.floor(i / 2) * 0.48;
                         
                         sheet.addImage(imageId, {
-                            tl: { col: colIdx - 1 + colOffset + 0.01, row: row.number - 1 + rowOffset + 0.01 },
-                            ext: { width: 52, height: 52 },
+                            tl: { col: colIdx - 1 + colOffset + 0.05, row: row.number - 1 + rowOffset + 0.05 },
+                            ext: { width: 35, height: 35 }, // Scaled down cleanly
                             editAs: 'oneCell'
                         });
                     } catch(e) { console.error('Image skipped', e); }
@@ -699,7 +856,7 @@ async function exportExcelWithPhotos(dataToExport) {
         if(d.map_thumbnail) {
             try {
                 const mapId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' });
-                sheet.addImage(mapId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 100, height: 100 }, editAs: 'oneCell' });
+                sheet.addImage(mapId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 70, height: 70 }, editAs: 'oneCell' });
             } catch(e) {}
         }
         addImgGridToCell(d.initialPics, 18);

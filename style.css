@@ -93,7 +93,6 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; max-w
 .zoom-btn:hover { background: #0f172a; color: #ffffff; }
 .map-instructions { text-align: center; font-size: 11px; color: #64748b; padding: 5px 10px 15px 10px; font-weight: 600; }
 
-/* REQ 4: HORIZONTAL FILTERS */
 .report-header-controls-tech { display: flex; flex-direction: column; gap:15px; margin-bottom: 24px; background: white; padding: 18px; border-radius: 8px; border: 1px solid var(--border-matrix); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .advanced-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; }
 .actions-group-tech { display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end; }
@@ -119,11 +118,12 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; max-w
 .chart-card-tech { background: white; padding: 22px; border-radius: 12px; border: 1px solid var(--border-matrix); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
 .chart-container-wrapper { height: 320px; width: 100%; position: relative; cursor: pointer; margin-top: 15px; }
 
-.admin-grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 24px; align-items: start; }
+/* Point D: Changed admin grid to ensure 50-50 space is taken */
+.admin-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .admin-span-full { grid-column: 1 / -1; }
-.admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; }
+.admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; }
 .setup-split-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
-.setup-form-pro { background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.setup-form-pro { background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; }
 .setup-form-pro input, .setup-form-pro textarea, .setup-form-pro select { margin-bottom: 0; background: white; }
 .rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
 .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
