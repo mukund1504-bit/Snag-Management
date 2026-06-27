@@ -20,6 +20,35 @@ function getSafeStorage(key, defaultValue) {
     }
 }
 
+// =========================================================================
+// NEW ADDITIONS: Data Mapping Helpers for Category & Specification
+// Ye functions ID ko Name me resolve karte hain, for backward compatibility
+// =========================================================================
+function resolveCategoryName(catValue) {
+    if (!catValue) return "-";
+    try {
+        const categories = getSafeStorage("categories_list", getSafeStorage("csms_categories", []));
+        if(Array.isArray(categories)) {
+            const cat = categories.find(c => c.id === catValue || c.name === catValue || c.categoryId === catValue);
+            if(cat) return cat.name;
+        }
+    } catch(e) {}
+    return catValue; 
+}
+
+function resolveSpecificationName(specValue) {
+    if (!specValue) return "-";
+    try {
+        const specs = getSafeStorage("specifications_list", getSafeStorage("csms_specifications", []));
+        if(Array.isArray(specs)) {
+            const spec = specs.find(s => s.id === specValue || s.name === specValue || s.specId === specValue);
+            if(spec) return spec.name;
+        }
+    } catch(e) {}
+    return specValue;
+}
+// =========================================================================
+
 const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
@@ -442,6 +471,10 @@ async function loadDefectsFromCloud(isBackground = false) {
     }
 }
 
+// =========================================================================
+// UPDATED FUNCTION: `generateTableRowsHtml` ab Category aur Specification ko 
+// naye helpers ke zariye resolve karke display karega. Data mapping issue solved!
+// =========================================================================
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
     return dataArray.map(d => {
@@ -459,9 +492,15 @@ function generateTableRowsHtml(dataArray) {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
+        // --- Mapping Fix Applied Here ---
+        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId);
+        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || d.spec);
+        
         return `<tr>
                 <td>${d.serial}</td><td><b>${d.project}</b></td><td>${d.tower}</td><td>${d.floor}</td><td>${d.flat}</td>
-                <td><b>${d.Type}</b></td><td>${d.defectList}</td><td>${d.remark || "-"}</td>
+                <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
+                <td>${resolvedSpec}</td>
+                <td>${d.remark || "-"}</td>
                 <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
                 <td>${d.intensity}</td><td><span class="locked-badge">${d.status}</span></td>
                 <td>${d.loggedDate}</td><td>${d.dueDate || "-"}</td><td>${d.closedDate}</td><td>${d.delay}</td>
@@ -469,6 +508,7 @@ function generateTableRowsHtml(dataArray) {
             </tr>`;
     }).join("");
 }
+// =========================================================================
 
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
@@ -619,7 +659,6 @@ function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.pro
 function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
 function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.Type===t); openDrillModal(`${p} - ${t}`, data); }
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
-
 
 function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
