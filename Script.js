@@ -21,8 +21,7 @@ function getSafeStorage(key, defaultValue) {
 }
 
 // =========================================================================
-// NEW ADDITIONS: Data Mapping Helpers for Category & Specification
-// Ye functions ID ko Name me resolve karte hain, for backward compatibility
+// Data Mapping Helpers for Category & Specification
 // =========================================================================
 function resolveCategoryName(catValue) {
     if (!catValue) return "-";
@@ -33,7 +32,7 @@ function resolveCategoryName(catValue) {
             if(cat) return cat.name;
         }
     } catch(e) {}
-    return catValue; 
+    return catValue || "-"; 
 }
 
 function resolveSpecificationName(specValue) {
@@ -45,17 +44,15 @@ function resolveSpecificationName(specValue) {
             if(spec) return spec.name;
         }
     } catch(e) {}
-    return specValue;
+    return specValue || "-";
 }
-// =========================================================================
 
 const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
 
-// Global Variables with Safe Load
+// Global Variables
 let USER_MATRIX = getSafeStorage("qa_users", DEFAULT_USERS);
-
 let currentUser = null;
 let defects = [];
 let filteredReportData = []; 
@@ -64,7 +61,6 @@ let editTempPhotos = [];
 let currentDrilldownData = []; 
 let autoSyncInterval;
 
-// Point C Upgrade: Updated Structural Hierarchy to 3 Levels (Project -> Tower -> Floor -> [Flats])
 let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
     "Fragrance": { 
         "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
@@ -76,7 +72,6 @@ let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
     }
 });
 
-// Point C Upgrade: Category structure stays same, just updated via single-spec additions in admin
 let defectMatrix = getSafeStorage("qa_defectMatrix", {
     "RCC Structure": ["Level uneven", "Honeycomb", "Crack Shown", "Poor Quality"],
     "Plumbing Work": ["Leak", "Broken", "Clogging"]
@@ -99,7 +94,6 @@ window.addEventListener('storage', () => {
     refreshDropdowns();
 });
 
-// Point E: Idle Timeout (Auto Logout after 1 Hour)
 let idleTime = 0;
 function resetIdleTimer() { idleTime = 0; }
 document.onmousemove = resetIdleTimer;
@@ -132,17 +126,22 @@ window.addEventListener("DOMContentLoaded", () => {
         defectForm.addEventListener('change', saveDraftState);
     }
 
-    // Event Listener setup for dynamic category to specification dropdown loading
     const defectTypeEl = document.getElementById("defectType");
     if(defectTypeEl) {
         defectTypeEl.addEventListener('change', populateDefectList);
     }
 
-    // Point H: Subscribe to real-time events on Supabase
+    // NEW FIX: Bind automatic render to all Report dropdown filters
+    ["reportProject", "reportTower", "reportCreatedBy", "reportStatus", "reportDateFrom", "reportDateTo"].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.addEventListener('change', renderReportTable);
+    });
+
+    // Realtime Sync
     supabaseClient.channel('public:snag_management').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_management' }, payload => {
         if(navigator.onLine) {
             console.log("Realtime Sync Triggered", payload);
-            loadDefectsFromCloud(true); // Silent refresh
+            loadDefectsFromCloud(true);
         }
     }).subscribe();
 });
@@ -178,7 +177,6 @@ function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "block";
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
     
-    // Point E: State Persistence - Resume where user left off
     let targetSection = sessionStorage.getItem("active_section") || 'entry';
     if(currentUser.role === "user" && currentUser.permission === "view") { 
         document.getElementById("navEntryBtn").style.display = "none"; 
@@ -217,7 +215,7 @@ function restoreDraftState() {
 }
 
 function showSection(id) {
-    sessionStorage.setItem("active_section", id); // Save active state
+    sessionStorage.setItem("active_section", id); 
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
     
@@ -226,16 +224,19 @@ function showSection(id) {
     
     if(window.event && window.event.currentTarget) window.event.currentTarget.classList.add("active");
     else {
-        // Find correct nav button for auto-load
         const btns = document.querySelectorAll(".nav-btn");
         btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
     }
     
-    // Tab switching par UI update karne ki conditions:
-    if(id === 'report') renderReportTable();
-    if(id === 'dashboard') renderCharts();
-    
-    // Jab Setup tab open ho toh tables refresh hongi
+    // NEW FIX: Force backend fetch and re-render every time Report tab is opened
+    if(id === 'report') {
+        renderReportTable(); // Render immediately with cached data
+        loadDefectsFromCloud(true); // Fetch latest quietly
+    }
+    if(id === 'dashboard') {
+        if(typeof renderCharts === 'function') renderCharts();
+        loadDefectsFromCloud(true);
+    }
     if(id === 'setup' && currentUser && currentUser.role === "admin") {
         renderAdminTables(); 
         renderUserSetupCheckboxes(); 
@@ -263,14 +264,11 @@ function refreshDropdowns() {
     }
 }
 
-// Function to populate specification list based on selected category
 function populateDefectList() {
     const typeVal = document.getElementById("defectType") ? document.getElementById("defectType").value : "";
     const listSel = document.getElementById("defectList");
-    
     if(!listSel) return;
     listSel.innerHTML = '<option value="">-- Select Specification --</option>';
-    
     if(typeVal && defectMatrix[typeVal]) {
         defectMatrix[typeVal].forEach(spec => listSel.appendChild(new Option(spec, spec)));
     }
@@ -308,7 +306,6 @@ function populateFloors() {
     clearMapCanvas(); 
 }
 
-// Point C: New Function to populate dropdown mapping
 function populateFlats() {
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value; 
     const unitSel = document.getElementById("flatNo");
@@ -324,7 +321,6 @@ function initCanvas(type) {
     if(type === 'entry') {
         canvas.addEventListener("click", (e) => {
             if(!canvasConfig.entry.active) return;
-            // Point A Fix: Exact Mapping for Map Click
             const rect = canvas.getBoundingClientRect(); 
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
@@ -414,7 +410,6 @@ async function saveDefect(){
     const x = document.getElementById("entryCoordX").value; const y = document.getElementById("entryCoordY").value;
     if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
 
-    // Point F: SLA Due Date Automation (Current Date + 10 Days if empty)
     const today = new Date().toISOString().slice(0,10); 
     let dueStr = document.getElementById("dueDate").value;
     if(!dueStr) {
@@ -423,7 +418,6 @@ async function saveDefect(){
     }
 
     let delay = "On Time"; if(new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
-
     let mapThumb = getMapThumbnailBase64(x, y);
 
     const payload = {
@@ -443,9 +437,13 @@ async function saveDefect(){
     }
 
     try {
-        const btn = document.getElementById("mainSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
+        const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); await loadDefectsFromCloud(true); } else throw await res.json();
+        if(res.ok) { 
+            alert("Record Logged Successfully!"); 
+            document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); 
+            await loadDefectsFromCloud(true); 
+        } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
     finally { const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; } }
 }
@@ -468,14 +466,13 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
-// Sync function with Cache Busting
+// Data Fetch & Real-Time Setup
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         const syncBadge = document.getElementById("liveSyncBadge");
         if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
-        // Cache busting: timestamp added to prevent browser from showing old data
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&_=${new Date().getTime()}`, { 
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
@@ -484,12 +481,16 @@ async function loadDefectsFromCloud(isBackground = false) {
             const data = await res.json();
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
             
-            // Render logic
+            // Re-render UI if Active
             if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
-            if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) renderCharts();
+            if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) {
+                if(typeof renderCharts === 'function') renderCharts();
+            }
             if(document.getElementById('entry') && document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
+        } else {
+            console.error("Failed to fetch from cloud. Response not ok.");
         }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Error loading defects:", e); }
     finally { 
         if(document.getElementById("liveSyncBadge")) 
             document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC"; 
@@ -497,18 +498,19 @@ async function loadDefectsFromCloud(isBackground = false) {
 }
 
 // =========================================================================
-// UPDATED FUNCTION: `generateTableRowsHtml` ab Category aur Specification ko 
-// naye helpers ke zariye resolve karke display karega. Data mapping issue solved!
+// BULLETPROOF HTML GENERATION 
+// Har data point ke liye || "-" add kiya hai taaki null data render na tode
 // =========================================================================
 function generateTableRowsHtml(dataArray) {
-    const canEdit = currentUser.role === "admin" || currentUser.permission === "edit";
+    const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
     return dataArray.map(d => {
-        const initialHtml = `<div class="img-grid-cell">${d.initialPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
-        const finalHtml = `<div class="img-grid-cell">${d.finalPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        const initialHtml = `<div class="img-grid-cell">${(d.initialPics||[]).map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        const finalHtml = `<div class="img-grid-cell">${(d.finalPics||[]).map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
         if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
-        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal(${d.id})"><i class="fas fa-bolt"></i> Action</button>`;
+        // ID wrapped in string quotes to prevent JS parsing errors for UUIDs
+        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
         if(d.map_thumbnail) {
@@ -517,41 +519,54 @@ function generateTableRowsHtml(dataArray) {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
-        // --- Mapping Fix Applied Here ---
         const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId);
         const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || d.spec);
         
         return `<tr>
-                <td>${d.serial}</td><td><b>${d.project}</b></td><td>${d.tower}</td><td>${d.floor}</td><td>${d.flat}</td>
+                <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
                 <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
                 <td>${resolvedSpec}</td>
                 <td>${d.remark || "-"}</td>
                 <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
-                <td>${d.intensity}</td><td><span class="locked-badge">${d.status}</span></td>
-                <td>${d.loggedDate}</td><td>${d.dueDate || "-"}</td><td>${d.closedDate}</td><td>${d.delay}</td>
+                <td>${d.intensity || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
+                <td>${d.loggedDate || d.logged_date || "-"}</td><td>${d.dueDate || "-"}</td><td>${d.closedDate || d.closed_date || "-"}</td><td>${d.delay || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
             </tr>`;
     }).join("");
 }
-// =========================================================================
 
+// =========================================================================
+// UPDATED REPORT TABLE RENDER (100% Robust Filtering)
+// =========================================================================
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
-    const pFilt = document.getElementById("reportProject") ? document.getElementById("reportProject").value : "All";
-    const tFilt = document.getElementById("reportTower") ? document.getElementById("reportTower").value : "All";
-    const userFilt = document.getElementById("reportCreatedBy") ? document.getElementById("reportCreatedBy").value : "All";
-    const statFilt = document.getElementById("reportStatus") ? document.getElementById("reportStatus").value : "All";
-    const dateFrom = document.getElementById("reportDateFrom") ? document.getElementById("reportDateFrom").value : "";
-    const dateTo = document.getElementById("reportDateTo") ? document.getElementById("reportDateTo").value : "";
-
+    
+    const pFiltSel = document.getElementById("reportProject");
+    const pFilt = pFiltSel ? pFiltSel.value : "All";
+    
     const tSel = document.getElementById("reportTower");
+    const tFilt = tSel ? tSel.value : "All";
+    
+    const uSel = document.getElementById("reportCreatedBy");
+    const userFilt = uSel ? uSel.value : "All";
+    
+    const statSel = document.getElementById("reportStatus");
+    const statFilt = statSel ? statSel.value : "All";
+    
+    const dateFromEl = document.getElementById("reportDateFrom");
+    const dateFrom = dateFromEl ? dateFromEl.value : "";
+    
+    const dateToEl = document.getElementById("reportDateTo");
+    const dateTo = dateToEl ? dateToEl.value : "";
+
+    // Adjust Tower Dropdown dynamically
     if(tSel) {
         if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
             tSel.innerHTML = "<option value='All'>All Towers</option>";
             const allowedTowers = getAllowedTowers(pFilt);
             allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
             tSel.setAttribute("data-proj", pFilt);
-        } else if (pFilt === "All") {
+        } else if (pFilt === "All" && tSel.getAttribute("data-proj") !== "All") {
             tSel.innerHTML = "<option value='All'>All Towers</option>";
             tSel.setAttribute("data-proj", "All");
         }
@@ -559,22 +574,36 @@ function renderReportTable(){
 
     filteredReportData = defects.filter(d => {
         let match = true;
-        if(currentUser.role !== "admin" && !allowedProjects.includes(d.project)) match = false;
-        if(pFilt !== "All" && d.project !== pFilt) match = false;
-        if(tFilt !== "All" && d.tower !== tFilt) match = false;
-        if(userFilt !== "All" && d.created_by !== userFilt) match = false;
-        if(statFilt !== "All" && d.status !== statFilt) match = false;
-        if(dateFrom && new Date(d.loggedDate) < new Date(dateFrom)) match = false;
-        if(dateTo && new Date(d.loggedDate) > new Date(dateTo)) match = false;
+        
+        // Prevent undefined crashes and case-sensitive mismatching
+        const dProj = d.project || "";
+        const dTow = d.tower || "";
+        const dUser = d.created_by || "";
+        const dStat = d.status || "";
+        const dLog = d.loggedDate || d.logged_date || "";
+
+        if(currentUser.role !== "admin" && !allowedProjects.includes(dProj)) match = false;
+        if(pFilt !== "All" && dProj !== pFilt) match = false;
+        if(tFilt !== "All" && dTow !== tFilt) match = false;
+        if(userFilt !== "All" && dUser !== userFilt) match = false;
+        if(statFilt !== "All" && dStat.toLowerCase() !== statFilt.toLowerCase()) match = false;
+        
+        if(dateFrom && dLog && new Date(dLog) < new Date(dateFrom)) match = false;
+        if(dateTo && dLog && new Date(dLog) > new Date(dateTo)) match = false;
+        
         return match;
     });
+    
     const tableBody = document.querySelector("#defectsTable tbody");
-    if(tableBody) tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
+    if(tableBody) {
+        tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
+    }
 }
 
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
-    const d = defects.find(x => x.id === id); if(!d) return;
+    // Typecast to handle both string UUIDs or int IDs reliably
+    const d = defects.find(x => x.id == id); if(!d) return;
     if(d.status === "Closed") return alert("This defect has been closed and locked.");
 
     document.getElementById("editDefectId").value = id; document.getElementById("editStatus").value = d.status;
@@ -591,13 +620,11 @@ function openEditModal(id) {
 }
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
-// Fixed and Fully Integrated submitEditDefect function
 async function submitEditDefect() {
-    const id = parseInt(document.getElementById("editDefectId").value);
+    const id = document.getElementById("editDefectId").value;
     const stat = document.getElementById("editStatus").value;
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
     
-    // Custom warning integration
     if(stat === "Closed") { 
         if(!confirm("Warning: Closing this defect will LOCK the record. Proceed?")) return; 
     }
@@ -723,7 +750,6 @@ function renderMapTable() {
     }
 }
 
-// Point C: Hierarchy Saved one by one including Flats
 function saveHierarchy() {
     const p = document.getElementById("setupProjName").value.trim(); 
     const t = document.getElementById("setupTowerName").value.trim(); 
@@ -735,7 +761,6 @@ function saveHierarchy() {
     if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; 
     if(!structuralHierarchy[p][t]) structuralHierarchy[p][t] = {};
     
-    // Updates/Overwrites one floor at a time
     structuralHierarchy[p][t][f] = flats;
     
     localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); 
@@ -757,26 +782,20 @@ function resetHierarchyForm() {
     document.getElementById("setupFlats").value = "";
 }
 
-// Point C & Backward Compatibility: Category saved mapping formatting correctly to all configurations
 function saveCategory() {
     const c = document.getElementById("setupCatName").value.trim(); 
     const s = document.getElementById("setupSpecName").value.trim(); 
     
     if(!c || !s) return alert("Category and Spec are required.");
 
-    // 1. Maintain local memory structural sync
     if(!defectMatrix[c]) defectMatrix[c] = [];
     if(!defectMatrix[c].includes(s)) defectMatrix[c].push(s);
     localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
 
-    // 2. Synchronize with specifications mapping schema format to prevent lookup issues
     try {
         let csmsSpecs = getSafeStorage("csms_specifications", getSafeStorage("specifications_list", []));
         const specExists = csmsSpecs.some(spec => {
-            if (typeof spec === 'object' && spec !== null) {
-                return spec.id === s || spec.name === s || spec.specId === s;
-            }
-            return spec === s;
+            if (typeof spec === 'object' && spec !== null) { return spec.id === s || spec.name === s || spec.specId === s; } return spec === s;
         });
         if (!specExists) {
             csmsSpecs.push({ id: s, name: s, specId: s });
@@ -784,26 +803,20 @@ function saveCategory() {
             localStorage.setItem("specifications_list", JSON.stringify(csmsSpecs));
         }
 
-        // 3. Synchronize with categories mapping schema format
         let csmsCats = getSafeStorage("csms_categories", getSafeStorage("categories_list", []));
         const catExists = csmsCats.some(cat => {
-            if (typeof cat === 'object' && cat !== null) {
-                return cat.id === c || cat.name === c || cat.categoryId === c;
-            }
-            return cat === c;
+            if (typeof cat === 'object' && cat !== null) { return cat.id === c || cat.name === c || cat.categoryId === c; } return cat === c;
         });
         if (!catExists) {
             csmsCats.push({ id: c, name: c, categoryId: c });
             localStorage.setItem("csms_categories", JSON.stringify(csmsCats));
             localStorage.setItem("categories_list", JSON.stringify(csmsCats));
         }
-    } catch(err) {
-        console.error("Format schema mapping synchronization error:", err);
-    }
+    } catch(err) { console.error("Format schema mapping synchronization error:", err); }
 
     refreshDropdowns(); renderAdminTables(); 
     alert("Specification Added Successfully!"); 
-    document.getElementById("setupSpecName").value = ""; // Only clear spec for easy multiple entry
+    document.getElementById("setupSpecName").value = ""; 
 }
 function delCategory(c) { 
     if(confirm(`Delete Complete Category: ${c}?`)) { 
@@ -829,7 +842,6 @@ async function loadMapsFromCloud() {
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
 
-// Point G: PDF + Image Processing for Blueprints
 async function previewMapDrawing(e) {
     const file = e.target.files[0]; if(!file) return; 
     const btn = document.getElementById("btnSubmitMap");
@@ -841,8 +853,8 @@ async function previewMapDrawing(e) {
             fileReader.onload = async function() {
                 const typedarray = new Uint8Array(this.result);
                 const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                const page = await pdf.getPage(1); // Read Page 1
-                const viewport = page.getViewport({ scale: 2.0 }); // High-Quality Scale
+                const page = await pdf.getPage(1); 
+                const viewport = page.getViewport({ scale: 2.0 }); 
                 
                 const canvas = document.createElement("canvas");
                 canvas.width = viewport.width; canvas.height = viewport.height;
@@ -855,7 +867,6 @@ async function previewMapDrawing(e) {
             };
             fileReader.readAsArrayBuffer(file);
         } else {
-            // Normal Image Handling
             const reader = new FileReader(); 
             reader.onload = ev => { 
                 const img = new Image(); img.onload = () => { 
@@ -952,7 +963,6 @@ function changePassword() {
     if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
-// Point B Fix: EXCEL EXPORT PROFESSIONAL FORMATTING
 async function exportExcelWithPhotos(dataToExport) { 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     
@@ -973,10 +983,7 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Final Photo Evidence', key: 'final', width: 20 }
     ];
     
-    // Better column alignment 
-    sheet.columns.forEach(col => {
-        col.alignment = { vertical: 'middle', wrapText: true };
-    });
+    sheet.columns.forEach(col => { col.alignment = { vertical: 'middle', wrapText: true }; });
 
     const hRow = sheet.getRow(1); 
     hRow.font = { bold: true, color: { argb: 'FFFFFF' } }; 
@@ -985,7 +992,7 @@ async function exportExcelWithPhotos(dataToExport) {
     
     dataToExport.forEach((d) => { 
         const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
-        row.height = 75; // Reduced from 110 for a professional compact view
+        row.height = 75; 
         
         const addImgGridToCell = (picsArray, colIdx) => {
             if(!picsArray || picsArray.length === 0) return;
@@ -998,10 +1005,10 @@ async function exportExcelWithPhotos(dataToExport) {
                         
                         sheet.addImage(imageId, {
                             tl: { col: colIdx - 1 + colOffset + 0.05, row: row.number - 1 + rowOffset + 0.05 },
-                            ext: { width: 35, height: 35 }, // Scaled down cleanly
+                            ext: { width: 35, height: 35 }, 
                             editAs: 'oneCell'
                         });
-                    } catch(e) { console.error('Image skipped', e); }
+                    } catch(e) {}
                 }
             });
         };
@@ -1026,6 +1033,6 @@ function exportPDF(dataToExport){
     const windowObj = window.open("", "", "width=950,height=750");
     const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
     let html = `<h1>CSMS Quality Audit</h1>`;
-    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.Type}</div><div><b>Status:</b> ${d.status}<br/><b>Dates:</b> ${d.loggedDate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${d.initialPics.map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
+    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.Type}</div><div><b>Status:</b> ${d.status}<br/><b>Dates:</b> ${d.loggedDate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${(d.initialPics||[]).map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
     windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
 }
