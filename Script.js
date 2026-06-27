@@ -126,8 +126,17 @@ window.addEventListener("DOMContentLoaded", () => {
         sessionStorage.clear();
     }
     
-    document.getElementById("defectForm").addEventListener('input', saveDraftState);
-    document.getElementById("defectForm").addEventListener('change', saveDraftState);
+    const defectForm = document.getElementById("defectForm");
+    if(defectForm) {
+        defectForm.addEventListener('input', saveDraftState);
+        defectForm.addEventListener('change', saveDraftState);
+    }
+
+    // Event Listener setup for dynamic category to specification dropdown loading
+    const defectTypeEl = document.getElementById("defectType");
+    if(defectTypeEl) {
+        defectTypeEl.addEventListener('change', populateDefectList);
+    }
 
     // Point H: Subscribe to real-time events on Supabase
     supabaseClient.channel('public:snag_management').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_management' }, payload => {
@@ -204,7 +213,7 @@ function restoreDraftState() {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
     if(draft.defectType) populateDefectList();
-    if(draft.defectList) document.getElementById("defectList").value = draft.defectList;
+    if(draft.defectList && document.getElementById("defectList")) document.getElementById("defectList").value = draft.defectList;
 }
 
 function showSection(id) {
@@ -215,7 +224,7 @@ function showSection(id) {
     const sec = document.getElementById(id); 
     if(sec) sec.classList.add("active");
     
-    if(event && event.currentTarget) event.currentTarget.classList.add("active");
+    if(window.event && window.event.currentTarget) window.event.currentTarget.classList.add("active");
     else {
         // Find correct nav button for auto-load
         const btns = document.querySelectorAll(".nav-btn");
@@ -226,7 +235,7 @@ function showSection(id) {
     if(id === 'report') renderReportTable();
     if(id === 'dashboard') renderCharts();
     
-    // YEH LINE MISSING THI - Jab Setup tab open ho toh tables refresh hongi
+    // Jab Setup tab open ho toh tables refresh hongi
     if(id === 'setup' && currentUser && currentUser.role === "admin") {
         renderAdminTables(); 
         renderUserSetupCheckboxes(); 
@@ -254,17 +263,30 @@ function refreshDropdowns() {
     }
 }
 
+// Function to populate specification list based on selected category
+function populateDefectList() {
+    const typeVal = document.getElementById("defectType") ? document.getElementById("defectType").value : "";
+    const listSel = document.getElementById("defectList");
+    
+    if(!listSel) return;
+    listSel.innerHTML = '<option value="">-- Select Specification --</option>';
+    
+    if(typeVal && defectMatrix[typeVal]) {
+        defectMatrix[typeVal].forEach(spec => listSel.appendChild(new Option(spec, spec)));
+    }
+}
+
 function clearMapCanvas() {
-    document.getElementById("entryMapWarning").style.display = "block"; 
+    if(document.getElementById("entryMapWarning")) document.getElementById("entryMapWarning").style.display = "block"; 
     canvasConfig.entry.marker = null; 
     canvasConfig.entry.img = null;
     canvasConfig.entry.active = false;
     if(canvasConfig.entry.ctx) {
         const canvas = document.getElementById('entryCanvas');
-        canvasConfig.entry.ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if(canvas) canvasConfig.entry.ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-    document.getElementById("entryCoordX").value = ""; 
-    document.getElementById("entryCoordY").value = "";
+    if(document.getElementById("entryCoordX")) document.getElementById("entryCoordX").value = ""; 
+    if(document.getElementById("entryCoordY")) document.getElementById("entryCoordY").value = "";
     drawCanvas('entry');
 }
 
@@ -321,7 +343,7 @@ function loadEntryMap() {
     const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
     const base64Img = floorMaps[`${p}_${t}_${f}`]; const warn = document.getElementById("entryMapWarning");
     if(base64Img) {
-        warn.style.display = "none"; canvasConfig.entry.active = true;
+        if(warn) warn.style.display = "none"; canvasConfig.entry.active = true;
         const img = new Image(); img.onload = () => { canvasConfig.entry.img = img; const canvas = document.getElementById('entryCanvas'); canvas.width = img.width; canvas.height = img.height; drawCanvas('entry'); }; img.src = base64Img;
     } else {
         clearMapCanvas();
@@ -330,12 +352,14 @@ function loadEntryMap() {
 
 function drawCanvas(type) {
     const c = canvasConfig[type]; const canvas = document.getElementById(`${type}Canvas`);
-    if(!c.img || !c.ctx) return;
+    if(!c.img || !c.ctx || !canvas) return;
     c.ctx.clearRect(0, 0, canvas.width, canvas.height); 
     c.ctx.drawImage(c.img, 0, 0);
     
     if(type === 'entry') {
-        const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
+        const p = document.getElementById("project") ? document.getElementById("project").value : ""; 
+        const t = document.getElementById("tower") ? document.getElementById("tower").value : ""; 
+        const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
         defects.forEach(d => {
             if(d.project === p && d.tower === t && d.floor === f && d.status !== 'Closed' && d.map_x && d.map_y && d.map_x !== "0") {
                 c.ctx.beginPath(); c.ctx.arc(d.map_x, d.map_y, 10, 0, 2 * Math.PI); c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke();
@@ -423,7 +447,7 @@ async function saveDefect(){
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Record Logged Successfully!"); document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); await loadDefectsFromCloud(true); } else throw await res.json();
     } catch(err) { alert("Error: " + JSON.stringify(err)); }
-    finally { const btn = document.getElementById("mainSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; }
+    finally { const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; } }
 }
 
 async function syncOfflineData() {
@@ -448,7 +472,8 @@ function startAutoRefresh() {
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
-        if(!isBackground) document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
+        const syncBadge = document.getElementById("liveSyncBadge");
+        if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
         // Cache busting: timestamp added to prevent browser from showing old data
         const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&_=${new Date().getTime()}`, { 
@@ -460,9 +485,9 @@ async function loadDefectsFromCloud(isBackground = false) {
             defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
             
             // Render logic
-            if(document.getElementById('report').classList.contains('active')) renderReportTable();
-            if(document.getElementById('dashboard').classList.contains('active')) renderCharts();
-            if(document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
+            if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
+            if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) renderCharts();
+            if(document.getElementById('entry') && document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
         }
     } catch(e) { console.error(e); }
     finally { 
@@ -512,7 +537,7 @@ function generateTableRowsHtml(dataArray) {
 
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
-    const pFilt = document.getElementById("reportProject").value;
+    const pFilt = document.getElementById("reportProject") ? document.getElementById("reportProject").value : "All";
     const tFilt = document.getElementById("reportTower") ? document.getElementById("reportTower").value : "All";
     const userFilt = document.getElementById("reportCreatedBy") ? document.getElementById("reportCreatedBy").value : "All";
     const statFilt = document.getElementById("reportStatus") ? document.getElementById("reportStatus").value : "All";
@@ -520,14 +545,16 @@ function renderReportTable(){
     const dateTo = document.getElementById("reportDateTo") ? document.getElementById("reportDateTo").value : "";
 
     const tSel = document.getElementById("reportTower");
-    if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
-        tSel.innerHTML = "<option value='All'>All Towers</option>";
-        const allowedTowers = getAllowedTowers(pFilt);
-        allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
-        tSel.setAttribute("data-proj", pFilt);
-    } else if (pFilt === "All") {
-        tSel.innerHTML = "<option value='All'>All Towers</option>";
-        tSel.setAttribute("data-proj", "All");
+    if(tSel) {
+        if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
+            tSel.innerHTML = "<option value='All'>All Towers</option>";
+            const allowedTowers = getAllowedTowers(pFilt);
+            allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
+            tSel.setAttribute("data-proj", pFilt);
+        } else if (pFilt === "All") {
+            tSel.innerHTML = "<option value='All'>All Towers</option>";
+            tSel.setAttribute("data-proj", "All");
+        }
     }
 
     filteredReportData = defects.filter(d => {
@@ -541,7 +568,8 @@ function renderReportTable(){
         if(dateTo && new Date(d.loggedDate) > new Date(dateTo)) match = false;
         return match;
     });
-    document.querySelector("#defectsTable tbody").innerHTML = generateTableRowsHtml(filteredReportData);
+    const tableBody = document.querySelector("#defectsTable tbody");
+    if(tableBody) tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
 }
 
 function openEditModal(id) {
@@ -558,16 +586,21 @@ function openEditModal(id) {
         canvasConfig.modal.marker = {x: parseFloat(d.map_x), y: parseFloat(d.map_y)};
         const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); };
         img.src = base64Img;
-    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0,0,100,100); }
+    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0,0,100,100); }
     document.getElementById("editModal").style.display = "flex";
 }
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
+// Fixed and Fully Integrated submitEditDefect function
 async function submitEditDefect() {
     const id = parseInt(document.getElementById("editDefectId").value);
     const stat = document.getElementById("editStatus").value;
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
-    if(stat === "Closed") { if(!confirm("Warning: Closing this defect will LOCK the record and prevent further edits. Proceed?")) return; }
+    
+    // Custom warning integration
+    if(stat === "Closed") { 
+        if(!confirm("Warning: Closing this defect will LOCK the record. Proceed?")) return; 
+    }
 
     let payload = { status: stat, final_photos: editTempPhotos.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
     if(stat === "Closed") payload.closed_by = getFullName(currentUser);
@@ -575,12 +608,12 @@ async function submitEditDefect() {
     const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_management?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/snag_management?id=eq.${id}`;
 
     try {
-        const btn = document.getElementById("editSubmitBtn"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving...";
+        const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
         const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(payload) });
         if(res.ok) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
         else throw await res.json();
     } catch(e) { alert("Network error. Update Failed."); }
-    finally { const btn = document.getElementById("editSubmitBtn"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Updates"; }
+    finally { const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Updates"; } }
 }
 
 function openZoomImage(url) { document.getElementById("zoomedImage").src = url; document.getElementById("imageZoomModal").style.display = "flex"; }
@@ -589,7 +622,9 @@ function closeImageZoom() { document.getElementById("imageZoomModal").style.disp
 function openDrillModal(title, data) {
     currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
     let html = generateTableRowsHtml(data); 
-    document.querySelector("#drilldownTable tbody").innerHTML = html; document.getElementById("drilldownModal").style.display = "flex";
+    const drillBody = document.querySelector("#drilldownTable tbody");
+    if(drillBody) drillBody.innerHTML = html; 
+    document.getElementById("drilldownModal").style.display = "flex";
 }
 function closeDrillModal() { document.getElementById("drilldownModal").style.display = "none"; }
 
@@ -722,17 +757,50 @@ function resetHierarchyForm() {
     document.getElementById("setupFlats").value = "";
 }
 
-// Point C: Category saved one by one (Appending specs)
+// Point C & Backward Compatibility: Category saved mapping formatting correctly to all configurations
 function saveCategory() {
     const c = document.getElementById("setupCatName").value.trim(); 
     const s = document.getElementById("setupSpecName").value.trim(); 
     
     if(!c || !s) return alert("Category and Spec are required.");
 
+    // 1. Maintain local memory structural sync
     if(!defectMatrix[c]) defectMatrix[c] = [];
     if(!defectMatrix[c].includes(s)) defectMatrix[c].push(s);
-
     localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
+
+    // 2. Synchronize with specifications mapping schema format to prevent lookup issues
+    try {
+        let csmsSpecs = getSafeStorage("csms_specifications", getSafeStorage("specifications_list", []));
+        const specExists = csmsSpecs.some(spec => {
+            if (typeof spec === 'object' && spec !== null) {
+                return spec.id === s || spec.name === s || spec.specId === s;
+            }
+            return spec === s;
+        });
+        if (!specExists) {
+            csmsSpecs.push({ id: s, name: s, specId: s });
+            localStorage.setItem("csms_specifications", JSON.stringify(csmsSpecs));
+            localStorage.setItem("specifications_list", JSON.stringify(csmsSpecs));
+        }
+
+        // 3. Synchronize with categories mapping schema format
+        let csmsCats = getSafeStorage("csms_categories", getSafeStorage("categories_list", []));
+        const catExists = csmsCats.some(cat => {
+            if (typeof cat === 'object' && cat !== null) {
+                return cat.id === c || cat.name === c || cat.categoryId === c;
+            }
+            return cat === c;
+        });
+        if (!catExists) {
+            csmsCats.push({ id: c, name: c, categoryId: c });
+            localStorage.setItem("csms_categories", JSON.stringify(csmsCats));
+            localStorage.setItem("categories_list", JSON.stringify(csmsCats));
+        }
+    } catch(err) {
+        console.error("Format schema mapping synchronization error:", err);
+    }
+
     refreshDropdowns(); renderAdminTables(); 
     alert("Specification Added Successfully!"); 
     document.getElementById("setupSpecName").value = ""; // Only clear spec for easy multiple entry
@@ -754,7 +822,7 @@ async function loadMapsFromCloud() {
             const data = await res.json();
             data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
             localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps));
-            if(document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
+            if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
         }
     } catch(e) { console.error("Map sync error", e); }
 }
@@ -860,7 +928,7 @@ function saveSystemUser() {
 function resetUserForm() {
     document.getElementById("suFirst").value = ""; document.getElementById("suLast").value = ""; document.getElementById("suMiddle").value = "";
     document.getElementById("suEmail").value = ""; document.getElementById("suPass").value = ""; document.getElementById("editUserKey").value = "";
-    document.querySelectorAll(".proj-chk").forEach(cb => cb.checked = false); document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-user-plus'></i> Save User";
+    document.querySelectorAll(".proj-chk").forEach(cb => cb.checked = false); const saveBtn = document.getElementById("btnSaveUser"); if(saveBtn) saveBtn.innerHTML = "<i class='fas fa-user-plus'></i> Save User";
 }
 function editUser(email) {
     const u = USER_MATRIX.find(x => x.id === email); if(!u) return;
@@ -868,7 +936,7 @@ function editUser(email) {
     document.getElementById("suEmail").value = u.id; document.getElementById("suPass").value = u.pass; document.getElementById("suRole").value = u.role; toggleProjectRights();
     document.getElementById("suRights").value = u.permission; document.getElementById("editUserKey").value = u.id;
     document.querySelectorAll(".proj-chk").forEach(cb => { if(u.projects.includes("All") || u.projects.includes(cb.value)) cb.checked = true; else cb.checked = false; });
-    document.getElementById("btnSaveUser").innerHTML = "<i class='fas fa-save'></i> Update User";
+    const saveBtn = document.getElementById("btnSaveUser"); if(saveBtn) saveBtn.innerHTML = "<i class='fas fa-save'></i> Update User";
 }
 function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody"); if(!tbody) return;
