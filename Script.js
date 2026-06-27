@@ -2,13 +2,10 @@
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
-// Point H: Initialize Supabase Client for Realtime Sync
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Set PDF worker URL for Blueprint generation
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-// Utility: Safe Storage Loading to prevent crashes
 function getSafeStorage(key, defaultValue) {
     try {
         const item = localStorage.getItem(key);
@@ -20,9 +17,6 @@ function getSafeStorage(key, defaultValue) {
     }
 }
 
-// =========================================================================
-// Data Mapping Helpers for Category & Specification
-// =========================================================================
 function resolveCategoryName(catValue) {
     if (!catValue) return "-";
     try {
@@ -51,7 +45,6 @@ const DEFAULT_USERS = [
     { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
 ];
 
-// Global Variables
 let USER_MATRIX = getSafeStorage("qa_users", DEFAULT_USERS);
 let currentUser = null;
 let defects = [];
@@ -84,7 +77,6 @@ let canvasConfig = {
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-// NETWORK & STORAGE MONITORING
 window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
@@ -104,7 +96,7 @@ setInterval(() => {
         alert("Session Expired due to inactivity. You have been logged out securely.");
         manualLogout(); 
     }
-}, 60000); // 1 minute per tick
+}, 60000); 
 
 window.addEventListener("DOMContentLoaded", () => {
     if(!navigator.onLine) { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; }
@@ -131,13 +123,11 @@ window.addEventListener("DOMContentLoaded", () => {
         defectTypeEl.addEventListener('change', populateDefectList);
     }
 
-    // NEW FIX: Bind automatic render to all Report dropdown filters
     ["reportProject", "reportTower", "reportCreatedBy", "reportStatus", "reportDateFrom", "reportDateTo"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.addEventListener('change', renderReportTable);
     });
 
-    // Realtime Sync
     supabaseClient.channel('public:snag_management').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_management' }, payload => {
         if(navigator.onLine) {
             console.log("Realtime Sync Triggered", payload);
@@ -228,10 +218,9 @@ function showSection(id) {
         btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
     }
     
-    // NEW FIX: Force backend fetch and re-render every time Report tab is opened
     if(id === 'report') {
-        renderReportTable(); // Render immediately with cached data
-        loadDefectsFromCloud(true); // Fetch latest quietly
+        renderReportTable(); 
+        loadDefectsFromCloud(true); 
     }
     if(id === 'dashboard') {
         if(typeof renderCharts === 'function') renderCharts();
@@ -244,8 +233,16 @@ function showSection(id) {
     }
 }
 
-function getAllowedProjects() { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); }
-function getAllowedTowers(proj) { if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); }
+function getAllowedProjects() { 
+    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); 
+    return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); 
+}
+
+function getAllowedTowers(proj) { 
+    if(!structuralHierarchy[proj]) return [];
+    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); 
+    return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); 
+}
 
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
@@ -371,7 +368,6 @@ function drawCanvas(type) {
 function zoomCanvas(id, factor) { const type = id.replace('Canvas', ''); canvasConfig[type].scale *= factor; document.getElementById(id).style.transform = `scale(${canvasConfig[type].scale})`; }
 function resetCanvas(id) { const type = id.replace('Canvas', ''); canvasConfig[type].scale = 1; document.getElementById(id).style.transform = `scale(1)`; }
 
-// Photos Logic
 function triggerPhoto(){ if(tempPhotos.length >= 4) return alert("Max 4 photos allowed."); document.getElementById("photoInput").click(); }
 function triggerEditPhoto(){ if(editTempPhotos.length >= 3) return alert("Max 3 photos allowed."); document.getElementById("editPhotoInput").click(); }
 function onPhotoPicked(event){ processFile(event, tempPhotos, renderPhotoPreview); }
@@ -466,7 +462,6 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
-// Data Fetch & Real-Time Setup
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
@@ -479,9 +474,14 @@ async function loadDefectsFromCloud(isBackground = false) {
         
         if(res.ok) {
             const data = await res.json();
-            defects = data.map((d, i) => ({ ...d, serial: data.length - i, initialPics: d.photos ? d.photos.split("|||") : [], finalPics: d.final_photos ? d.final_photos.split("|||") : [] }));
+            // Robust parsing of photo strings
+            defects = data.map((d, i) => ({ 
+                ...d, 
+                serial: data.length - i, 
+                initialPics: d.photos ? d.photos.split("|||").filter(Boolean) : [], 
+                finalPics: d.final_photos ? d.final_photos.split("|||").filter(Boolean) : [] 
+            }));
             
-            // Re-render UI if Active
             if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) {
                 if(typeof renderCharts === 'function') renderCharts();
@@ -497,19 +497,17 @@ async function loadDefectsFromCloud(isBackground = false) {
     }
 }
 
-// =========================================================================
-// BULLETPROOF HTML GENERATION 
-// Har data point ke liye || "-" add kiya hai taaki null data render na tode
-// =========================================================================
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
     return dataArray.map(d => {
-        const initialHtml = `<div class="img-grid-cell">${(d.initialPics||[]).map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
-        const finalHtml = `<div class="img-grid-cell">${(d.finalPics||[]).map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(p => p && p.trim() !== "") : [];
+        const finPics = Array.isArray(d.finalPics) ? d.finalPics.filter(p => p && p.trim() !== "") : [];
+        
+        const initialHtml = `<div class="img-grid-cell">${initPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
         if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
-        // ID wrapped in string quotes to prevent JS parsing errors for UUIDs
         else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
@@ -535,9 +533,6 @@ function generateTableRowsHtml(dataArray) {
     }).join("");
 }
 
-// =========================================================================
-// UPDATED REPORT TABLE RENDER (100% Robust Filtering)
-// =========================================================================
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     
@@ -545,6 +540,20 @@ function renderReportTable(){
     const pFilt = pFiltSel ? pFiltSel.value : "All";
     
     const tSel = document.getElementById("reportTower");
+    
+    if(tSel) {
+        if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
+            tSel.innerHTML = "<option value='All'>All Towers</option>";
+            const allowedTowers = getAllowedTowers(pFilt);
+            allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
+            tSel.setAttribute("data-proj", pFilt);
+        } else if (pFilt === "All" && tSel.getAttribute("data-proj") !== "All") {
+            tSel.innerHTML = "<option value='All'>All Towers</option>";
+            tSel.setAttribute("data-proj", "All");
+        }
+    }
+
+    // Capture tFilt AFTER dynamic DOM modifications
     const tFilt = tSel ? tSel.value : "All";
     
     const uSel = document.getElementById("reportCreatedBy");
@@ -559,33 +568,20 @@ function renderReportTable(){
     const dateToEl = document.getElementById("reportDateTo");
     const dateTo = dateToEl ? dateToEl.value : "";
 
-    // Adjust Tower Dropdown dynamically
-    if(tSel) {
-        if(pFilt !== "All" && pFilt !== tSel.getAttribute("data-proj")) {
-            tSel.innerHTML = "<option value='All'>All Towers</option>";
-            const allowedTowers = getAllowedTowers(pFilt);
-            allowedTowers.forEach(t => tSel.appendChild(new Option(t, t)));
-            tSel.setAttribute("data-proj", pFilt);
-        } else if (pFilt === "All" && tSel.getAttribute("data-proj") !== "All") {
-            tSel.innerHTML = "<option value='All'>All Towers</option>";
-            tSel.setAttribute("data-proj", "All");
-        }
-    }
-
     filteredReportData = defects.filter(d => {
         let match = true;
         
-        // Prevent undefined crashes and case-sensitive mismatching
-        const dProj = d.project || "";
-        const dTow = d.tower || "";
-        const dUser = d.created_by || "";
-        const dStat = d.status || "";
+        const dProj = (d.project || "").trim();
+        const dTow = (d.tower || "").trim();
+        const dUser = (d.created_by || "").trim();
+        const dStat = (d.status || "").trim();
         const dLog = d.loggedDate || d.logged_date || "";
 
         if(currentUser.role !== "admin" && !allowedProjects.includes(dProj)) match = false;
-        if(pFilt !== "All" && dProj !== pFilt) match = false;
-        if(tFilt !== "All" && dTow !== tFilt) match = false;
-        if(userFilt !== "All" && dUser !== userFilt) match = false;
+        
+        if(pFilt !== "All" && dProj.toLowerCase() !== pFilt.toLowerCase()) match = false;
+        if(tFilt !== "All" && dTow.toLowerCase() !== tFilt.toLowerCase()) match = false;
+        if(userFilt !== "All" && dUser.toLowerCase() !== userFilt.toLowerCase()) match = false;
         if(statFilt !== "All" && dStat.toLowerCase() !== statFilt.toLowerCase()) match = false;
         
         if(dateFrom && dLog && new Date(dLog) < new Date(dateFrom)) match = false;
@@ -602,13 +598,16 @@ function renderReportTable(){
 
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
-    // Typecast to handle both string UUIDs or int IDs reliably
     const d = defects.find(x => x.id == id); if(!d) return;
     if(d.status === "Closed") return alert("This defect has been closed and locked.");
 
     document.getElementById("editDefectId").value = id; document.getElementById("editStatus").value = d.status;
-    document.getElementById("editInitialPhotoWrap").innerHTML = d.initialPics.map(p => `<div class="thumb"><img src="${p}" onclick="openZoomImage('${p}')"/></div>`).join('');
-    editTempPhotos = [...d.finalPics]; renderEditPhotoPreview();
+    
+    const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(Boolean) : [];
+    document.getElementById("editInitialPhotoWrap").innerHTML = initPics.map(p => `<div class="thumb"><img src="${p}" onclick="openZoomImage('${p}')"/></div>`).join('');
+    
+    editTempPhotos = Array.isArray(d.finalPics) ? [...d.finalPics.filter(Boolean)] : []; 
+    renderEditPhotoPreview();
 
     const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}`];
     if(base64Img && d.map_x && d.map_y) {
