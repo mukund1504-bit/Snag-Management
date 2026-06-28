@@ -246,16 +246,39 @@ function getAllowedTowers(proj) {
 
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
+    
+    // 1. Project Dropdowns - Selection Memory ke sath
     ["project", "reportProject", "dashboardProjectFilter", "mapSetupProject"].forEach(id => {
-        const el = document.getElementById(id); if(!el) return;
+        const el = document.getElementById(id); 
+        if(!el) return;
+        
+        // Yaad rakho user ne kya select kiya hai
+        const currentValue = el.value; 
+
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
+        
+        // Refresh ke baad purani value wapas set kar do
+        if (currentValue && Array.from(el.options).some(opt => opt.value === currentValue)) {
+            el.value = currentValue;
+        }
     });
     
+    // 2. Category Dropdown - Selection Memory ke sath
     const typeSel = document.getElementById("defectcategory");
-    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
+    if(typeSel) { 
+        const currentCatValue = typeSel.value; // Yaad rakho
+
+        typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; 
+        Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); 
+        
+        // Refresh ke baad category ki value wapas set kar do
+        if (currentCatValue) {
+            typeSel.value = currentCatValue;
+        }
+    }
     
-    // --- SMART CLOUD SYNC FOR USERS FILTER ---
+    // 3. SMART CLOUD SYNC FOR USERS FILTER
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
         const currentSelection = uSel.value; // User ka selected filter save rakhein
@@ -263,10 +286,10 @@ function refreshDropdowns() {
         
         let uniqueUsers = new Set();
         
-        // 1. Local device users add karein
+        // Local device users add karein
         USER_MATRIX.forEach(u => uniqueUsers.add(getFullName(u)));
         
-        // 2. Cloud (Supabase) records se live users extract karein
+        // Cloud (Supabase) records se live users extract karein
         if (defects && defects.length > 0) {
             defects.forEach(d => {
                 const creator = d.createdby || d.created_by || d.createdBy;
