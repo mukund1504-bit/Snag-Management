@@ -251,13 +251,35 @@ function refreshDropdowns() {
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
+    
     const typeSel = document.getElementById("defectcategory");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
+    // --- SMART CLOUD SYNC FOR USERS FILTER ---
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
+        const currentSelection = uSel.value; // User ka selected filter save rakhein
         uSel.innerHTML = "<option value='All'>All Users</option>";
-        USER_MATRIX.forEach(u => uSel.appendChild(new Option(getFullName(u), getFullName(u))));
+        
+        let uniqueUsers = new Set();
+        
+        // 1. Local device users add karein
+        USER_MATRIX.forEach(u => uniqueUsers.add(getFullName(u)));
+        
+        // 2. Cloud (Supabase) records se live users extract karein
+        if (defects && defects.length > 0) {
+            defects.forEach(d => {
+                const creator = d.createdby || d.created_by || d.createdBy;
+                if(creator && creator !== "-") uniqueUsers.add(creator);
+            });
+        }
+        
+        uniqueUsers.forEach(name => uSel.appendChild(new Option(name, name)));
+        
+        // Dropdown reset na ho uske liye value wapas set karein
+        if (uniqueUsers.has(currentSelection) || currentSelection === 'All') {
+            uSel.value = currentSelection; 
+        }
     }
 }
 
@@ -486,7 +508,6 @@ async function loadDefectsFromCloud(isBackground = false) {
         const syncBadge = document.getElementById("liveSyncBadge");
         if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
-        // Fetch strictly from the lowercase standardized table
         const { data, error } = await supabaseClient
             .from('snagmanagement')
             .select('*')
@@ -500,7 +521,6 @@ async function loadDefectsFromCloud(isBackground = false) {
         
         if(data) {
             // BACKWARD COMPATIBILITY MAPPING
-            // Silently maps any legacy naming variations into standard lowercase variables so everything works seamlessly.
             defects = data.map((d, i) => {
                 const mappedObj = { 
                     ...d, 
@@ -526,6 +546,9 @@ async function loadDefectsFromCloud(isBackground = false) {
                 mappedObj.finalPics = mappedObj.finalphotos ? mappedObj.finalphotos.split("|||").filter(Boolean) : [];
                 return mappedObj;
             });
+            
+            // YEH EK LINE ADD KI GAYI HAI: Data fetch hote hi user filter update ho jayega
+            refreshDropdowns(); 
             
             if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) {
