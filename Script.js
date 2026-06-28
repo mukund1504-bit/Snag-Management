@@ -418,7 +418,7 @@ async function saveDefect(){
 
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        typ: document.getElementById("type").value, defectList: document.getElementById("defectList").value,
+        defecttype: document.getElementById("defecttype").value, defectList: document.getElementById("defectList").value,
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
