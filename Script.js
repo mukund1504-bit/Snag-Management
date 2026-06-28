@@ -252,7 +252,7 @@ function refreshDropdowns() {
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
     const typeSel = document.getElementById("defecttype");
-    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
+    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
@@ -418,7 +418,7 @@ async function saveDefect(){
 
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        Type: document.getElementById("defecttype").value, defectList: document.getElementById("defectList").value,
+        typ: document.getElementById("type").value, defectList: document.getElementById("defectList").value,
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
@@ -539,7 +539,7 @@ function renderReportTable(){
     const dateToEl = document.getElementById("reportDateTo");
     const dateTo = dateToEl ? dateToEl.value : "";
 
-    // 100% Type-Safe & Case-Insensitive Filters
+    // 100% type-Safe & Case-Insensitive Filters
     filteredReportData = (defects || []).filter(d => {
         let match = true;
         
@@ -599,7 +599,7 @@ function generateTableRowsHtml(dataArray) {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
-        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId || "-");
+        const resolvedCategory = resolveCategoryName(d.type || d.category || d.categoryId || "-");
         const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || "-");
         
         return `<tr>
@@ -713,8 +713,8 @@ function renderCharts() {
     else if(filterAnalytic === "defect") {
         tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
         filteredData.forEach(d => {
-            let k = `${d.project}_${d.Type}`;
-            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.Type, tot:0 };
+            let k = `${d.project}_${d.type}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.type, tot:0 };
             matrixData[k].tot++;
         });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillCat('${m.p}','${m.t}')">${m.tot}</a></td></tr>`).join('');
@@ -732,13 +732,13 @@ function renderCharts() {
 
     const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
     chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
-    const catMap = {}; filteredData.forEach(d => catMap[d.Type] = (catMap[d.Type]||0)+1);
+    const catMap = {}; filteredData.forEach(d => catMap[d.type] = (catMap[d.type]||0)+1);
     chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#8b5cf6' }] }, options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false }});
 }
 
 function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
 function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
-function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && (d.Type===t || d.category===t || d.categoryId===t)); openDrillModal(`${p} - ${t}`, data); }
+function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && (d.type===t || d.category===t || d.categoryId===t)); openDrillModal(`${p} - ${t}`, data); }
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
 function renderAdminTables() {
@@ -992,7 +992,7 @@ async function exportExcelWithPhotos(dataToExport) {
     sheet.columns = [ 
         { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
         { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
-        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'Type', width: 20 }, 
+        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'type', width: 20 }, 
         { header: 'Specification', key: 'defectList', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
         { header: 'Created By', key: 'created_by', width: 18 }, { header: 'Closed By', key: 'closed_by', width: 18 },
         { header: 'Risk', key: 'intensity', width: 12 }, { header: 'Status', key: 'status', width: 12 }, 
