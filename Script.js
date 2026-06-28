@@ -434,13 +434,16 @@ async function saveDefect(){
 
     try {
         const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        if(res.ok) { 
+        
+        // Upgraded to use Supabase SDK
+        const { error } = await supabaseClient.from('snag_management').insert([payload]);
+        
+        if(!error) { 
             alert("Record Logged Successfully!"); 
             document.getElementById("defectForm").reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem("csms_draft_form"); 
             await loadDefectsFromCloud(true); 
-        } else throw await res.json();
-    } catch(err) { alert("Error: " + JSON.stringify(err)); }
+        } else throw error;
+    } catch(err) { alert("Error: " + JSON.stringify(err.message || err)); }
     finally { const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; } }
 }
 
@@ -448,7 +451,10 @@ async function syncOfflineData() {
     let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; if(queue.length === 0) return;
     let successCount = 0;
     for(let payload of queue) {
-        try { const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if(res.ok) successCount++; } catch(e) {}
+        try { 
+            const { error } = await supabaseClient.from('snag_management').insert([payload]); 
+            if(!error) successCount++; 
+        } catch(e) {}
     }
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
@@ -462,19 +468,25 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
+// 100% UPGRADED FETCH FUNCTION TO PREVENT 400 BAD REQUEST
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         const syncBadge = document.getElementById("liveSyncBadge");
         if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_management?select=*&order=id.desc&_=${new Date().getTime()}`, { 
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
+        // Using Official Supabase SDK for flawless data retrieval
+        const { data, error } = await supabaseClient
+            .from('snag_management')
+            .select('*')
+            .order('id', { ascending: false });
         
-        if(res.ok) {
-            const data = await res.json();
-            // Robust parsing of photo strings
+        if (error) {
+            console.error("Supabase API Error:", error.message);
+            return;
+        }
+        
+        if(data) {
             defects = data.map((d, i) => ({ 
                 ...d, 
                 serial: data.length - i, 
@@ -487,16 +499,15 @@ async function loadDefectsFromCloud(isBackground = false) {
                 if(typeof renderCharts === 'function') renderCharts();
             }
             if(document.getElementById('entry') && document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
-        } else {
-            console.error("Failed to fetch from cloud. Response not ok.");
         }
-    } catch(e) { console.error("Error loading defects:", e); }
+    } catch(e) { console.error("Critical Error loading defects:", e); }
     finally { 
         if(document.getElementById("liveSyncBadge")) 
             document.getElementById("liveSyncBadge").innerHTML = "<i class='fas fa-check-circle'></i> LIVE SYNC"; 
     }
 }
 
+// UPGRADED TO BE 100% SAFE AGAINST MISSING DATA (Backward compatible rendering)
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
     return dataArray.map(d => {
@@ -517,22 +528,23 @@ function generateTableRowsHtml(dataArray) {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
-        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId);
-        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || d.spec);
+        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId || "-");
+        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || "-");
         
         return `<tr>
                 <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
                 <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
                 <td>${resolvedSpec}</td>
                 <td>${d.remark || "-"}</td>
-                <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
-                <td>${d.intensity || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
-                <td>${d.loggedDate || d.logged_date || "-"}</td><td>${d.dueDate || "-"}</td><td>${d.closedDate || d.closed_date || "-"}</td><td>${d.delay || "-"}</td>
+                <td>${mapHtml}</td><td><b>${d.created_by || d.createdBy || "-"}</b></td><td><b>${d.closed_by || d.closedBy || "-"}</b></td>
+                <td>${d.intensity || d.risk || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
+                <td>${d.loggedDate || d.logged_date || d.loggedAt || "-"}</td><td>${d.dueDate || d.sla || "-"}</td><td>${d.closedDate || d.closed_date || d.closedAt || "-"}</td><td>${d.delay || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
             </tr>`;
     }).join("");
 }
 
+// UPGRADED ROBUST FILTERING LOGIC
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     
@@ -553,31 +565,27 @@ function renderReportTable(){
         }
     }
 
-    // Capture tFilt AFTER dynamic DOM modifications
     const tFilt = tSel ? tSel.value : "All";
-    
     const uSel = document.getElementById("reportCreatedBy");
     const userFilt = uSel ? uSel.value : "All";
-    
     const statSel = document.getElementById("reportStatus");
     const statFilt = statSel ? statSel.value : "All";
-    
     const dateFromEl = document.getElementById("reportDateFrom");
     const dateFrom = dateFromEl ? dateFromEl.value : "";
-    
     const dateToEl = document.getElementById("reportDateTo");
     const dateTo = dateToEl ? dateToEl.value : "";
 
-    filteredReportData = defects.filter(d => {
+    // Null safety filters
+    filteredReportData = (defects || []).filter(d => {
         let match = true;
         
         const dProj = (d.project || "").trim();
         const dTow = (d.tower || "").trim();
-        const dUser = (d.created_by || "").trim();
+        const dUser = (d.created_by || d.createdBy || "").trim();
         const dStat = (d.status || "").trim();
-        const dLog = d.loggedDate || d.logged_date || "";
+        const dLog = d.loggedDate || d.logged_date || d.loggedAt || "";
 
-        if(currentUser.role !== "admin" && !allowedProjects.includes(dProj)) match = false;
+        if(currentUser && currentUser.role !== "admin" && !allowedProjects.includes(dProj)) match = false;
         
         if(pFilt !== "All" && dProj.toLowerCase() !== pFilt.toLowerCase()) match = false;
         if(tFilt !== "All" && dTow.toLowerCase() !== tFilt.toLowerCase()) match = false;
@@ -592,7 +600,11 @@ function renderReportTable(){
     
     const tableBody = document.querySelector("#defectsTable tbody");
     if(tableBody) {
-        tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
+        if(filteredReportData.length === 0) {
+             tableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">No records found.</td></tr>';
+        } else {
+             tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
+        }
     }
 }
 
@@ -631,14 +643,15 @@ async function submitEditDefect() {
     let payload = { status: stat, final_photos: editTempPhotos.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
     if(stat === "Closed") payload.closed_by = getFullName(currentUser);
 
-    const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_management?id=eq.${id}` : `${SUPABASE_URL}/rest/v1/snag_management?id=eq.${id}`;
-
     try {
         const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
-        const res = await fetch(finalUrl, { method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }, body: JSON.stringify(payload) });
-        if(res.ok) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
-        else throw await res.json();
-    } catch(e) { alert("Network error. Update Failed."); }
+        
+        // Upgraded to use Supabase SDK
+        const { error } = await supabaseClient.from('snag_management').update(payload).eq('id', id);
+        
+        if(!error) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
+        else throw error;
+    } catch(e) { alert("Network error. Update Failed: " + JSON.stringify(e.message || e)); }
     finally { const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Updates"; } }
 }
 
@@ -657,7 +670,7 @@ function closeDrillModal() { document.getElementById("drilldownModal").style.dis
 let chartsObj = {};
 function renderCharts() {
     const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
-    const filteredData = defects.filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj));
+    const filteredData = (defects || []).filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj));
     Object.keys(chartsObj).forEach(k => { if(chartsObj[k]) chartsObj[k].destroy(); });
     
     const projMap = {}; const statMap = { "Open": 0, "In Progress": 0, "Closed": 0 };
@@ -718,7 +731,7 @@ function renderCharts() {
 
 function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
 function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
-function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.Type===t); openDrillModal(`${p} - ${t}`, data); }
+function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && (d.Type===t || d.category===t || d.categoryId===t)); openDrillModal(`${p} - ${t}`, data); }
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
 function renderAdminTables() {
@@ -829,9 +842,8 @@ function resetCategoryForm() { document.getElementById("categoryForm").reset(); 
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return;
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }});
-        if(res.ok) {
-            const data = await res.json();
+        const { data, error } = await supabaseClient.from('snag_maps').select('*');
+        if(!error && data) {
             data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
             localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps));
             if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
@@ -893,23 +905,25 @@ async function submitMapDrawing() {
     try {
         const btn = document.getElementById("btnSubmitMap"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
         const payload = { map_key: mapKey, base64_image: base64 };
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/snag_maps?on_conflict=map_key`, { method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" }, body: JSON.stringify(payload) });
-        if(res.ok) { 
+        const { error } = await supabaseClient.from('snag_maps').upsert([payload], { onConflict: 'map_key' });
+        
+        if(!error) { 
             floorMaps[mapKey] = base64; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
             alert("Floor Map Successfully Saved to Backend!"); 
             renderMapTable(); 
             document.getElementById("tempMapBase64").value = ""; document.getElementById("mapSetupFile").value = "";
-        } else throw await res.json();
-    } catch(err) { alert("Error saving map: " + JSON.stringify(err)); }
+        } else throw error;
+    } catch(err) { alert("Error saving map: " + JSON.stringify(err.message || err)); }
     finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
 }
 
 async function delMap(k) { 
     if(!confirm("Delete Floor Map from Database?")) return;
     try {
-        const finalUrl = SUPABASE_URL.includes('/rest/v1') ? `${SUPABASE_URL}/snag_maps?map_key=eq.${k}` : `${SUPABASE_URL}/rest/v1/snag_maps?map_key=eq.${k}`;
-        await fetch(finalUrl, { method: "DELETE", headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }});
-        delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderMapTable();
+        const { error } = await supabaseClient.from('snag_maps').delete().eq('map_key', k);
+        if(!error) {
+            delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderMapTable();
+        }
     } catch(e) { console.error("Could not delete from backend", e); }
 }
 
