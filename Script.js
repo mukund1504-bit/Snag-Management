@@ -118,9 +118,9 @@ window.addEventListener("DOMContentLoaded", () => {
         defectForm.addEventListener('change', saveDraftState);
     }
 
-    const defectTypeEl = document.getElementById("defectType");
-    if(defectTypeEl) {
-        defectTypeEl.addEventListener('change', populateDefectList);
+    const defecttypeEl = document.getElementById("defecttype");
+    if(defecttypeEl) {
+        defecttypeEl.addEventListener('change', populateDefectList);
     }
 
     ["reportProject", "reportTower", "reportCreatedBy", "reportStatus", "reportDateFrom", "reportDateTo"].forEach(id => {
@@ -184,7 +184,7 @@ function activateApp() {
 
 function saveDraftState() {
     const formObj = {};
-    ['project','tower','floor','flatNo','defectType','defectList','intensity','status','dueDate','remark'].forEach(id => {
+    ['project','tower','floor','flatNo','defecttype','defectList','intensity','status','dueDate','remark'].forEach(id => {
         const el = document.getElementById(id);
         if(el) formObj[id] = el.value;
     });
@@ -197,10 +197,10 @@ function restoreDraftState() {
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
     if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); loadEntryMap(); }
-    ['flatNo','defectType','intensity','status','dueDate','remark'].forEach(id => {
+    ['flatNo','defecttype','intensity','status','dueDate','remark'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
-    if(draft.defectType) populateDefectList();
+    if(draft.defecttype) populateDefectList();
     if(draft.defectList && document.getElementById("defectList")) document.getElementById("defectList").value = draft.defectList;
 }
 
@@ -251,7 +251,7 @@ function refreshDropdowns() {
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
-    const typeSel = document.getElementById("defectType");
+    const typeSel = document.getElementById("defecttype");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
     const uSel = document.getElementById("reportCreatedBy");
@@ -262,7 +262,7 @@ function refreshDropdowns() {
 }
 
 function populateDefectList() {
-    const typeVal = document.getElementById("defectType") ? document.getElementById("defectType").value : "";
+    const typeVal = document.getElementById("defecttype") ? document.getElementById("defecttype").value : "";
     const listSel = document.getElementById("defectList");
     if(!listSel) return;
     listSel.innerHTML = '<option value="">-- Select Specification --</option>';
@@ -418,7 +418,7 @@ async function saveDefect(){
 
     const payload = {
         project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        Type: document.getElementById("defectType").value, defectList: document.getElementById("defectList").value,
+        Type: document.getElementById("defecttype").value, defectList: document.getElementById("defectList").value,
         remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
         status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
         photos: tempPhotos.join("|||"), final_photos: "", 
