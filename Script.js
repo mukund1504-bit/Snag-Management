@@ -468,7 +468,7 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
-// 100% UPGRADED FETCH FUNCTION TO PREVENT 400 BAD REQUEST
+// 100% UPGRADED FETCH FUNCTION TO PREVENT 400 BAD REQUEST & ADD ALERT
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
@@ -483,6 +483,7 @@ async function loadDefectsFromCloud(isBackground = false) {
         
         if (error) {
             console.error("Supabase API Error:", error.message);
+            alert("Database Error: Cannot fetch records. Please check Supabase RLS Policies."); 
             return;
         }
         
@@ -507,44 +508,7 @@ async function loadDefectsFromCloud(isBackground = false) {
     }
 }
 
-// UPGRADED TO BE 100% SAFE AGAINST MISSING DATA (Backward compatible rendering)
-function generateTableRowsHtml(dataArray) {
-    const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
-    return dataArray.map(d => {
-        const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(p => p && p.trim() !== "") : [];
-        const finPics = Array.isArray(d.finalPics) ? d.finalPics.filter(p => p && p.trim() !== "") : [];
-        
-        const initialHtml = `<div class="img-grid-cell">${initPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
-        const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
-        
-        let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
-        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
-        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
-        
-        let mapHtml = "Not Mapped"; 
-        if(d.map_thumbnail) {
-            mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
-        } else if(d.map_x && d.map_y && d.map_x !== "0") {
-            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
-        }
-        
-        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId || "-");
-        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || "-");
-        
-        return `<tr>
-                <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
-                <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
-                <td>${resolvedSpec}</td>
-                <td>${d.remark || "-"}</td>
-                <td>${mapHtml}</td><td><b>${d.created_by || d.createdBy || "-"}</b></td><td><b>${d.closed_by || d.closedBy || "-"}</b></td>
-                <td>${d.intensity || d.risk || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
-                <td>${d.loggedDate || d.logged_date || d.loggedAt || "-"}</td><td>${d.dueDate || d.sla || "-"}</td><td>${d.closedDate || d.closed_date || d.closedAt || "-"}</td><td>${d.delay || "-"}</td>
-                <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
-            </tr>`;
-    }).join("");
-}
-
-// UPGRADED ROBUST FILTERING LOGIC
+// UPGRADED: Robust Filtering Logic
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     
@@ -575,17 +539,22 @@ function renderReportTable(){
     const dateToEl = document.getElementById("reportDateTo");
     const dateTo = dateToEl ? dateToEl.value : "";
 
-    // Null safety filters
+    // 100% Type-Safe & Case-Insensitive Filters
     filteredReportData = (defects || []).filter(d => {
         let match = true;
         
-        const dProj = (d.project || "").trim();
-        const dTow = (d.tower || "").trim();
-        const dUser = (d.created_by || d.createdBy || "").trim();
-        const dStat = (d.status || "").trim();
+        // Wrap variables in String() to prevent .trim() crashes on null/numbers
+        const dProj = String(d.project || "").trim();
+        const dTow = String(d.tower || "").trim();
+        const dUser = String(d.created_by || d.createdBy || "").trim();
+        const dStat = String(d.status || "").trim();
         const dLog = d.loggedDate || d.logged_date || d.loggedAt || "";
 
-        if(currentUser && currentUser.role !== "admin" && !allowedProjects.includes(dProj)) match = false;
+        // Case-insensitive project access check
+        if(currentUser && currentUser.role !== "admin") {
+            const hasProjectAccess = allowedProjects.some(p => p.toLowerCase() === dProj.toLowerCase());
+            if(!hasProjectAccess) match = false;
+        }
         
         if(pFilt !== "All" && dProj.toLowerCase() !== pFilt.toLowerCase()) match = false;
         if(tFilt !== "All" && dTow.toLowerCase() !== tFilt.toLowerCase()) match = false;
@@ -601,11 +570,49 @@ function renderReportTable(){
     const tableBody = document.querySelector("#defectsTable tbody");
     if(tableBody) {
         if(filteredReportData.length === 0) {
-             tableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">No records found.</td></tr>';
+             tableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">No records found matching criteria.</td></tr>';
         } else {
              tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
         }
     }
+}
+
+// UPGRADED: Failsafe Table Rendering
+function generateTableRowsHtml(dataArray) {
+    const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
+    return dataArray.map(d => {
+        // Ensure string checking doesn't crash on non-string items
+        const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(p => p && String(p).trim() !== "") : [];
+        const finPics = Array.isArray(d.finalPics) ? d.finalPics.filter(p => p && String(p).trim() !== "") : [];
+        
+        const initialHtml = `<div class="img-grid-cell">${initPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
+        
+        let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
+        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
+        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
+        
+        let mapHtml = "Not Mapped"; 
+        if(d.map_thumbnail) {
+            mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
+        } else if(d.map_x && d.map_y && d.map_x !== "0") {
+            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
+        }
+        
+        const resolvedCategory = resolveCategoryName(d.Type || d.category || d.categoryId || "-");
+        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || "-");
+        
+        return `<tr>
+                <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
+                <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
+                <td>${resolvedSpec}</td>
+                <td>${d.remark || "-"}</td>
+                <td>${mapHtml}</td><td><b>${d.created_by || d.createdBy || "-"}</b></td><td><b>${d.closed_by || d.closedBy || "-"}</b></td>
+                <td>${d.intensity || d.risk || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
+                <td>${d.loggedDate || d.logged_date || d.loggedAt || "-"}</td><td>${d.dueDate || d.sla || "-"}</td><td>${d.closedDate || d.closed_date || d.closedAt || "-"}</td><td>${d.delay || "-"}</td>
+                <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
+            </tr>`;
+    }).join("");
 }
 
 function openEditModal(id) {
