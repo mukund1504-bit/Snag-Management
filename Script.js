@@ -1,6 +1,6 @@
 // ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD[...]
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -77,7 +77,7 @@ let canvasConfig = {
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; });
+window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
 window.addEventListener('storage', () => {
@@ -118,7 +118,7 @@ window.addEventListener("DOMContentLoaded", () => {
         defectForm.addEventListener('change', saveDraftState);
     }
 
-    const defecttypeEl = document.getElementById("defectType");
+    const defecttypeEl = document.getElementById("defectcategory");
     if(defecttypeEl) {
         defecttypeEl.addEventListener('change', populateDefectList);
     }
@@ -128,7 +128,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if(el) el.addEventListener('change', renderReportTable);
     });
 
-    supabaseClient.channel('public:snag_management').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_management' }, payload => {
+    supabaseClient.channel('public:snagmanagement').on('postgres_changes', { event: '*', schema: 'public', table: 'snagmanagement' }, payload => {
         if(navigator.onLine) {
             console.log("Realtime Sync Triggered", payload);
             loadDefectsFromCloud(true);
@@ -184,7 +184,7 @@ function activateApp() {
 
 function saveDraftState() {
     const formObj = {};
-    ['project','tower','floor','flatNo','defectType','defectList','intensity','status','dueDate','remark'].forEach(id => {
+    ['project','tower','floor','flatNo','defectcategory','specificationmatrix','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
         const el = document.getElementById(id);
         if(el) formObj[id] = el.value;
     });
@@ -197,11 +197,11 @@ function restoreDraftState() {
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
     if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); loadEntryMap(); }
-    ['flatNo','defectType','intensity','status','dueDate','remark'].forEach(id => {
+    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
-    if(draft.defectType) populateDefectList();
-    if(draft.defectList && document.getElementById("defectList")) document.getElementById("defectList").value = draft.defectList;
+    if(draft.defectcategory) populateDefectList();
+    if(draft.specificationmatrix && document.getElementById("specificationmatrix")) document.getElementById("specificationmatrix").value = draft.specificationmatrix;
 }
 
 function showSection(id) {
@@ -251,8 +251,8 @@ function refreshDropdowns() {
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
-    const typeSel = document.getElementById("defectType");
-    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
+    const typeSel = document.getElementById("defectcategory");
+    if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
@@ -262,8 +262,8 @@ function refreshDropdowns() {
 }
 
 function populateDefectList() {
-    const typeVal = document.getElementById("defectType") ? document.getElementById("defectType").value : "";
-    const listSel = document.getElementById("defectList");
+    const typeVal = document.getElementById("defectcategory") ? document.getElementById("defectcategory").value : "";
+    const listSel = document.getElementById("specificationmatrix");
     if(!listSel) return;
     listSel.innerHTML = '<option value="">-- Select Specification --</option>';
     if(typeVal && defectMatrix[typeVal]) {
@@ -354,8 +354,8 @@ function drawCanvas(type) {
         const t = document.getElementById("tower") ? document.getElementById("tower").value : ""; 
         const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
         defects.forEach(d => {
-            if(d.project === p && d.tower === t && d.floor === f && d.status !== 'Closed' && d.map_x && d.map_y && d.map_x !== "0") {
-                c.ctx.beginPath(); c.ctx.arc(d.map_x, d.map_y, 10, 0, 2 * Math.PI); c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke();
+            if(d.project === p && d.tower === t && d.floor === f && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
+                c.ctx.beginPath(); c.ctx.arc(d.mapx, d.mapy, 10, 0, 2 * Math.PI); c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke();
             }
         });
     }
@@ -382,8 +382,8 @@ function processFile(event, arr, renderFunc) {
         }; img.src = ev.target.result;
     }; reader.readAsDataURL(file); event.target.value = "";
 }
-function renderPhotoPreview() { document.getElementById("photoPreview").innerHTML = tempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeTempPhoto(${i})">×</button></div>`).join(''); }
-function renderEditPhotoPreview() { document.getElementById("editPhotoPreview").innerHTML = editTempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeEditPhoto(${i})">×</button></div>`).join(''); }
+function renderPhotoPreview() { document.getElementById("photoPreview").innerHTML = tempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeTempPhoto(${i})">x</button></div>`).join(''); }
+function renderEditPhotoPreview() { document.getElementById("editPhotoPreview").innerHTML = editTempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeEditPhoto(${i})">x</button></div>`).join(''); }
 function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
@@ -407,7 +407,7 @@ async function saveDefect(){
     if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
 
     const today = new Date().toISOString().slice(0,10); 
-    let dueStr = document.getElementById("dueDate").value;
+    let dueStr = document.getElementById("sladuedate").value;
     if(!dueStr) {
         let d = new Date(); d.setDate(d.getDate() + 10);
         dueStr = d.toISOString().slice(0,10);
@@ -416,28 +416,27 @@ async function saveDefect(){
     let delay = "On Time"; if(new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
     let mapThumb = getMapThumbnailBase64(x, y);
 
-    // STANDARDIZED PAYLOAD WITH CONSISTENT NAMING
     const payload = {
         project: p, 
         tower: t, 
         floor: document.getElementById("floor").value, 
         flat: document.getElementById("flatNo").value,
-        defect_category: document.getElementById("defectType").value,  // STANDARDIZED
-        specification_matrix: document.getElementById("defectList").value,  // STANDARDIZED
-        remark: document.getElementById("remark").value, 
-        intensity: document.getElementById("intensity").value,
-        status: document.getElementById("status").value, 
-        sla_due_date: dueStr,  // STANDARDIZED
-        logged_date: today,  // STANDARDIZED
-        photos: tempPhotos.join("|||"), 
-        final_photos: "", 
-        map_x: x ? parseFloat(x).toFixed(2) : "0", 
-        map_y: y ? parseFloat(y).toFixed(2) : "0", 
-        delay: delay, 
-        closed_date: document.getElementById("status").value === "Closed" ? today : "-",  // STANDARDIZED
-        created_by: getFullName(currentUser),  // STANDARDIZED
-        closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-",  // STANDARDIZED
-        map_thumbnail: mapThumb
+        defectcategory: document.getElementById("defectcategory").value, 
+        specificationmatrix: document.getElementById("specificationmatrix").value,
+        engineeringremarks: document.getElementById("engineeringremarks").value, 
+        riskspectrum: document.getElementById("riskspectrum").value,
+        statusvector: document.getElementById("statusvector").value, 
+        sladuedate: dueStr, 
+        loggeddate: today,
+        initialphotos: tempPhotos.join("|||"), 
+        finalphotos: "", 
+        mapx: x ? parseFloat(x).toFixed(2) : "0", 
+        mapy: y ? parseFloat(y).toFixed(2) : "0", 
+        delayaxis: delay, 
+        closeddate: document.getElementById("statusvector").value === "Closed" ? today : "-",
+        createdby: getFullName(currentUser), 
+        closedby: document.getElementById("statusvector").value === "Closed" ? getFullName(currentUser) : "-", 
+        mapthumbnail: mapThumb
     };
 
     if(!navigator.onLine) {
@@ -449,7 +448,7 @@ async function saveDefect(){
     try {
         const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
         
-        const { error } = await supabaseClient.from('snag_management').insert([payload]);
+        const { error } = await supabaseClient.from('snagmanagement').insert([payload]);
         
         if(!error) { 
             alert("Record Logged Successfully!"); 
@@ -465,7 +464,7 @@ async function syncOfflineData() {
     let successCount = 0;
     for(let payload of queue) {
         try { 
-            const { error } = await supabaseClient.from('snag_management').insert([payload]); 
+            const { error } = await supabaseClient.from('snagmanagement').insert([payload]); 
             if(!error) successCount++; 
         } catch(e) {}
     }
@@ -481,15 +480,15 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
-// 100% UPGRADED FETCH FUNCTION WITH STANDARDIZED FIELD MAPPING
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         const syncBadge = document.getElementById("liveSyncBadge");
         if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
+        // Fetch strictly from the lowercase standardized table
         const { data, error } = await supabaseClient
-            .from('snag_management')
+            .from('snagmanagement')
             .select('*')
             .order('id', { ascending: false });
         
@@ -500,20 +499,33 @@ async function loadDefectsFromCloud(isBackground = false) {
         }
         
         if(data) {
-            defects = data.map((d, i) => ({ 
-                ...d,
-                // FIELD STANDARDIZATION - Convert DB fields to standard names
-                defect_category: d.defect_category || d.type || "-",
-                specification_matrix: d.specification_matrix || d.defectList || d.specification || "-",
-                logged_date: d.logged_date || d.loggedDate || d.loggedAt || "-",
-                sla_due_date: d.sla_due_date || d.dueDate || d.sla || "-",
-                closed_date: d.closed_date || d.closedDate || d.closedAt || "-",
-                created_by: d.created_by || d.createdBy || "-",
-                closed_by: d.closed_by || d.closedBy || "-",
-                serial: data.length - i, 
-                initialPics: d.photos ? d.photos.split("|||").filter(Boolean) : [], 
-                finalPics: d.final_photos ? d.final_photos.split("|||").filter(Boolean) : [] 
-            }));
+            // BACKWARD COMPATIBILITY MAPPING
+            // Silently maps any legacy naming variations into standard lowercase variables so everything works seamlessly.
+            defects = data.map((d, i) => {
+                const mappedObj = { 
+                    ...d, 
+                    serial: data.length - i,
+                    defectcategory: d.defectcategory || d.defecttype || d.type || d.category || d.categoryId,
+                    specificationmatrix: d.specificationmatrix || d.defectList || d.specification || d.specId,
+                    engineeringremarks: d.engineeringremarks || d.remark,
+                    riskspectrum: d.riskspectrum || d.intensity || d.risk,
+                    statusvector: d.statusvector || d.status,
+                    sladuedate: d.sladuedate || d.dueDate || d.sla,
+                    loggeddate: d.loggeddate || d.loggedDate || d.logged_date || d.loggedAt,
+                    closeddate: d.closeddate || d.closedDate || d.closed_date || d.closedAt,
+                    delayaxis: d.delayaxis || d.delay,
+                    initialphotos: d.initialphotos || d.photos,
+                    finalphotos: d.finalphotos || d.final_photos,
+                    mapx: d.mapx || d.map_x,
+                    mapy: d.mapy || d.map_y,
+                    createdby: d.createdby || d.created_by || d.createdBy,
+                    closedby: d.closedby || d.closed_by || d.closedBy,
+                    mapthumbnail: d.mapthumbnail || d.map_thumbnail
+                };
+                mappedObj.initialPics = mappedObj.initialphotos ? mappedObj.initialphotos.split("|||").filter(Boolean) : [];
+                mappedObj.finalPics = mappedObj.finalphotos ? mappedObj.finalphotos.split("|||").filter(Boolean) : [];
+                return mappedObj;
+            });
             
             if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
             if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) {
@@ -528,7 +540,6 @@ async function loadDefectsFromCloud(isBackground = false) {
     }
 }
 
-// UPGRADED: Robust Filtering Logic with Standardized Fields
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     
@@ -559,15 +570,14 @@ function renderReportTable(){
     const dateToEl = document.getElementById("reportDateTo");
     const dateTo = dateToEl ? dateToEl.value : "";
 
-    // 100% type-Safe & Case-Insensitive Filters
     filteredReportData = (defects || []).filter(d => {
         let match = true;
         
         const dProj = String(d.project || "").trim();
         const dTow = String(d.tower || "").trim();
-        const dUser = String(d.created_by || "").trim();  // STANDARDIZED
-        const dStat = String(d.status || "").trim();
-        const dLog = d.logged_date || "-";  // STANDARDIZED
+        const dUser = String(d.createdby || "").trim();
+        const dStat = String(d.statusvector || "").trim();
+        const dLog = d.loggeddate || "";
 
         if(currentUser && currentUser.role !== "admin") {
             const hasProjectAccess = allowedProjects.some(p => p.toLowerCase() === dProj.toLowerCase());
@@ -579,8 +589,8 @@ function renderReportTable(){
         if(userFilt !== "All" && dUser.toLowerCase() !== userFilt.toLowerCase()) match = false;
         if(statFilt !== "All" && dStat.toLowerCase() !== statFilt.toLowerCase()) match = false;
         
-        if(dateFrom && dLog !== "-" && new Date(dLog) < new Date(dateFrom)) match = false;
-        if(dateTo && dLog !== "-" && new Date(dLog) > new Date(dateTo)) match = false;
+        if(dateFrom && dLog && new Date(dLog) < new Date(dateFrom)) match = false;
+        if(dateTo && dLog && new Date(dLog) > new Date(dateTo)) match = false;
         
         return match;
     });
@@ -595,7 +605,6 @@ function renderReportTable(){
     }
 }
 
-// UPGRADED: Failsafe Table Rendering with Standardized Fields
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
     return dataArray.map(d => {
@@ -606,28 +615,27 @@ function generateTableRowsHtml(dataArray) {
         const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
-        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Locked</span>`;
+        if(d.statusvector === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
         else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
-        if(d.map_thumbnail) {
-            mapHtml = `<img src="${d.map_thumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.map_thumbnail}')" />`;
-        } else if(d.map_x && d.map_y && d.map_x !== "0") {
-            mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
+        if(d.mapthumbnail) {
+            mapHtml = `<img src="${d.mapthumbnail}" style="width:45px; height:45px; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${d.mapthumbnail}')" />`;
+        } else if(d.mapx && d.mapy && d.mapx !== "0") {
+            mapHtml = `X: ${d.mapx}, Y: ${d.mapy}`; 
         }
         
-        // STANDARDIZED FIELD RESOLUTION
-        const resolvedCategory = resolveCategoryName(d.defect_category || "-");
-        const resolvedSpec = resolveSpecificationName(d.specification_matrix || "-");
+        const resolvedCategory = resolveCategoryName(d.defectcategory || "-");
+        const resolvedSpec = resolveSpecificationName(d.specificationmatrix || "-");
         
         return `<tr>
                 <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
                 <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
                 <td>${resolvedSpec}</td>
-                <td>${d.remark || "-"}</td>
-                <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
-                <td>${d.intensity || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
-                <td>${d.logged_date || "-"}</td><td>${d.sla_due_date || "-"}</td><td>${d.closed_date || "-"}</td><td>${d.delay || "-"}</td>
+                <td>${d.engineeringremarks || "-"}</td>
+                <td>${mapHtml}</td><td><b>${d.createdby || "-"}</b></td><td><b>${d.closedby || "-"}</b></td>
+                <td>${d.riskspectrum || "-"}</td><td><span class="locked-badge">${d.statusvector || "-"}</span></td>
+                <td>${d.loggeddate || "-"}</td><td>${d.sladuedate || "-"}</td><td>${d.closeddate || "-"}</td><td>${d.delayaxis || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
             </tr>`;
     }).join("");
@@ -636,9 +644,9 @@ function generateTableRowsHtml(dataArray) {
 function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
     const d = defects.find(x => x.id == id); if(!d) return;
-    if(d.status === "Closed") return alert("This defect has been closed and locked.");
+    if(d.statusvector === "Closed") return alert("This defect has been closed and locked.");
 
-    document.getElementById("editDefectId").value = id; document.getElementById("editStatus").value = d.status;
+    document.getElementById("editDefectId").value = id; document.getElementById("editstatusvector").value = d.statusvector;
     
     const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(Boolean) : [];
     document.getElementById("editInitialPhotoWrap").innerHTML = initPics.map(p => `<div class="thumb"><img src="${p}" onclick="openZoomImage('${p}')"/></div>`).join('');
@@ -647,35 +655,31 @@ function openEditModal(id) {
     renderEditPhotoPreview();
 
     const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}`];
-    if(base64Img && d.map_x && d.map_y) {
-        canvasConfig.modal.marker = {x: parseFloat(d.map_x), y: parseFloat(d.map_y)};
-        const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); }; img.src = base64Img;
-    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0, 0, document.getElementById('modalCanvas').width, document.getElementById('modalCanvas').height); }
+    if(base64Img && d.mapx && d.mapy) {
+        canvasConfig.modal.marker = {x: parseFloat(d.mapx), y: parseFloat(d.mapy)};
+        const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); };
+        img.src = base64Img;
+    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0,0,100,100); }
     document.getElementById("editModal").style.display = "flex";
 }
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
 
 async function submitEditDefect() {
     const id = document.getElementById("editDefectId").value;
-    const stat = document.getElementById("editStatus").value;
+    const stat = document.getElementById("editstatusvector").value;
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
     
     if(stat === "Closed") { 
         if(!confirm("Warning: Closing this defect will LOCK the record. Proceed?")) return; 
     }
 
-    // STANDARDIZED PAYLOAD
-    let payload = { 
-        status: stat, 
-        final_photos: editTempPhotos.join("|||"), 
-        closed_date: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-"  // STANDARDIZED
-    };
-    if(stat === "Closed") payload.closed_by = getFullName(currentUser);  // STANDARDIZED
+    let payload = { statusvector: stat, finalphotos: editTempPhotos.join("|||"), closeddate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
+    if(stat === "Closed") payload.closedby = getFullName(currentUser);
 
     try {
         const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
         
-        const { error } = await supabaseClient.from('snag_management').update(payload).eq('id', id);
+        const { error } = await supabaseClient.from('snagmanagement').update(payload).eq('id', id);
         
         if(!error) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
         else throw error;
@@ -697,17 +701,15 @@ function closeDrillModal() { document.getElementById("drilldownModal").style.dis
 
 let chartsObj = {};
 function renderCharts() {
-    const allowedProjects = getAllowedProjects(); 
-    const filterProj = document.getElementById("dashboardProjectFilter").value; 
-    const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
+    const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
     const filteredData = (defects || []).filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj));
     Object.keys(chartsObj).forEach(k => { if(chartsObj[k]) chartsObj[k].destroy(); });
     
     const projMap = {}; const statMap = { "Open": 0, "In Progress": 0, "Closed": 0 };
-    filteredData.forEach(d => { projMap[d.project] = (projMap[d.project] || 0) + 1; if(statMap[d.status]!==undefined) statMap[d.status]++; });
+    filteredData.forEach(d => { projMap[d.project] = (projMap[d.project] || 0) + 1; if(statMap[d.statusvector]!==undefined) statMap[d.statusvector]++; });
 
-    chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] } });
-    chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] } });
+    chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(projMap)[elements[0].index], filteredData.filter(x=>x.project===Object.keys(projMap)[elements[0].index])); } }});
+    chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(statMap)[elements[0].index], filteredData.filter(x=>x.statusvector===Object.keys(statMap)[elements[0].index])); } }});
 
     const tHead = document.getElementById("analyticsTableHeader");
     const tBody = document.getElementById("analyticsTableBody");
@@ -718,26 +720,26 @@ function renderCharts() {
         filteredData.forEach(d => {
             let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`;
             if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, f:d.floor, fl:d.flat, o:0, ip:0, c:0, tot:0 };
-            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            if(d.statusvector === 'Open') matrixData[k].o++; if(d.statusvector === 'In Progress') matrixData[k].ip++; if(d.statusvector === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.tot}</a></td></tr>`).join('');
     } 
     else if(filterAnalytic === "tower") {
         tHead.innerHTML = `<th>PROJECT NAME</th><th>TOWER REF</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>SUBTOTAL</th>`;
         filteredData.forEach(d => {
             let k = `${d.project}_${d.tower}`;
             if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.tower, o:0, ip:0, c:0, tot:0 };
-            if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
+            if(d.statusvector === 'Open') matrixData[k].o++; if(d.statusvector === 'In Progress') matrixData[k].ip++; if(d.statusvector === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','All')">${m.tot}</a></td></tr>`).join('');
     }
     else if(filterAnalytic === "defect") {
         tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
         filteredData.forEach(d => {
-            let k = `${d.project}_${d.defect_category}`;  // STANDARDIZED
-            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.defect_category, tot:0 };  // STANDARDIZED
+            let k = `${d.project}_${d.defectcategory}`;
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.defectcategory, tot:0 };
             matrixData[k].tot++;
         });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillCat('${m.p}','${m.t}')">${m.tot}</a></td></tr>`).join('');
@@ -747,22 +749,22 @@ function renderCharts() {
         filteredData.forEach(d => {
             let k = `${d.project}`;
             if(!matrixData[k]) matrixData[k] = { p:d.project, l:0, m:0, h:0, tot:0 };
-            if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++;
+            if(d.riskspectrum === 'Low') matrixData[k].l++; if(d.riskspectrum === 'Medium') matrixData[k].m++; if(d.riskspectrum === 'High') matrixData[k].h++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
     }
 
-    const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
-    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] } });
-    const catMap = {}; filteredData.forEach(d => catMap[d.defect_category] = (catMap[d.defect_category]||0)+1);  // STANDARDIZED
-    chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#0284c7' }] } });
+    const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.riskspectrum]!==undefined) anaMap[d.riskspectrum]++; });
+    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
+    const catMap = {}; filteredData.forEach(d => catMap[d.defectcategory] = (catMap[d.defectcategory]||0)+1);
+    chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#8b5cf6' }] }, options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false }});
 }
 
-function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${f} - ${fl} - ${stat}`, data); }
-function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
-function openAnaDrillCat(p,cat) { const data = defects.filter(d=>d.project===p && d.defect_category===cat); openDrillModal(`${p} - ${cat}`, data); }  // STANDARDIZED
-function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
+function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.statusvector===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
+function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.statusvector===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
+function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && d.defectcategory===t); openDrillModal(`${p} - ${t}`, data); }
+function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.riskspectrum===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
 function renderAdminTables() {
     const hBody = document.querySelector("#hierarchyTable tbody");
@@ -771,14 +773,14 @@ function renderAdminTables() {
         Object.keys(structuralHierarchy).forEach(p => { 
             Object.keys(structuralHierarchy[p]).forEach(t => {
                 Object.keys(structuralHierarchy[p][t]).forEach(f => {
-                    hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td>${f}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t][f].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}','${f}')"><i class="fas fa-trash"></i></button></td></tr>`;
+                    hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td>${f}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t][f].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}','${f}')">Del Floor</button></td></tr>`;
                 });
             }); 
         }); 
         hBody.innerHTML = hHtml;
     }
     const cBody = document.querySelector("#categoryTable tbody");
-    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delCategory('${c}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del Cat</button></td></tr>`).join('');
     
     renderMapTable();
 }
@@ -787,7 +789,7 @@ function renderMapTable() {
     const fBody = document.querySelector("#floorMapTable tbody");
     if(fBody) {
         fBody.innerHTML = Object.keys(floorMaps).map(k => {
-            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px;"/></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')"><i class="fas fa-trash"></i></button></td></tr>`;
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
         }).join('');
     }
 }
@@ -820,8 +822,6 @@ function delHierarchy(p, t, f) {
     } 
 }
 function resetHierarchyForm() { 
-    document.getElementById("setupProjName").value = "";
-    document.getElementById("setupTowerName").value = "";
     document.getElementById("setupFloorName").value = "";
     document.getElementById("setupFlats").value = "";
 }
@@ -860,7 +860,6 @@ function saveCategory() {
 
     refreshDropdowns(); renderAdminTables(); 
     alert("Specification Added Successfully!"); 
-    document.getElementById("setupCatName").value = "";
     document.getElementById("setupSpecName").value = ""; 
 }
 function delCategory(c) { 
@@ -883,8 +882,8 @@ async function loadMapsFromCloud() {
         }
     } catch(e) { console.error("Map sync error", e); }
 }
-function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">-- Select Tower --</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
-function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">-- Select Floor --</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
+function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
+function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
 
 async function previewMapDrawing(e) {
     const file = e.target.files[0]; if(!file) return; 
@@ -973,11 +972,8 @@ function renderUserSetupCheckboxes() {
 }
 function saveSystemUser() {
     const fName = document.getElementById("suFirst").value.trim(); const lName = document.getElementById("suLast").value.trim(); const mName = document.getElementById("suMiddle").value.trim();
-    const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value;
-    if(!fName || !lName || !email || !pass) return alert("First Name, Last Name, Email and Password are required.");
-    
-    let selProjects = [];
-    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project."); }
+    const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value; let selProjects = [];
+    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project/tower."); }
     
     const existIdx = USER_MATRIX.findIndex(u => u.id.toLowerCase() === email.toLowerCase()); 
     const newUser = { id: email, firstName: fName, middleName: mName, lastName: lName, pass: pass, role: role, projects: selProjects, permission: rights };
@@ -1000,16 +996,16 @@ function editUser(email) {
 }
 function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody"); if(!tbody) return;
-    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.projects.join(", ")}</td><td>${u.permission}</td><td><button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')"><i class="fas fa-edit"></i></button> <button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button></td></tr>`; }).join('');
+    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')">Edit</button><button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
 }
-function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); refreshDropdowns(); alert("User deleted."); } }
+function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); } }
 
 function openPasswordModal() { document.getElementById("profileEmailDisplay").innerText = getFullName(currentUser); document.getElementById("passwordModal").style.display = "flex"; }
 function closePasswordModal() { document.getElementById("passwordModal").style.display = "none"; }
 function changePassword() {
     const oldP = document.getElementById("oldPassword").value; const newP = document.getElementById("newPassword").value; if(oldP !== currentUser.pass) return alert("Incorrect current password!");
     const userIndex = USER_MATRIX.findIndex(u => u.id === currentUser.id);
-    if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password changed successfully!"); closePasswordModal(); }
+    if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
 }
 
 async function exportExcelWithPhotos(dataToExport) { 
@@ -1019,22 +1015,14 @@ async function exportExcelWithPhotos(dataToExport) {
     const sheet = workbook.addWorksheet('CSMS Defect Report');
     
     sheet.columns = [ 
-        { header: 'ID', key: 'serial', width: 8 }, 
-        { header: 'Project', key: 'project', width: 16 }, 
-        { header: 'Tower', key: 'tower', width: 12 }, 
-        { header: 'Floor', key: 'floor', width: 12 }, 
-        { header: 'Flat', key: 'flat', width: 12 }, 
-        { header: 'Defect Category', key: 'defect_category', width: 20 },  // STANDARDIZED HEADER
-        { header: 'Specification Matrix', key: 'specification_matrix', width: 25 },  // STANDARDIZED HEADER
-        { header: 'Remarks', key: 'remark', width: 30 }, 
-        { header: 'Created By', key: 'created_by', width: 18 }, 
-        { header: 'Closed By', key: 'closed_by', width: 18 },
-        { header: 'Risk', key: 'intensity', width: 12 }, 
-        { header: 'Status', key: 'status', width: 12 }, 
-        { header: 'Logged Date', key: 'logged_date', width: 15 },  // STANDARDIZED HEADER
-        { header: 'SLA Due Date', key: 'sla_due_date', width: 15 },  // STANDARDIZED HEADER
-        { header: 'Closed Date', key: 'closed_date', width: 15 },  // STANDARDIZED HEADER
-        { header: 'Delay', key: 'delay', width: 12 },
+        { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
+        { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
+        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'defectcategory', width: 20 }, 
+        { header: 'Specification', key: 'specificationmatrix', width: 25 }, { header: 'Remarks', key: 'engineeringremarks', width: 30 }, 
+        { header: 'Created By', key: 'createdby', width: 18 }, { header: 'Closed By', key: 'closedby', width: 18 },
+        { header: 'Risk', key: 'riskspectrum', width: 12 }, { header: 'Status', key: 'statusvector', width: 12 }, 
+        { header: 'Logged Date', key: 'loggeddate', width: 15 }, { header: 'SLA Date', key: 'sladuedate', width: 15 }, 
+        { header: 'Closed Date', key: 'closeddate', width: 15 }, { header: 'Delay', key: 'delayaxis', width: 12 },
         { header: 'Map Location View', key: 'map', width: 20 },
         { header: 'Initial Photo Evidence', key: 'initial', width: 20 },
         { header: 'Final Photo Evidence', key: 'final', width: 20 }
@@ -1070,9 +1058,9 @@ async function exportExcelWithPhotos(dataToExport) {
             });
         };
 
-        if(d.map_thumbnail) {
+        if(d.mapthumbnail) {
             try {
-                const mapId = workbook.addImage({ base64: d.map_thumbnail, extension: 'jpeg' });
+                const mapId = workbook.addImage({ base64: d.mapthumbnail, extension: 'jpeg' });
                 sheet.addImage(mapId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 70, height: 70 }, editAs: 'oneCell' });
             } catch(e) {}
         }
@@ -1082,14 +1070,14 @@ async function exportExcelWithPhotos(dataToExport) {
     
     const buf = await workbook.xlsx.writeBuffer(); 
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_${new Date().getTime()}.xlsx`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_Detailed.xlsx`; a.click();
 }
 
 function exportPDF(dataToExport){ 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     const windowObj = window.open("", "", "width=950,height=750");
-    const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{max-width:100px; margin:5px;}</style>`;
-    let html = `<h1>CSMS Quality Audit Report</h1>`;
-    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Defect Category:</b> ${d.defect_category || '-'} | <b>Specification:</b> ${d.specification_matrix || '-'}<br/><b>Status:</b> ${d.status}</div></div></div>`; });
+    const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
+    let html = `<h1>CSMS Quality Audit</h1>`;
+    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.defectcategory}</div><div><b>Status:</b> ${d.statusvector}<br/><b>Dates:</b> ${d.loggeddate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${(d.initialPics||[]).map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
     windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
 }
