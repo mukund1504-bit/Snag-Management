@@ -1,6 +1,6 @@
 // ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD[...]
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -77,7 +77,7 @@ let canvasConfig = {
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
+window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
 window.addEventListener('storage', () => {
@@ -118,7 +118,7 @@ window.addEventListener("DOMContentLoaded", () => {
         defectForm.addEventListener('change', saveDraftState);
     }
 
-    const defecttypeEl = document.getElementById("defecttype");
+    const defecttypeEl = document.getElementById("defectType");
     if(defecttypeEl) {
         defecttypeEl.addEventListener('change', populateDefectList);
     }
@@ -184,7 +184,7 @@ function activateApp() {
 
 function saveDraftState() {
     const formObj = {};
-    ['project','tower','floor','flatNo','defecttype','defectList','intensity','status','dueDate','remark'].forEach(id => {
+    ['project','tower','floor','flatNo','defectType','defectList','intensity','status','dueDate','remark'].forEach(id => {
         const el = document.getElementById(id);
         if(el) formObj[id] = el.value;
     });
@@ -197,10 +197,10 @@ function restoreDraftState() {
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
     if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); loadEntryMap(); }
-    ['flatNo','defecttype','intensity','status','dueDate','remark'].forEach(id => {
+    ['flatNo','defectType','intensity','status','dueDate','remark'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
-    if(draft.defecttype) populateDefectList();
+    if(draft.defectType) populateDefectList();
     if(draft.defectList && document.getElementById("defectList")) document.getElementById("defectList").value = draft.defectList;
 }
 
@@ -251,7 +251,7 @@ function refreshDropdowns() {
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
     });
-    const typeSel = document.getElementById("defecttype");
+    const typeSel = document.getElementById("defectType");
     if(typeSel) { typeSel.innerHTML = "<option value=''>-- Select type --</option>"; Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); }
     
     const uSel = document.getElementById("reportCreatedBy");
@@ -262,7 +262,7 @@ function refreshDropdowns() {
 }
 
 function populateDefectList() {
-    const typeVal = document.getElementById("defecttype") ? document.getElementById("defecttype").value : "";
+    const typeVal = document.getElementById("defectType") ? document.getElementById("defectType").value : "";
     const listSel = document.getElementById("defectList");
     if(!listSel) return;
     listSel.innerHTML = '<option value="">-- Select Specification --</option>';
@@ -382,8 +382,8 @@ function processFile(event, arr, renderFunc) {
         }; img.src = ev.target.result;
     }; reader.readAsDataURL(file); event.target.value = "";
 }
-function renderPhotoPreview() { document.getElementById("photoPreview").innerHTML = tempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeTempPhoto(${i})">x</button></div>`).join(''); }
-function renderEditPhotoPreview() { document.getElementById("editPhotoPreview").innerHTML = editTempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeEditPhoto(${i})">x</button></div>`).join(''); }
+function renderPhotoPreview() { document.getElementById("photoPreview").innerHTML = tempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeTempPhoto(${i})">×</button></div>`).join(''); }
+function renderEditPhotoPreview() { document.getElementById("editPhotoPreview").innerHTML = editTempPhotos.map((src, i) => `<div class="thumb"><img src="${src}" onclick="openZoomImage('${src}')"/><button type="button" class="x" onclick="removeEditPhoto(${i})">×</button></div>`).join(''); }
 function removeTempPhoto(i){ tempPhotos.splice(i,1); renderPhotoPreview(); }
 function removeEditPhoto(i){ editTempPhotos.splice(i,1); renderEditPhotoPreview(); }
 function clearTempPhotos(){ tempPhotos = []; renderPhotoPreview(); }
@@ -416,14 +416,28 @@ async function saveDefect(){
     let delay = "On Time"; if(new Date() > new Date(dueStr)) delay = Math.floor((new Date() - new Date(dueStr))/(1000*60*60*24))+" days";
     let mapThumb = getMapThumbnailBase64(x, y);
 
+    // STANDARDIZED PAYLOAD WITH CONSISTENT NAMING
     const payload = {
-        project: p, tower: t, floor: document.getElementById("floor").value, flat: document.getElementById("flatNo").value,
-        defecttype: document.getElementById("defecttype").value, defectList: document.getElementById("defectList").value,
-        remark: document.getElementById("remark").value, intensity: document.getElementById("intensity").value,
-        status: document.getElementById("status").value, dueDate: dueStr, loggedDate: today,
-        photos: tempPhotos.join("|||"), final_photos: "", 
-        map_x: x ? parseFloat(x).toFixed(2) : "0", map_y: y ? parseFloat(y).toFixed(2) : "0", delay: delay, closedDate: document.getElementById("status").value === "Closed" ? today : "-",
-        created_by: getFullName(currentUser), closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-", map_thumbnail: mapThumb
+        project: p, 
+        tower: t, 
+        floor: document.getElementById("floor").value, 
+        flat: document.getElementById("flatNo").value,
+        defect_category: document.getElementById("defectType").value,  // STANDARDIZED
+        specification_matrix: document.getElementById("defectList").value,  // STANDARDIZED
+        remark: document.getElementById("remark").value, 
+        intensity: document.getElementById("intensity").value,
+        status: document.getElementById("status").value, 
+        sla_due_date: dueStr,  // STANDARDIZED
+        logged_date: today,  // STANDARDIZED
+        photos: tempPhotos.join("|||"), 
+        final_photos: "", 
+        map_x: x ? parseFloat(x).toFixed(2) : "0", 
+        map_y: y ? parseFloat(y).toFixed(2) : "0", 
+        delay: delay, 
+        closed_date: document.getElementById("status").value === "Closed" ? today : "-",  // STANDARDIZED
+        created_by: getFullName(currentUser),  // STANDARDIZED
+        closed_by: document.getElementById("status").value === "Closed" ? getFullName(currentUser) : "-",  // STANDARDIZED
+        map_thumbnail: mapThumb
     };
 
     if(!navigator.onLine) {
@@ -435,7 +449,6 @@ async function saveDefect(){
     try {
         const btn = document.getElementById("mainSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
         
-        // Upgraded to use Supabase SDK
         const { error } = await supabaseClient.from('snag_management').insert([payload]);
         
         if(!error) { 
@@ -468,14 +481,13 @@ function startAutoRefresh() {
     }, 25000); 
 }
 
-// 100% UPGRADED FETCH FUNCTION TO PREVENT 400 BAD REQUEST & ADD ALERT
+// 100% UPGRADED FETCH FUNCTION WITH STANDARDIZED FIELD MAPPING
 async function loadDefectsFromCloud(isBackground = false) {
     if(!navigator.onLine) return;
     try {
         const syncBadge = document.getElementById("liveSyncBadge");
         if(!isBackground && syncBadge) syncBadge.innerHTML = "<i class='fas fa-sync fa-spin'></i> Syncing...";
         
-        // Using Official Supabase SDK for flawless data retrieval
         const { data, error } = await supabaseClient
             .from('snag_management')
             .select('*')
@@ -489,7 +501,15 @@ async function loadDefectsFromCloud(isBackground = false) {
         
         if(data) {
             defects = data.map((d, i) => ({ 
-                ...d, 
+                ...d,
+                // FIELD STANDARDIZATION - Convert DB fields to standard names
+                defect_category: d.defect_category || d.type || "-",
+                specification_matrix: d.specification_matrix || d.defectList || d.specification || "-",
+                logged_date: d.logged_date || d.loggedDate || d.loggedAt || "-",
+                sla_due_date: d.sla_due_date || d.dueDate || d.sla || "-",
+                closed_date: d.closed_date || d.closedDate || d.closedAt || "-",
+                created_by: d.created_by || d.createdBy || "-",
+                closed_by: d.closed_by || d.closedBy || "-",
                 serial: data.length - i, 
                 initialPics: d.photos ? d.photos.split("|||").filter(Boolean) : [], 
                 finalPics: d.final_photos ? d.final_photos.split("|||").filter(Boolean) : [] 
@@ -508,7 +528,7 @@ async function loadDefectsFromCloud(isBackground = false) {
     }
 }
 
-// UPGRADED: Robust Filtering Logic
+// UPGRADED: Robust Filtering Logic with Standardized Fields
 function renderReportTable(){
     const allowedProjects = getAllowedProjects(); 
     
@@ -543,14 +563,12 @@ function renderReportTable(){
     filteredReportData = (defects || []).filter(d => {
         let match = true;
         
-        // Wrap variables in String() to prevent .trim() crashes on null/numbers
         const dProj = String(d.project || "").trim();
         const dTow = String(d.tower || "").trim();
-        const dUser = String(d.created_by || d.createdBy || "").trim();
+        const dUser = String(d.created_by || "").trim();  // STANDARDIZED
         const dStat = String(d.status || "").trim();
-        const dLog = d.loggedDate || d.logged_date || d.loggedAt || "";
+        const dLog = d.logged_date || "-";  // STANDARDIZED
 
-        // Case-insensitive project access check
         if(currentUser && currentUser.role !== "admin") {
             const hasProjectAccess = allowedProjects.some(p => p.toLowerCase() === dProj.toLowerCase());
             if(!hasProjectAccess) match = false;
@@ -561,8 +579,8 @@ function renderReportTable(){
         if(userFilt !== "All" && dUser.toLowerCase() !== userFilt.toLowerCase()) match = false;
         if(statFilt !== "All" && dStat.toLowerCase() !== statFilt.toLowerCase()) match = false;
         
-        if(dateFrom && dLog && new Date(dLog) < new Date(dateFrom)) match = false;
-        if(dateTo && dLog && new Date(dLog) > new Date(dateTo)) match = false;
+        if(dateFrom && dLog !== "-" && new Date(dLog) < new Date(dateFrom)) match = false;
+        if(dateTo && dLog !== "-" && new Date(dLog) > new Date(dateTo)) match = false;
         
         return match;
     });
@@ -577,11 +595,10 @@ function renderReportTable(){
     }
 }
 
-// UPGRADED: Failsafe Table Rendering
+// UPGRADED: Failsafe Table Rendering with Standardized Fields
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
     return dataArray.map(d => {
-        // Ensure string checking doesn't crash on non-string items
         const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(p => p && String(p).trim() !== "") : [];
         const finPics = Array.isArray(d.finalPics) ? d.finalPics.filter(p => p && String(p).trim() !== "") : [];
         
@@ -589,7 +606,7 @@ function generateTableRowsHtml(dataArray) {
         const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
-        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
+        if(d.status === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Locked</span>`;
         else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
         
         let mapHtml = "Not Mapped"; 
@@ -599,17 +616,18 @@ function generateTableRowsHtml(dataArray) {
             mapHtml = `X: ${d.map_x}, Y: ${d.map_y}`; 
         }
         
-        const resolvedCategory = resolveCategoryName(d.type || d.category || d.categoryId || "-");
-        const resolvedSpec = resolveSpecificationName(d.defectList || d.specification || d.specId || "-");
+        // STANDARDIZED FIELD RESOLUTION
+        const resolvedCategory = resolveCategoryName(d.defect_category || "-");
+        const resolvedSpec = resolveSpecificationName(d.specification_matrix || "-");
         
         return `<tr>
                 <td>${d.serial || "-"}</td><td><b>${d.project || "-"}</b></td><td>${d.tower || "-"}</td><td>${d.floor || "-"}</td><td>${d.flat || "-"}</td>
                 <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
                 <td>${resolvedSpec}</td>
                 <td>${d.remark || "-"}</td>
-                <td>${mapHtml}</td><td><b>${d.created_by || d.createdBy || "-"}</b></td><td><b>${d.closed_by || d.closedBy || "-"}</b></td>
-                <td>${d.intensity || d.risk || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
-                <td>${d.loggedDate || d.logged_date || d.loggedAt || "-"}</td><td>${d.dueDate || d.sla || "-"}</td><td>${d.closedDate || d.closed_date || d.closedAt || "-"}</td><td>${d.delay || "-"}</td>
+                <td>${mapHtml}</td><td><b>${d.created_by || "-"}</b></td><td><b>${d.closed_by || "-"}</b></td>
+                <td>${d.intensity || "-"}</td><td><span class="locked-badge">${d.status || "-"}</span></td>
+                <td>${d.logged_date || "-"}</td><td>${d.sla_due_date || "-"}</td><td>${d.closed_date || "-"}</td><td>${d.delay || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
             </tr>`;
     }).join("");
@@ -631,9 +649,8 @@ function openEditModal(id) {
     const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}`];
     if(base64Img && d.map_x && d.map_y) {
         canvasConfig.modal.marker = {x: parseFloat(d.map_x), y: parseFloat(d.map_y)};
-        const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); };
-        img.src = base64Img;
-    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0,0,100,100); }
+        const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); }; img.src = base64Img;
+    } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0, 0, document.getElementById('modalCanvas').width, document.getElementById('modalCanvas').height); }
     document.getElementById("editModal").style.display = "flex";
 }
 function closeEditModal() { document.getElementById("editModal").style.display = "none"; }
@@ -647,13 +664,17 @@ async function submitEditDefect() {
         if(!confirm("Warning: Closing this defect will LOCK the record. Proceed?")) return; 
     }
 
-    let payload = { status: stat, final_photos: editTempPhotos.join("|||"), closedDate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
-    if(stat === "Closed") payload.closed_by = getFullName(currentUser);
+    // STANDARDIZED PAYLOAD
+    let payload = { 
+        status: stat, 
+        final_photos: editTempPhotos.join("|||"), 
+        closed_date: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-"  // STANDARDIZED
+    };
+    if(stat === "Closed") payload.closed_by = getFullName(currentUser);  // STANDARDIZED
 
     try {
         const btn = document.getElementById("editSubmitBtn"); if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
         
-        // Upgraded to use Supabase SDK
         const { error } = await supabaseClient.from('snag_management').update(payload).eq('id', id);
         
         if(!error) { alert("Defect Updated Successfully!"); closeEditModal(); await loadDefectsFromCloud(false); } 
@@ -676,15 +697,17 @@ function closeDrillModal() { document.getElementById("drilldownModal").style.dis
 
 let chartsObj = {};
 function renderCharts() {
-    const allowedProjects = getAllowedProjects(); const filterProj = document.getElementById("dashboardProjectFilter").value; const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
+    const allowedProjects = getAllowedProjects(); 
+    const filterProj = document.getElementById("dashboardProjectFilter").value; 
+    const filterAnalytic = document.getElementById("dashboardAnalyticFilter").value;
     const filteredData = (defects || []).filter(d => (currentUser.role === "admin" || allowedProjects.includes(d.project)) && (filterProj === "All" || d.project === filterProj));
     Object.keys(chartsObj).forEach(k => { if(chartsObj[k]) chartsObj[k].destroy(); });
     
     const projMap = {}; const statMap = { "Open": 0, "In Progress": 0, "Closed": 0 };
     filteredData.forEach(d => { projMap[d.project] = (projMap[d.project] || 0) + 1; if(statMap[d.status]!==undefined) statMap[d.status]++; });
 
-    chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(projMap)[elements[0].index], filteredData.filter(x=>x.project===Object.keys(projMap)[elements[0].index])); } }});
-    chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] }, options: { responsive:true, maintainAspectRatio:false, onClick: (e, elements) => { if(elements.length>0) openDrillModal(Object.keys(statMap)[elements[0].index], filteredData.filter(x=>x.status===Object.keys(statMap)[elements[0].index])); } }});
+    chartsObj.c1 = new Chart(document.getElementById("primaryChart"), { type: 'bar', data: { labels: Object.keys(projMap), datasets: [{ label: 'Total Defects', data: Object.values(projMap), backgroundColor: '#0284c7' }] } });
+    chartsObj.c2 = new Chart(document.getElementById("statusChart"), { type: 'doughnut', data: { labels: Object.keys(statMap), datasets: [{ data: Object.values(statMap), backgroundColor: ['#ef4444', '#f59e0b', '#10b981'] }] } });
 
     const tHead = document.getElementById("analyticsTableHeader");
     const tBody = document.getElementById("analyticsTableBody");
@@ -698,7 +721,7 @@ function renderCharts() {
             if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.tot}</a></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','All')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillFloor('${m.p}','${m.t}','${m.f}','${m.fl}','Closed')">${m.c}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
     } 
     else if(filterAnalytic === "tower") {
         tHead.innerHTML = `<th>PROJECT NAME</th><th>TOWER REF</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>SUBTOTAL</th>`;
@@ -708,13 +731,13 @@ function renderCharts() {
             if(d.status === 'Open') matrixData[k].o++; if(d.status === 'In Progress') matrixData[k].ip++; if(d.status === 'Closed') matrixData[k].c++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','All')">${m.tot}</a></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Open')">${m.o}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','In Progress')">${m.ip}</a></td><td><a class="drill-link" onclick="openAnaDrillTower('${m.p}','${m.t}','Closed')">${m.c}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
     }
     else if(filterAnalytic === "defect") {
         tHead.innerHTML = `<th>PROJECT TARGET</th><th>CLASSIFICATION CATEGORY</th><th>TOTAL COUNT</th>`;
         filteredData.forEach(d => {
-            let k = `${d.project}_${d.type}`;
-            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.type, tot:0 };
+            let k = `${d.project}_${d.defect_category}`;  // STANDARDIZED
+            if(!matrixData[k]) matrixData[k] = { p:d.project, t:d.defect_category, tot:0 };  // STANDARDIZED
             matrixData[k].tot++;
         });
         tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td><a class="drill-link" onclick="openAnaDrillCat('${m.p}','${m.t}')">${m.tot}</a></td></tr>`).join('');
@@ -727,18 +750,18 @@ function renderCharts() {
             if(d.intensity === 'Low') matrixData[k].l++; if(d.intensity === 'Medium') matrixData[k].m++; if(d.intensity === 'High') matrixData[k].h++;
             matrixData[k].tot++;
         });
-        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','All')">${m.tot}</a></td></tr>`).join('');
+        tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Low')">${m.l}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','Medium')">${m.m}</a></td><td><a class="drill-link" onclick="openAnaDrillRisk('${m.p}','High')">${m.h}</a></td><td><b>${m.tot}</b></td></tr>`).join('');
     }
 
     const anaMap = { "Low":0, "Medium":0, "High":0 }; filteredData.forEach(d => { if(anaMap[d.intensity]!==undefined) anaMap[d.intensity]++; });
-    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'] }] }, options: { responsive:true, maintainAspectRatio:false }});
-    const catMap = {}; filteredData.forEach(d => catMap[d.type] = (catMap[d.type]||0)+1);
-    chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#8b5cf6' }] }, options: { indexAxis: 'y', responsive:true, maintainAspectRatio:false }});
+    chartsObj.c3 = new Chart(document.getElementById("intensityChartCanvas"), { type: 'polarArea', data: { labels: Object.keys(anaMap), datasets: [{ data: Object.values(anaMap), backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] } });
+    const catMap = {}; filteredData.forEach(d => catMap[d.defect_category] = (catMap[d.defect_category]||0)+1);  // STANDARDIZED
+    chartsObj.c4 = new Chart(document.getElementById("categoryChartCanvas"), { type: 'bar', data: { labels: Object.keys(catMap), datasets: [{ label: 'Categories', data: Object.values(catMap), backgroundColor: '#0284c7' }] } });
 }
 
-function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
+function openAnaDrillFloor(p,t,f,fl,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && d.floor===f && d.flat===fl && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${f} - ${fl} - ${stat}`, data); }
 function openAnaDrillTower(p,t,stat) { const data = defects.filter(d=>d.project===p && d.tower===t && (stat==="All"||d.status===stat)); openDrillModal(`${p} - ${t} - ${stat}`, data); }
-function openAnaDrillCat(p,t) { const data = defects.filter(d=>d.project===p && (d.type===t || d.category===t || d.categoryId===t)); openDrillModal(`${p} - ${t}`, data); }
+function openAnaDrillCat(p,cat) { const data = defects.filter(d=>d.project===p && d.defect_category===cat); openDrillModal(`${p} - ${cat}`, data); }  // STANDARDIZED
 function openAnaDrillRisk(p,risk) { const data = defects.filter(d=>d.project===p && (risk==="All"||d.intensity===risk)); openDrillModal(`${p} - ${risk} Risk`, data); }
 
 function renderAdminTables() {
@@ -748,14 +771,14 @@ function renderAdminTables() {
         Object.keys(structuralHierarchy).forEach(p => { 
             Object.keys(structuralHierarchy[p]).forEach(t => {
                 Object.keys(structuralHierarchy[p][t]).forEach(f => {
-                    hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td>${f}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t][f].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}','${f}')">Del Floor</button></td></tr>`;
+                    hHtml += `<tr><td><b>${p}</b></td><td>${t}</td><td>${f}</td><td style="white-space:normal; max-width:200px;">${structuralHierarchy[p][t][f].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delHierarchy('${p}','${t}','${f}')"><i class="fas fa-trash"></i></button></td></tr>`;
                 });
             }); 
         }); 
         hBody.innerHTML = hHtml;
     }
     const cBody = document.querySelector("#categoryTable tbody");
-    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delCategory('${c}')">Del Cat</button></td></tr>`).join('');
+    if(cBody) cBody.innerHTML = Object.keys(defectMatrix).map(c => `<tr><td><b>${c}</b></td><td style="white-space:normal; max-width:200px;">${defectMatrix[c].join(", ")}</td><td><button class="action-icon-btn del-btn" onclick="delCategory('${c}')"><i class="fas fa-trash"></i></button></td></tr>`).join('');
     
     renderMapTable();
 }
@@ -764,7 +787,7 @@ function renderMapTable() {
     const fBody = document.querySelector("#floorMapTable tbody");
     if(fBody) {
         fBody.innerHTML = Object.keys(floorMaps).map(k => {
-            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px; cursor:pointer;" onclick="openZoomImage('${floorMaps[k]}')"></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')">Del</button></td></tr>`;
+            const parts = k.split('_'); return `<tr><td>${parts[0]}</td><td>${parts[1]}</td><td>${parts[2]}</td><td><img src="${floorMaps[k]}" width="40" height="40" style="object-fit:cover; border-radius:4px;"/></td><td><button class="action-icon-btn del-btn" onclick="delMap('${k}')"><i class="fas fa-trash"></i></button></td></tr>`;
         }).join('');
     }
 }
@@ -797,6 +820,8 @@ function delHierarchy(p, t, f) {
     } 
 }
 function resetHierarchyForm() { 
+    document.getElementById("setupProjName").value = "";
+    document.getElementById("setupTowerName").value = "";
     document.getElementById("setupFloorName").value = "";
     document.getElementById("setupFlats").value = "";
 }
@@ -835,6 +860,7 @@ function saveCategory() {
 
     refreshDropdowns(); renderAdminTables(); 
     alert("Specification Added Successfully!"); 
+    document.getElementById("setupCatName").value = "";
     document.getElementById("setupSpecName").value = ""; 
 }
 function delCategory(c) { 
@@ -857,8 +883,8 @@ async function loadMapsFromCloud() {
         }
     } catch(e) { console.error("Map sync error", e); }
 }
-function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
-function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
+function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">-- Select Tower --</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
+function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">-- Select Floor --</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
 
 async function previewMapDrawing(e) {
     const file = e.target.files[0]; if(!file) return; 
@@ -947,8 +973,11 @@ function renderUserSetupCheckboxes() {
 }
 function saveSystemUser() {
     const fName = document.getElementById("suFirst").value.trim(); const lName = document.getElementById("suLast").value.trim(); const mName = document.getElementById("suMiddle").value.trim();
-    const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value; let selProjects = [];
-    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project/tower."); }
+    const email = document.getElementById("suEmail").value.trim(); const pass = document.getElementById("suPass").value; const role = document.getElementById("suRole").value; const rights = document.getElementById("suRights").value;
+    if(!fName || !lName || !email || !pass) return alert("First Name, Last Name, Email and Password are required.");
+    
+    let selProjects = [];
+    if(role === "admin") selProjects = ["All"]; else { document.querySelectorAll(".proj-chk:checked").forEach(cb => selProjects.push(cb.value)); if(selProjects.length === 0) return alert("Select at least one project."); }
     
     const existIdx = USER_MATRIX.findIndex(u => u.id.toLowerCase() === email.toLowerCase()); 
     const newUser = { id: email, firstName: fName, middleName: mName, lastName: lName, pass: pass, role: role, projects: selProjects, permission: rights };
@@ -971,16 +1000,16 @@ function editUser(email) {
 }
 function renderUserTable() {
     const tbody = document.querySelector("#usersTable tbody"); if(!tbody) return;
-    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.role === "admin" ? `<span class="tech-badge" style="background:#0284c7; color:white;">Global All</span>` : u.projects.join(", ")}</td><td>${u.permission === "edit" ? "Full" : "View"}</td><td>${u.id === currentUser.id ? "<i>(You)</i>" : `<button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')">Edit</button><button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')">Del</button>`}</td></tr>`; }).join('');
+    tbody.innerHTML = USER_MATRIX.map(u => { return `<tr><td><b>${getFullName(u)}</b><br><small>${u.id}</small></td><td>${u.role.toUpperCase()}</td><td style="white-space:normal; max-width:150px;">${u.projects.join(", ")}</td><td>${u.permission}</td><td><button class="action-icon-btn edit-btn" onclick="editUser('${u.id}')"><i class="fas fa-edit"></i></button> <button class="action-icon-btn del-btn" onclick="deleteUser('${u.id}')"><i class="fas fa-trash"></i></button></td></tr>`; }).join('');
 }
-function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); } }
+function deleteUser(email) { if(confirm(`Delete access for ${email}?`)) { USER_MATRIX = USER_MATRIX.filter(u => u.id !== email); localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); renderUserTable(); refreshDropdowns(); alert("User deleted."); } }
 
 function openPasswordModal() { document.getElementById("profileEmailDisplay").innerText = getFullName(currentUser); document.getElementById("passwordModal").style.display = "flex"; }
 function closePasswordModal() { document.getElementById("passwordModal").style.display = "none"; }
 function changePassword() {
     const oldP = document.getElementById("oldPassword").value; const newP = document.getElementById("newPassword").value; if(oldP !== currentUser.pass) return alert("Incorrect current password!");
     const userIndex = USER_MATRIX.findIndex(u => u.id === currentUser.id);
-    if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password updated securely!"); closePasswordModal(); }
+    if(userIndex !== -1) { USER_MATRIX[userIndex].pass = newP; localStorage.setItem("qa_users", JSON.stringify(USER_MATRIX)); currentUser.pass = newP; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(currentUser)); alert("Password changed successfully!"); closePasswordModal(); }
 }
 
 async function exportExcelWithPhotos(dataToExport) { 
@@ -990,14 +1019,22 @@ async function exportExcelWithPhotos(dataToExport) {
     const sheet = workbook.addWorksheet('CSMS Defect Report');
     
     sheet.columns = [ 
-        { header: 'ID', key: 'serial', width: 8 }, { header: 'Project', key: 'project', width: 16 }, 
-        { header: 'Tower', key: 'tower', width: 12 }, { header: 'Floor', key: 'floor', width: 12 }, 
-        { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'type', width: 20 }, 
-        { header: 'Specification', key: 'defectList', width: 25 }, { header: 'Remarks', key: 'remark', width: 30 }, 
-        { header: 'Created By', key: 'created_by', width: 18 }, { header: 'Closed By', key: 'closed_by', width: 18 },
-        { header: 'Risk', key: 'intensity', width: 12 }, { header: 'Status', key: 'status', width: 12 }, 
-        { header: 'Logged Date', key: 'loggedDate', width: 15 }, { header: 'SLA Date', key: 'dueDate', width: 15 }, 
-        { header: 'Closed Date', key: 'closedDate', width: 15 }, { header: 'Delay', key: 'delay', width: 12 },
+        { header: 'ID', key: 'serial', width: 8 }, 
+        { header: 'Project', key: 'project', width: 16 }, 
+        { header: 'Tower', key: 'tower', width: 12 }, 
+        { header: 'Floor', key: 'floor', width: 12 }, 
+        { header: 'Flat', key: 'flat', width: 12 }, 
+        { header: 'Defect Category', key: 'defect_category', width: 20 },  // STANDARDIZED HEADER
+        { header: 'Specification Matrix', key: 'specification_matrix', width: 25 },  // STANDARDIZED HEADER
+        { header: 'Remarks', key: 'remark', width: 30 }, 
+        { header: 'Created By', key: 'created_by', width: 18 }, 
+        { header: 'Closed By', key: 'closed_by', width: 18 },
+        { header: 'Risk', key: 'intensity', width: 12 }, 
+        { header: 'Status', key: 'status', width: 12 }, 
+        { header: 'Logged Date', key: 'logged_date', width: 15 },  // STANDARDIZED HEADER
+        { header: 'SLA Due Date', key: 'sla_due_date', width: 15 },  // STANDARDIZED HEADER
+        { header: 'Closed Date', key: 'closed_date', width: 15 },  // STANDARDIZED HEADER
+        { header: 'Delay', key: 'delay', width: 12 },
         { header: 'Map Location View', key: 'map', width: 20 },
         { header: 'Initial Photo Evidence', key: 'initial', width: 20 },
         { header: 'Final Photo Evidence', key: 'final', width: 20 }
@@ -1045,14 +1082,14 @@ async function exportExcelWithPhotos(dataToExport) {
     
     const buf = await workbook.xlsx.writeBuffer(); 
     const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_Detailed.xlsx`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_${new Date().getTime()}.xlsx`; a.click();
 }
 
 function exportPDF(dataToExport){ 
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
     const windowObj = window.open("", "", "width=950,height=750");
-    const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
-    let html = `<h1>CSMS Quality Audit</h1>`;
-    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.Type}</div><div><b>Status:</b> ${d.status}<br/><b>Dates:</b> ${d.loggedDate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${(d.initialPics||[]).map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
+    const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{max-width:100px; margin:5px;}</style>`;
+    let html = `<h1>CSMS Quality Audit Report</h1>`;
+    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Defect Category:</b> ${d.defect_category || '-'} | <b>Specification:</b> ${d.specification_matrix || '-'}<br/><b>Status:</b> ${d.status}</div></div></div>`; });
     windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
 }
