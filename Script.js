@@ -136,9 +136,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }).subscribe();
 });
 
-// --- YEH NAYA FUNCTION ADD KIYA GAYA HAI (Refresh ke baad data bharne ke liye) ---
 function initDropdownsOnLoad() {
-    // 1. Projects load karein
     const projects = getAllowedProjects();
     const projEl = document.getElementById("project");
     if(projEl) {
@@ -146,29 +144,21 @@ function initDropdownsOnLoad() {
         projEl.innerHTML = '<option value="">-- Select Project --</option>';
         projects.forEach(p => projEl.appendChild(new Option(p, p)));
         projEl.value = savedVal;
-        if(savedVal) populateTowers(); // Auto-trigger towers
+        if(savedVal) populateTowers(); 
     }
 
-    // 2. Categories load karein
     const catEl = document.getElementById("defectcategory");
     if(catEl) {
         const savedVal = catEl.value;
         catEl.innerHTML = '<option value="">-- Select Category --</option>';
         Object.keys(defectMatrix).forEach(type => catEl.appendChild(new Option(type, type)));
         catEl.value = savedVal;
-        if(savedVal) populateDefectList(); // Auto-trigger specs
+        if(savedVal) populateDefectList(); 
     }
 }
 
-// --- REFRESH FIX: Page refresh (F5) se theek pehle state save karein ---
 window.addEventListener('beforeunload', () => {
-    // Existing aur naye logic ka hybrid combination safely ensure karta hai error free save.
-    const defectForm = document.getElementById("defectForm");
-    if(defectForm && currentUser) {
-        saveDraftState();
-    } else {
-        saveDraftState(); // Catch-all as requested
-    }
+    saveDraftState();
 });
 
 function getFullName(u) {
@@ -199,12 +189,10 @@ function manualLogout() {
     location.reload(); 
 }
 
-// --- EXISTING activateApp FUNCTION UPDATED ---
 function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
     
-    // Naya Addition: Page load hote hi data bind karein
     initDropdownsOnLoad();
 
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
@@ -216,7 +204,7 @@ function activateApp() {
     } 
     showSection(targetSection);
 
-    refreshDropdowns(); // Purane existing logic ko barqarar rakha gaya hai
+    refreshDropdowns(); 
     restoreDraftState(); 
     
     initCanvas('entry'); initCanvas('modal');
@@ -224,26 +212,53 @@ function activateApp() {
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
+// ----------------------------------------------------
+// UPDATE 1: Yahan entryCoordX aur entryCoordY save kiya hai
+// ----------------------------------------------------
 function saveDraftState() {
     const formObj = {};
-    ['project','tower','floor','flatNo','defectcategory','specificationmatrix','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
+    ['project','tower','floor','flatNo','defectcategory','specificationmatrix','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
         const el = document.getElementById(id);
         if(el) formObj[id] = el.value;
     });
     sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
 }
 
+// ----------------------------------------------------
+// UPDATE 2: Yahan form restore ka order change kiya gaya hai 
+// jisse dropdown cascade map data ko erase na kar sake
+// ----------------------------------------------------
 function restoreDraftState() {
     const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
     if(!draft) return;
+    
+    // Step A: Pehle structure load karein (Ye map canvas clear karega built-in logic ke hisab se)
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
-    if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); loadEntryMap(); }
-    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
+    if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); }
+    
+    // Step B: Ab details aur coordinates ko secure tareeqe se wapas assign karein
+    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
+    
     if(draft.defectcategory) populateDefectList();
     if(draft.specificationmatrix && document.getElementById("specificationmatrix")) document.getElementById("specificationmatrix").value = draft.specificationmatrix;
+
+    // Step C: Map clear hone ke baad wapas exact marker lagayein
+    if (draft.entryCoordX && draft.entryCoordY) {
+        canvasConfig.entry.marker = {
+            x: parseFloat(draft.entryCoordX),
+            y: parseFloat(draft.entryCoordY)
+        };
+        document.getElementById("entryCoordX").value = draft.entryCoordX;
+        document.getElementById("entryCoordY").value = draft.entryCoordY;
+    }
+
+    // Step D: Aakhir me background Blueprint (Image) Load karein
+    if(draft.floor) { 
+        loadEntryMap(); 
+    }
 }
 
 function showSection(id) {
@@ -289,35 +304,25 @@ function getAllowedTowers(proj) {
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
     
-    // 1. Project Dropdowns - Selection Memory (No forced events)
     ["project", "reportProject", "dashboardProjectFilter", "mapSetupProject"].forEach(id => {
         const el = document.getElementById(id); 
         if(!el) return;
-        
         const currentValue = el.value; 
-
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
-        
         if (currentValue && Array.from(el.options).some(opt => opt.value === currentValue)) {
             el.value = currentValue;
         }
     });
     
-    // 2. Category Dropdown - Selection Memory
     const typeSel = document.getElementById("defectcategory");
     if(typeSel) { 
         const currentCatValue = typeSel.value;
-
         typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; 
         Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); 
-        
-        if (currentCatValue) {
-            typeSel.value = currentCatValue;
-        }
+        if (currentCatValue) typeSel.value = currentCatValue;
     }
     
-    // 3. SMART CLOUD SYNC FOR USERS FILTER
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
         const currentSelection = uSel.value; 
@@ -391,6 +396,9 @@ function populateFlats() {
     }
 }
 
+// ----------------------------------------------------
+// UPDATE 3: Map par Click karte hi automatically state save ho jayega.
+// ----------------------------------------------------
 function initCanvas(type) {
     const canvas = document.getElementById(`${type}Canvas`); if(!canvas) return;
     canvasConfig[type].ctx = canvas.getContext('2d');
@@ -407,6 +415,7 @@ function initCanvas(type) {
             document.getElementById("entryCoordX").value = x; 
             document.getElementById("entryCoordY").value = y; 
             drawCanvas(type);
+            saveDraftState(); // Marker place karne par instantly secure saving
         });
     }
 }
