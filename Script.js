@@ -136,11 +136,38 @@ window.addEventListener("DOMContentLoaded", () => {
     }).subscribe();
 });
 
+// --- YEH NAYA FUNCTION ADD KIYA GAYA HAI (Refresh ke baad data bharne ke liye) ---
+function initDropdownsOnLoad() {
+    // 1. Projects load karein
+    const projects = getAllowedProjects();
+    const projEl = document.getElementById("project");
+    if(projEl) {
+        const savedVal = projEl.value;
+        projEl.innerHTML = '<option value="">-- Select Project --</option>';
+        projects.forEach(p => projEl.appendChild(new Option(p, p)));
+        projEl.value = savedVal;
+        if(savedVal) populateTowers(); // Auto-trigger towers
+    }
+
+    // 2. Categories load karein
+    const catEl = document.getElementById("defectcategory");
+    if(catEl) {
+        const savedVal = catEl.value;
+        catEl.innerHTML = '<option value="">-- Select Category --</option>';
+        Object.keys(defectMatrix).forEach(type => catEl.appendChild(new Option(type, type)));
+        catEl.value = savedVal;
+        if(savedVal) populateDefectList(); // Auto-trigger specs
+    }
+}
+
 // --- REFRESH FIX: Page refresh (F5) se theek pehle state save karein ---
 window.addEventListener('beforeunload', () => {
+    // Existing aur naye logic ka hybrid combination safely ensure karta hai error free save.
     const defectForm = document.getElementById("defectForm");
     if(defectForm && currentUser) {
         saveDraftState();
+    } else {
+        saveDraftState(); // Catch-all as requested
     }
 });
 
@@ -165,14 +192,21 @@ function processLogin() {
         err.style.display = "block"; err.innerText = "Invalid credentials. Try full name or email."; 
     }
 }
+
 function manualLogout() { 
     sessionStorage.removeItem("qa_logged_in_user"); 
     sessionStorage.removeItem("active_section");
     location.reload(); 
 }
 
+// --- EXISTING activateApp FUNCTION UPDATED ---
 function activateApp() {
-    document.getElementById("loginOverlay").style.display = "none"; document.getElementById("appContainer").style.display = "block";
+    document.getElementById("loginOverlay").style.display = "none"; 
+    document.getElementById("appContainer").style.display = "block";
+    
+    // Naya Addition: Page load hote hi data bind karein
+    initDropdownsOnLoad();
+
     if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
     
     let targetSection = sessionStorage.getItem("active_section") || 'entry';
@@ -182,7 +216,7 @@ function activateApp() {
     } 
     showSection(targetSection);
 
-    refreshDropdowns(); 
+    refreshDropdowns(); // Purane existing logic ko barqarar rakha gaya hai
     restoreDraftState(); 
     
     initCanvas('entry'); initCanvas('modal');
@@ -543,7 +577,6 @@ async function loadDefectsFromCloud(isBackground = false) {
         }
         
         if(data) {
-            // BACKWARD COMPATIBILITY MAPPING
             defects = data.map((d, i) => {
                 const mappedObj = { 
                     ...d, 
