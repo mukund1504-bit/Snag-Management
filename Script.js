@@ -189,6 +189,9 @@ function manualLogout() {
     location.reload(); 
 }
 
+// ----------------------------------------------------
+// UPDATE: Canvas Initialization ko Draft Restore se pehle move kiya gaya hai
+// ----------------------------------------------------
 function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
@@ -205,16 +208,17 @@ function activateApp() {
     showSection(targetSection);
 
     refreshDropdowns(); 
+    
+    // YAHAN FIX HAI: Canvas pehle banega tabhi map draw ho payega.
+    initCanvas('entry'); 
+    initCanvas('modal');
+
     restoreDraftState(); 
     
-    initCanvas('entry'); initCanvas('modal');
     loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
-// ----------------------------------------------------
-// UPDATE 1: Yahan entryCoordX aur entryCoordY save kiya hai
-// ----------------------------------------------------
 function saveDraftState() {
     const formObj = {};
     ['project','tower','floor','flatNo','defectcategory','specificationmatrix','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
@@ -224,20 +228,14 @@ function saveDraftState() {
     sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
 }
 
-// ----------------------------------------------------
-// UPDATE 2: Yahan form restore ka order change kiya gaya hai 
-// jisse dropdown cascade map data ko erase na kar sake
-// ----------------------------------------------------
 function restoreDraftState() {
     const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
     if(!draft) return;
     
-    // Step A: Pehle structure load karein (Ye map canvas clear karega built-in logic ke hisab se)
     if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
     if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); }
     
-    // Step B: Ab details aur coordinates ko secure tareeqe se wapas assign karein
     ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
@@ -245,7 +243,6 @@ function restoreDraftState() {
     if(draft.defectcategory) populateDefectList();
     if(draft.specificationmatrix && document.getElementById("specificationmatrix")) document.getElementById("specificationmatrix").value = draft.specificationmatrix;
 
-    // Step C: Map clear hone ke baad wapas exact marker lagayein
     if (draft.entryCoordX && draft.entryCoordY) {
         canvasConfig.entry.marker = {
             x: parseFloat(draft.entryCoordX),
@@ -255,7 +252,6 @@ function restoreDraftState() {
         document.getElementById("entryCoordY").value = draft.entryCoordY;
     }
 
-    // Step D: Aakhir me background Blueprint (Image) Load karein
     if(draft.floor) { 
         loadEntryMap(); 
     }
@@ -396,9 +392,6 @@ function populateFlats() {
     }
 }
 
-// ----------------------------------------------------
-// UPDATE 3: Map par Click karte hi automatically state save ho jayega.
-// ----------------------------------------------------
 function initCanvas(type) {
     const canvas = document.getElementById(`${type}Canvas`); if(!canvas) return;
     canvasConfig[type].ctx = canvas.getContext('2d');
@@ -415,7 +408,7 @@ function initCanvas(type) {
             document.getElementById("entryCoordX").value = x; 
             document.getElementById("entryCoordY").value = y; 
             drawCanvas(type);
-            saveDraftState(); // Marker place karne par instantly secure saving
+            saveDraftState(); 
         });
     }
 }
