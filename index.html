@@ -60,15 +60,15 @@
                     </div>
                 </div>
 
-                <form id="defectForm" onsubmit="event.preventDefault(); saveDefect();">
+                <form id="defectForm" autocomplete="off" onsubmit="event.preventDefault(); saveDefect();">
                     <div class="form-map-grid">
                         
                         <div class="form-section-card-tech part-1">
                             <h4 class="card-title-tech"><i class="fas fa-project-diagram"></i> 01 / Spatial Architecture Blueprint</h4>
                             <div class="form-grid">
-                                <div class="field-box-tech"><label>Target Project</label><select id="project" onchange="populateTowers()" required></select></div>
-                                <div class="field-box-tech"><label>Structural Tower</label><select id="tower" onchange="populateFloors()" required></select></div>
-                                <div class="field-box-tech"><label>Floor Level Vector</label><select id="floor" onchange="populateFlats(); loadEntryMap();" required></select></div>
+                                <div class="field-box-tech"><label>Target Project</label><select id="project" onchange="populateTowers()" required><option value="">-- Select Project --</option></select></div>
+                                <div class="field-box-tech"><label>Structural Tower</label><select id="tower" onchange="populateFloors()" required><option value="">-- Select Tower --</option></select></div>
+                                <div class="field-box-tech"><label>Floor Level Vector</label><select id="floor" onchange="populateFlats(); loadEntryMap();" required><option value="">-- Select Floor --</option></select></div>
                                 <div class="field-box-tech"><label>Flat / Unit Registry</label><select id="flatNo" required><option value="">-- Select Unit --</option></select></div>
                             </div>
                         </div>
@@ -95,8 +95,8 @@
                         <div class="form-section-card-tech part-3">
                             <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
                             <div class="form-grid">
-                                <div class="field-box-tech"><label>Defect Category</label><select id="defectcategory" onchange="populateDefectList()" required></select></div>
-                                <div class="field-box-tech"><label>Specification Matrix</label><select id="specificationmatrix" required><option value="">-- Select --</option></select></div>
+                                <div class="field-box-tech"><label>Defect Category</label><select id="defectcategory" onchange="populateDefectList()" required><option value="">-- Select Category --</option></select></div>
+                                <div class="field-box-tech"><label>Specification Matrix</label><select id="specificationmatrix" required><option value="">-- Select Specification --</option></select></div>
                                 <div class="field-box-tech"><label>Risk Spectrum</label><select id="riskspectrum" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
                                 <div class="field-box-tech"><label>Status Vector</label><select id="statusvector" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
                                 <div class="field-box-tech full-width"><label>Target SLA Due Date <small style="color:gray;">(Auto +10 Days if blank)</small></label><input type="date" id="sladuedate"></div>

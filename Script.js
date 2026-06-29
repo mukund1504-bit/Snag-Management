@@ -136,6 +136,14 @@ window.addEventListener("DOMContentLoaded", () => {
     }).subscribe();
 });
 
+// --- REFRESH FIX: Page refresh (F5) se theek pehle state save karein ---
+window.addEventListener('beforeunload', () => {
+    const defectForm = document.getElementById("defectForm");
+    if(defectForm && currentUser) {
+        saveDraftState();
+    }
+});
+
 function getFullName(u) {
     if(u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
     return u.id; 
@@ -247,32 +255,29 @@ function getAllowedTowers(proj) {
 function refreshDropdowns() {
     const allowed = getAllowedProjects();
     
-    // 1. Project Dropdowns - Selection Memory ke sath
+    // 1. Project Dropdowns - Selection Memory (No forced events)
     ["project", "reportProject", "dashboardProjectFilter", "mapSetupProject"].forEach(id => {
         const el = document.getElementById(id); 
         if(!el) return;
         
-        // Yaad rakho user ne kya select kiya hai
         const currentValue = el.value; 
 
         el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
         allowed.forEach(p => el.appendChild(new Option(p, p)));
         
-        // Refresh ke baad purani value wapas set kar do
         if (currentValue && Array.from(el.options).some(opt => opt.value === currentValue)) {
             el.value = currentValue;
         }
     });
     
-    // 2. Category Dropdown - Selection Memory ke sath
+    // 2. Category Dropdown - Selection Memory
     const typeSel = document.getElementById("defectcategory");
     if(typeSel) { 
-        const currentCatValue = typeSel.value; // Yaad rakho
+        const currentCatValue = typeSel.value;
 
         typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; 
         Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); 
         
-        // Refresh ke baad category ki value wapas set kar do
         if (currentCatValue) {
             typeSel.value = currentCatValue;
         }
@@ -281,15 +286,12 @@ function refreshDropdowns() {
     // 3. SMART CLOUD SYNC FOR USERS FILTER
     const uSel = document.getElementById("reportCreatedBy");
     if(uSel) {
-        const currentSelection = uSel.value; // User ka selected filter save rakhein
+        const currentSelection = uSel.value; 
         uSel.innerHTML = "<option value='All'>All Users</option>";
         
         let uniqueUsers = new Set();
-        
-        // Local device users add karein
         USER_MATRIX.forEach(u => uniqueUsers.add(getFullName(u)));
         
-        // Cloud (Supabase) records se live users extract karein
         if (defects && defects.length > 0) {
             defects.forEach(d => {
                 const creator = d.createdby || d.created_by || d.createdBy;
@@ -298,8 +300,6 @@ function refreshDropdowns() {
         }
         
         uniqueUsers.forEach(name => uSel.appendChild(new Option(name, name)));
-        
-        // Dropdown reset na ho uske liye value wapas set karein
         if (uniqueUsers.has(currentSelection) || currentSelection === 'All') {
             uSel.value = currentSelection; 
         }
@@ -570,7 +570,6 @@ async function loadDefectsFromCloud(isBackground = false) {
                 return mappedObj;
             });
             
-            // YEH EK LINE ADD KI GAYI HAI: Data fetch hote hi user filter update ho jayega
             refreshDropdowns(); 
             
             if(document.getElementById('report') && document.getElementById('report').classList.contains('active')) renderReportTable();
