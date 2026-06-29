@@ -422,13 +422,35 @@ function initCanvas(type) {
     }
 }
 
-function loadEntryMap() {
-    const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value;
-    const base64Img = floorMaps[`${p}_${t}_${f}`]; const warn = document.getElementById("entryMapWarning");
-    if(base64Img) {
-        if(warn) warn.style.display = "none"; canvasConfig.entry.active = true;
-        const img = new Image(); img.onload = () => { canvasConfig.entry.img = img; const canvas = document.getElementById('entryCanvas'); canvas.width = img.width; canvas.height = img.height; drawCanvas('entry'); }; img.src = base64Img;
+async function loadEntryMap() {
+    const p = document.getElementById("project").value; 
+    const t = document.getElementById("tower").value; 
+    const f = document.getElementById("floor").value;
+    
+    // 1. Data check karein
+    const base64Img = floorMaps[`${p}_${t}_${f}`]; 
+    const warn = document.getElementById("entryMapWarning");
+    const canvas = document.getElementById('entryCanvas');
+    
+    if (base64Img) {
+        if(warn) warn.style.display = "none"; 
+        canvasConfig.entry.active = true;
+        
+        // 2. Image object ko force load karein
+        const img = new Image();
+        img.onload = () => {
+            canvasConfig.entry.img = img;
+            if(canvas) {
+                canvas.width = img.width; 
+                canvas.height = img.height;
+                drawCanvas('entry'); // Draw trigger karein
+                console.log("Map Image Force-Loaded successfully.");
+            }
+        };
+        img.src = base64Img;
     } else {
+        // Agar map nahi mila toh hi clear karein
+        console.log("No Map found for these selections.");
         clearMapCanvas();
     }
 }
