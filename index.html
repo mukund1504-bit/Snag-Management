@@ -95,7 +95,14 @@
                             <h4 class="card-title-tech"><i class="fas fa-microscope"></i> 03 / Diagnostics & Classification</h4>
                             <div class="form-grid">
                                 <div class="field-box-tech"><label>Defect Category</label><select id="defectcategory" onchange="populateDefectList()" required><option value="">-- Select Category --</option></select></div>
-                                <div class="field-box-tech"><label>Specification Matrix</label><select id="specificationmatrix" required><option value="">-- Select Specification --</option></select></div>
+                                
+                                <div class="field-box-tech">
+                                    <label>Specification Matrix (Multi-Select)</label>
+                                    <div id="specCheckboxContainer" class="checkbox-dropdown-container">
+                                        <span style="color:#94a3b8; font-size:13px; font-weight:normal;">-- Select Category First --</span>
+                                    </div>
+                                </div>
+
                                 <div class="field-box-tech"><label>Risk Spectrum</label><select id="riskspectrum" required><option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option></select></div>
                                 <div class="field-box-tech"><label>Status Vector</label><select id="statusvector" required><option value="Open" selected>Open Audit</option><option value="In Progress">In Progress</option><option value="Closed">Closed</option></select></div>
                                 <div class="field-box-tech full-width"><label>Target SLA Due Date <small style="color:gray;">(Auto +10 Days if blank)</small></label><input type="date" id="sladuedate"></div>

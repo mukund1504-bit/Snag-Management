@@ -200,3 +200,42 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; max-w
     .dashboard-display-container-tech { grid-template-columns: 1fr; }
     .chart-container-wrapper { height: 250px; }
 }
+/* --- MULTI-SELECT CHECKBOX CONTAINER STYLES --- */
+.checkbox-dropdown-container {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.checkbox-dropdown-container:focus-within {
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+    background: white;
+}
+.checkbox-dropdown-container::-webkit-scrollbar { width: 5px; }
+.checkbox-dropdown-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.spec-cb-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #334155 !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.spec-cb-label:hover {
+    background-color: #e0f2fe;
+}
+.spec-cb-label input {
+    width: auto !important;
+    margin: 0 !important;
+    cursor: pointer;
+}

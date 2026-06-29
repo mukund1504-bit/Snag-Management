@@ -189,7 +189,8 @@ function manualLogout() {
     location.reload(); 
 }
 
-function activateApp() {
+// FIX 1: Make activateApp asynchronous to enforce strict map loading sequence
+async function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
     
@@ -209,25 +210,30 @@ function activateApp() {
     initCanvas('entry'); 
     initCanvas('modal');
 
+    // CRITICAL FIX: Network se Map pehle load hone do, phir hi draft restore karo.
+    await loadMapsFromCloud();
+
     restoreDraftState(); 
     
-    loadDefectsFromCloud(false); loadMapsFromCloud(); startAutoRefresh(); 
+    loadDefectsFromCloud(false); 
+    startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
 
 function saveDraftState() {
     const formObj = {};
-    ['project','tower','floor','flatNo','defectcategory','specificationmatrix','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
+    ['project','tower','floor','flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
         const el = document.getElementById(id);
         if(el) formObj[id] = el.value;
     });
+
+    // Fix 3: Multi-select Checkboxes ka data comma separated save karna
+    const selectedSpecs = Array.from(document.querySelectorAll('.spec-chk:checked')).map(cb => cb.value).join(', ');
+    formObj['specifications_multi'] = selectedSpecs;
+
     sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
 }
 
-// ----------------------------------------------------
-// CRITICAL FIX: Delay set for Map Reload & Marker Rendering 
-// (Bypasses Browser's aggressive DOM auto-reset noise during refresh)
-// ----------------------------------------------------
 function restoreDraftState() {
     const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
     if(!draft) return;
@@ -241,29 +247,33 @@ function restoreDraftState() {
     });
     
     if(draft.defectcategory) populateDefectList();
-    if(draft.specificationmatrix && document.getElementById("specificationmatrix")) document.getElementById("specificationmatrix").value = draft.specificationmatrix;
 
-    // Timeout Ensures that Map loads and Marker binds *after* all automatic clearMapCanvas() triggers have fired.
-    setTimeout(() => {
-        // Enforce basic fields strictly once more just in case browser reset them
-        if(draft.project) document.getElementById("project").value = draft.project;
-        if(draft.tower) document.getElementById("tower").value = draft.tower;
-        if(draft.floor) document.getElementById("floor").value = draft.floor;
-        if(draft.flatNo) document.getElementById("flatNo").value = draft.flatNo;
+    // Fix 3: Saved Checkboxes ko wapas tick karna
+    if(draft.specifications_multi) {
+        const specs = draft.specifications_multi.split(', ');
+        document.querySelectorAll('.spec-chk').forEach(cb => {
+            if(specs.includes(cb.value)) cb.checked = true;
+        });
+    }
 
-        if (draft.entryCoordX && draft.entryCoordY) {
-            document.getElementById("entryCoordX").value = draft.entryCoordX;
-            document.getElementById("entryCoordY").value = draft.entryCoordY;
-            canvasConfig.entry.marker = {
-                x: parseFloat(draft.entryCoordX),
-                y: parseFloat(draft.entryCoordY)
-            };
-        }
-        
-        if(draft.floor) { 
-            loadEntryMap(); 
-        }
-    }, 250); 
+    // Map Coordinates and Map Rendering (No more random timeouts needed since loadMapsFromCloud is awaited)
+    if(draft.project) document.getElementById("project").value = draft.project;
+    if(draft.tower) document.getElementById("tower").value = draft.tower;
+    if(draft.floor) document.getElementById("floor").value = draft.floor;
+    if(draft.flatNo) document.getElementById("flatNo").value = draft.flatNo;
+
+    if (draft.entryCoordX && draft.entryCoordY) {
+        document.getElementById("entryCoordX").value = draft.entryCoordX;
+        document.getElementById("entryCoordY").value = draft.entryCoordY;
+        canvasConfig.entry.marker = {
+            x: parseFloat(draft.entryCoordX),
+            y: parseFloat(draft.entryCoordY)
+        };
+    }
+    
+    if(draft.floor) { 
+        loadEntryMap(); 
+    }
 }
 
 function showSection(id) {
@@ -350,13 +360,21 @@ function refreshDropdowns() {
     }
 }
 
+// FIX 3: Checkboxes generate karna options ki jagah
 function populateDefectList() {
     const typeVal = document.getElementById("defectcategory") ? document.getElementById("defectcategory").value : "";
-    const listSel = document.getElementById("specificationmatrix");
-    if(!listSel) return;
-    listSel.innerHTML = '<option value="">-- Select Specification --</option>';
+    const container = document.getElementById("specCheckboxContainer");
+    if(!container) return;
+    
+    container.innerHTML = ''; // Purana clear karo
+    
     if(typeVal && defectMatrix[typeVal]) {
-        defectMatrix[typeVal].forEach(spec => listSel.appendChild(new Option(spec, spec)));
+        defectMatrix[typeVal].forEach(spec => {
+            // Label ke andar checkbox taaki backward compatibility rahe
+            container.innerHTML += `<label class="spec-cb-label"><input type="checkbox" value="${spec}" class="spec-chk" onchange="saveDraftState()"> ${spec}</label>`;
+        });
+    } else {
+        container.innerHTML = '<span style="color:#94a3b8; font-size:13px; font-weight:normal;">-- Select Category First --</span>';
     }
 }
 
@@ -427,7 +445,6 @@ async function loadEntryMap() {
     const t = document.getElementById("tower").value; 
     const f = document.getElementById("floor").value;
     
-    // 1. Data check karein
     const base64Img = floorMaps[`${p}_${t}_${f}`]; 
     const warn = document.getElementById("entryMapWarning");
     const canvas = document.getElementById('entryCanvas');
@@ -436,21 +453,17 @@ async function loadEntryMap() {
         if(warn) warn.style.display = "none"; 
         canvasConfig.entry.active = true;
         
-        // 2. Image object ko force load karein
         const img = new Image();
         img.onload = () => {
             canvasConfig.entry.img = img;
             if(canvas) {
                 canvas.width = img.width; 
                 canvas.height = img.height;
-                drawCanvas('entry'); // Draw trigger karein
-                console.log("Map Image Force-Loaded successfully.");
+                drawCanvas('entry');
             }
         };
         img.src = base64Img;
     } else {
-        // Agar map nahi mila toh hi clear karein
-        console.log("No Map found for these selections.");
         clearMapCanvas();
     }
 }
@@ -518,6 +531,10 @@ async function saveDefect(){
     const x = document.getElementById("entryCoordX").value; const y = document.getElementById("entryCoordY").value;
     if(canvasConfig.entry.active && (!x || !y)) return alert("Please pinpoint the defect location on the map.");
 
+    // FIX 3: Checkbox se multiple selection collect karna
+    const selectedSpecs = Array.from(document.querySelectorAll('.spec-chk:checked')).map(cb => cb.value).join(', ');
+    if(!selectedSpecs) return alert("Please select at least one Specification.");
+
     const today = new Date().toISOString().slice(0,10); 
     let dueStr = document.getElementById("sladuedate").value;
     if(!dueStr) {
@@ -534,7 +551,7 @@ async function saveDefect(){
         floor: document.getElementById("floor").value, 
         flat: document.getElementById("flatNo").value,
         defectcategory: document.getElementById("defectcategory").value, 
-        specificationmatrix: document.getElementById("specificationmatrix").value,
+        specificationmatrix: selectedSpecs, // Comma separated string mapping
         engineeringremarks: document.getElementById("engineeringremarks").value, 
         riskspectrum: document.getElementById("riskspectrum").value,
         statusvector: document.getElementById("statusvector").value, 
@@ -1184,11 +1201,95 @@ async function exportExcelWithPhotos(dataToExport) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `CSMS_Report_Detailed.xlsx`; a.click();
 }
 
-function exportPDF(dataToExport){ 
+// FIX 2: Professionally styled PDF Generator function capturing all records neatly
+function exportPDF(dataToExport) {
     if(!dataToExport || dataToExport.length === 0) return alert("No data to export.");
-    const windowObj = window.open("", "", "width=950,height=750");
-    const style = `<style>body{font-family:sans-serif; padding:15px;} .card{border:1px solid #ccc; padding:14px; margin-bottom:16px;} .grid{display:grid; grid-template-columns: 1fr 1fr; gap:12px;} img{width:140px; height:140px; object-fit:cover; margin-right:10px;}</style>`;
-    let html = `<h1>CSMS Quality Audit</h1>`;
-    dataToExport.forEach((d)=>{ html += `<div class="card"><div class="grid"><div><b>Project:</b> ${d.project} | <b>Tower:</b> ${d.tower} | <b>Floor:</b> ${d.floor}<br/><b>Category:</b> ${d.defectcategory}</div><div><b>Status:</b> ${d.statusvector}<br/><b>Dates:</b> ${d.loggeddate}</div></div><div style="margin-top:10px;"><b>Initial: </b>${(d.initialPics||[]).map(src=> `<img src="${src}" />`).join("")}</div></div>`; });
-    windowObj.document.write(style + html); windowObj.document.close(); setTimeout(() => { windowObj.print(); windowObj.close(); }, 800);
+    const windowObj = window.open("", "", "width=1200,height=800");
+    const style = `<style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f8fafc; color: #334155; }
+        h1 { text-align: center; color: #0f172a; border-bottom: 3px solid #0284c7; padding-bottom: 10px; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }
+        .defect-card { background: white; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 25px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); page-break-inside: avoid; }
+        .defect-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+        .defect-id { font-size: 18px; font-weight: bold; color: #0284c7; }
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; border: 1px solid #cbd5e1; text-transform: uppercase; }
+        .grid-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; font-size: 13px; }
+        .info-box { background: #f1f5f9; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .info-label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; display: block; }
+        .info-value { font-weight: 600; color: #0f172a; word-wrap: break-word; }
+        .remarks-box { grid-column: span 4; background: #fffbeb; border: 1px solid #fde68a; }
+        .media-section { display: grid; grid-template-columns: auto 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .media-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; }
+        .media-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; text-align: center; color: #475569; }
+        .img-grid { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .img-grid img { width: 90px; height: 90px; object-fit: cover; border-radius: 4px; border: 1px solid #cbd5e1; }
+        @media print {
+            body { background: white; padding: 0; }
+            .defect-card { box-shadow: none; border: 1px solid #94a3b8; margin-bottom: 20px; }
+            .defect-card { page-break-inside: avoid; } /* Ensures 1 complete defect stays on one page without cutting */
+        }
+    </style>`;
+    
+    let html = `<h1>Consolidated Defect Audit Report</h1>`;
+    
+    dataToExport.forEach(d => {
+        const initPics = (d.initialPics || []).map(src => `<img src="${src}" />`).join("");
+        const finPics = (d.finalPics || []).map(src => `<img src="${src}" />`).join("");
+        const mapHtml = d.mapthumbnail ? `<img src="${d.mapthumbnail}" style="width:90px; height:90px;"/>` : `<span style="font-size:12px;color:#94a3b8;">Not Mapped</span>`;
+        
+        let badgeColor = '#fef3c7'; // default for open/progress
+        if (d.statusvector === 'Closed') badgeColor = '#d1fae5';
+        
+        html += `
+        <div class="defect-card">
+            <div class="defect-header">
+                <div class="defect-id">Audit Ref: #${d.serial || 'N/A'}</div>
+                <div class="status-badge" style="background:${badgeColor}">${d.statusvector}</div>
+            </div>
+            
+            <div class="grid-info">
+                <div class="info-box"><span class="info-label">Project</span><span class="info-value">${d.project || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Tower</span><span class="info-value">${d.tower || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Floor Vector</span><span class="info-value">${d.floor || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Flat / Unit</span><span class="info-value">${d.flat || '-'}</span></div>
+                
+                <div class="info-box"><span class="info-label">Category</span><span class="info-value">${d.defectcategory || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Specification Matrix</span><span class="info-value">${d.specificationmatrix || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Risk Spectrum</span><span class="info-value">${d.riskspectrum || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Delay Axis</span><span class="info-value">${d.delayaxis || '-'}</span></div>
+                
+                <div class="info-box"><span class="info-label">Created By</span><span class="info-value">${d.createdby || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Logged Date</span><span class="info-value">${d.loggeddate || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Closed By</span><span class="info-value">${d.closedby || '-'}</span></div>
+                <div class="info-box"><span class="info-label">Closed Date</span><span class="info-value">${d.closeddate || '-'}</span></div>
+                
+                <div class="info-box remarks-box">
+                    <span class="info-label">Engineering Remarks</span>
+                    <span class="info-value">${d.engineeringremarks || 'No remarks provided.'}</span>
+                </div>
+            </div>
+            
+            <div class="media-section">
+                <div class="media-box">
+                    <div class="media-title">Location Map</div>
+                    <div class="img-grid">${mapHtml}</div>
+                </div>
+                <div class="media-box">
+                    <div class="media-title">Initial Evidence</div>
+                    <div class="img-grid">${initPics || '<span style="font-size:12px;color:#94a3b8;">No Evidence</span>'}</div>
+                </div>
+                <div class="media-box">
+                    <div class="media-title">Final Evidence</div>
+                    <div class="img-grid">${finPics || '<span style="font-size:12px;color:#94a3b8;">No Evidence</span>'}</div>
+                </div>
+            </div>
+        </div>`;
+    });
+    
+    windowObj.document.write(style + html); 
+    windowObj.document.close(); 
+    
+    // Allows high quality base64 images to render properly before print dialog pops
+    setTimeout(() => { 
+        windowObj.print(); 
+    }, 1500);
 }
