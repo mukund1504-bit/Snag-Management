@@ -189,9 +189,6 @@ function manualLogout() {
     location.reload(); 
 }
 
-// ----------------------------------------------------
-// UPDATE: Canvas Initialization ko Draft Restore se pehle move kiya gaya hai
-// ----------------------------------------------------
 function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
@@ -209,7 +206,6 @@ function activateApp() {
 
     refreshDropdowns(); 
     
-    // YAHAN FIX HAI: Canvas pehle banega tabhi map draw ho payega.
     initCanvas('entry'); 
     initCanvas('modal');
 
@@ -228,6 +224,10 @@ function saveDraftState() {
     sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
 }
 
+// ----------------------------------------------------
+// CRITICAL FIX: Delay set for Map Reload & Marker Rendering 
+// (Bypasses Browser's aggressive DOM auto-reset noise during refresh)
+// ----------------------------------------------------
 function restoreDraftState() {
     const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
     if(!draft) return;
@@ -236,25 +236,34 @@ function restoreDraftState() {
     if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
     if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); }
     
-    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
+    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
         if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
     });
     
     if(draft.defectcategory) populateDefectList();
     if(draft.specificationmatrix && document.getElementById("specificationmatrix")) document.getElementById("specificationmatrix").value = draft.specificationmatrix;
 
-    if (draft.entryCoordX && draft.entryCoordY) {
-        canvasConfig.entry.marker = {
-            x: parseFloat(draft.entryCoordX),
-            y: parseFloat(draft.entryCoordY)
-        };
-        document.getElementById("entryCoordX").value = draft.entryCoordX;
-        document.getElementById("entryCoordY").value = draft.entryCoordY;
-    }
+    // Timeout Ensures that Map loads and Marker binds *after* all automatic clearMapCanvas() triggers have fired.
+    setTimeout(() => {
+        // Enforce basic fields strictly once more just in case browser reset them
+        if(draft.project) document.getElementById("project").value = draft.project;
+        if(draft.tower) document.getElementById("tower").value = draft.tower;
+        if(draft.floor) document.getElementById("floor").value = draft.floor;
+        if(draft.flatNo) document.getElementById("flatNo").value = draft.flatNo;
 
-    if(draft.floor) { 
-        loadEntryMap(); 
-    }
+        if (draft.entryCoordX && draft.entryCoordY) {
+            document.getElementById("entryCoordX").value = draft.entryCoordX;
+            document.getElementById("entryCoordY").value = draft.entryCoordY;
+            canvasConfig.entry.marker = {
+                x: parseFloat(draft.entryCoordX),
+                y: parseFloat(draft.entryCoordY)
+            };
+        }
+        
+        if(draft.floor) { 
+            loadEntryMap(); 
+        }
+    }, 250); 
 }
 
 function showSection(id) {
