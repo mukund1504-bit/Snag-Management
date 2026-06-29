@@ -88,7 +88,7 @@
                             </div>
                             <p id="entryMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No Drawing mapped to this floor. Please upload in Setup.</p>
                             <input type="hidden" id="entryCoordX"><input type="hidden" id="entryCoordY">
-                            <div class="map-instructions">Existing issues marked in RED. Click map to place NEW BLUE marker.</div>
+                            <div class="map-instructions">Existing issues marked in RED. Click map to place NEW BLUE marker.<br><span style="color:#0284c7;">Tip: Click on RED point to view old defect details.</span></div>
                         </div>
 
                         <div class="form-section-card-tech part-3">
@@ -97,9 +97,15 @@
                                 <div class="field-box-tech"><label>Defect Category</label><select id="defectcategory" onchange="populateDefectList()" required><option value="">-- Select Category --</option></select></div>
                                 
                                 <div class="field-box-tech">
-                                    <label>Specification Matrix (Multi-Select)</label>
-                                    <div id="specCheckboxContainer" class="checkbox-dropdown-container">
-                                        <span style="color:#94a3b8; font-size:13px; font-weight:normal;">-- Select Category First --</span>
+                                    <label>Specification Matrix</label>
+                                    <div class="custom-multi-select" id="customSpecSelect">
+                                        <div class="select-box" onclick="toggleSpecDropdown()">
+                                            <span id="specSelectText">-- Select Specification --</span>
+                                            <i class="fas fa-chevron-down"></i>
+                                        </div>
+                                        <div class="dropdown-list-checkboxes" id="specCheckboxContainer">
+                                            <span style="color:#94a3b8; font-size:13px; padding:10px;">-- Select Category First --</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -344,6 +350,17 @@
                         <div id="blueprint-wrapper"><canvas id="modalCanvas"></canvas></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="defectInfoModal" class="drilldown-modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3 style="margin-top:0; border-bottom: 2px solid #cbd5e1; padding-bottom:12px;"><i class="fas fa-info-circle text-cyan"></i> Logged Defect Details</h3>
+            <div id="defectInfoContent" style="font-size:14px; display:flex; flex-direction:column; gap:12px; margin-bottom: 20px;">
+                </div>
+            <div style="display:flex; justify-content: flex-end;">
+                <button class="btn-danger-tech" style="width:100%;" onclick="closeDefectInfoModal()"><i class="fas fa-times"></i> Close</button>
             </div>
         </div>
     </div>

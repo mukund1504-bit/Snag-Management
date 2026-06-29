@@ -239,3 +239,62 @@ canvas { transition: transform 0.2s ease; transform-origin: center center; max-w
     margin: 0 !important;
     cursor: pointer;
 }
+/* --- CUSTOM MULTI-SELECT DROPDOWN STYLES --- */
+.custom-multi-select { 
+    position: relative; 
+    width: 100%; 
+    outline: none; 
+}
+.select-box { 
+    padding: 10px 12px; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    background: #f8fafc; 
+    cursor: pointer; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    transition: all 0.2s; 
+}
+.select-box:hover { 
+    border-color: var(--accent-glow); 
+}
+.dropdown-list-checkboxes { 
+    position: absolute; 
+    top: 100%; 
+    left: 0; 
+    right: 0; 
+    background: white; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+    margin-top: 5px; 
+    z-index: 100; 
+    max-height: 220px; 
+    overflow-y: auto; 
+    display: none; /* Initially hidden */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); 
+    flex-direction: column; 
+}
+.custom-multi-select.open .dropdown-list-checkboxes { 
+    display: flex; /* Shown when 'open' class is applied */
+}
+.spec-cb-label { 
+    padding: 8px 12px; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    cursor: pointer; 
+    border-bottom: 1px solid #f1f5f9; 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: #334155; 
+}
+.spec-cb-label:hover { 
+    background: #f1f5f9; 
+}
+.spec-cb-label input { 
+    width: auto !important; 
+    margin: 0 !important; 
+    cursor: pointer; 
+}
