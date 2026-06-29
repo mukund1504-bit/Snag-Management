@@ -54,6 +54,10 @@ let editTempPhotos = [];
 let currentDrilldownData = []; 
 let autoSyncInterval;
 
+// === NEW: Map readiness state (single source of truth) ===
+let mapsCloudLoaded = false;       // true once first successful cloud fetch completes
+let pendingMapLoadKey = null;       // remembers the key user wants to load if not ready yet
+
 let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
     "Fragrance": { 
         "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
@@ -83,6 +87,7 @@ window.addEventListener('offline', () => { document.getElementById('networkStatu
 window.addEventListener('storage', () => {
     structuralHierarchy = getSafeStorage("qa_strict_hierarchy", structuralHierarchy);
     defectMatrix = getSafeStorage("qa_defectMatrix", defectMatrix);
+    floorMaps = getSafeStorage("qa_floorMaps", floorMaps);
     refreshDropdowns();
 });
 
@@ -123,6 +128,20 @@ window.addEventListener("DOMContentLoaded", () => {
         defecttypeEl.addEventListener('change', populateDefectList);
     }
 
+    // === NEW: Floor change ke baad map auto-reload (existing populateFlats untouched) ===
+    const floorEl = document.getElementById("floor");
+    if(floorEl) {
+        floorEl.addEventListener('change', () => {
+            // populateFlats already called via inline onchange; we just trigger map load
+            setTimeout(() => ensureMapLoaded(), 50);
+        });
+    }
+    // Same for project/tower in case they change directly (defensive)
+    const projEl = document.getElementById("project");
+    if(projEl) projEl.addEventListener('change', () => setTimeout(() => ensureMapLoaded(), 50));
+    const towerEl = document.getElementById("tower");
+    if(towerEl) towerEl.addEventListener('change', () => setTimeout(() => ensureMapLoaded(), 50));
+
     ["reportProject", "reportTower", "reportCreatedBy", "reportStatus", "reportDateFrom", "reportDateTo"].forEach(id => {
         const el = document.getElementById(id);
         if(el) el.addEventListener('change', renderReportTable);
@@ -134,9 +153,21 @@ window.addEventListener("DOMContentLoaded", () => {
             loadDefectsFromCloud(true);
         }
     }).subscribe();
+
+    // === NEW: Realtime listener for map updates (so other devices' uploads reflect instantly) ===
+    supabaseClient.channel('public:snag_maps').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_maps' }, payload => {
+        if(navigator.onLine) {
+            console.log("Map Sync Triggered", payload);
+            loadMapsFromCloud().then(() => {
+                // If user is on entry section and waiting for a map, retry
+                if (pendingMapLoadKey || (document.getElementById('entry') && document.getElementById('entry').classList.contains('active'))) {
+                    ensureMapLoaded();
+                }
+            });
+        }
+    }).subscribe();
 });
 
-// UPGRADE: Close Dropdown if clicked outside
 document.addEventListener('click', function(e) {
     const selectBox = document.getElementById('customSpecSelect');
     if (selectBox && !selectBox.contains(e.target)) {
@@ -211,7 +242,7 @@ function manualLogout() {
     location.reload(); 
 }
 
-// UPGRADE FIX 1: Strict Sequential Promise Resolution for Map Race Condition
+// === UPGRADED: activateApp with strict map-ready sequencing ===
 async function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
@@ -231,15 +262,23 @@ async function activateApp() {
     initCanvas('entry'); 
     initCanvas('modal');
 
-    // FIX 1: Wait for both Maps AND Old defects to fully load before drawing anything!
+    // Step 1: ensure cloud data fully fetched (maps + defects) BEFORE restoring form
     await Promise.all([
         loadMapsFromCloud(),
         loadDefectsFromCloud(false)
     ]);
 
-    // Ab jab sab data aa chuka hai, tabhi canvas and draft update chalenge
+    // Step 2: restore form fields (project/tower/floor selections come back)
     restoreDraftState(); 
     
+    // Step 3: explicitly trigger map load AFTER everything is in place.
+    // Using requestAnimationFrame ensures canvas DOM is laid out (visible, has size).
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            ensureMapLoaded();
+        });
+    });
+
     startAutoRefresh(); 
     if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
 }
@@ -257,6 +296,7 @@ function saveDraftState() {
     sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
 }
 
+// === UPGRADED: restoreDraftState (map-related portion only changed) ===
 function restoreDraftState() {
     const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
     if(!draft) return;
@@ -289,13 +329,11 @@ function restoreDraftState() {
             y: parseFloat(draft.entryCoordY)
         };
     }
-    
-    // Yaha sync properly image draw karegi
-    if(draft.floor && draft.project && draft.tower) { 
-        loadEntryMap(); 
-    }
+    // Map load is NOT triggered here anymore (moved to activateApp via ensureMapLoaded)
+    // This avoids race condition.
 }
 
+// === UPGRADED: showSection - retrigger map load when user navigates to entry ===
 function showSection(id) {
     sessionStorage.setItem("active_section", id); 
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
@@ -322,6 +360,12 @@ function showSection(id) {
         renderAdminTables(); 
         renderUserSetupCheckboxes(); 
         renderUserTable();
+    }
+    // NEW: when entering the control panel (entry), re-ensure map is drawn
+    if(id === 'entry') {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => ensureMapLoaded());
+        });
     }
 }
 
@@ -380,7 +424,6 @@ function refreshDropdowns() {
     }
 }
 
-// UPGRADE FIX 2: Custom Standard Dropdown containing checkboxes
 function populateDefectList() {
     const typeVal = document.getElementById("defectcategory") ? document.getElementById("defectcategory").value : "";
     const container = document.getElementById("specCheckboxContainer");
@@ -439,11 +482,14 @@ function populateFlats() {
     }
 }
 
-// UPGRADE FIX 3: Clickable Red Map Markers
+// === UPGRADED: initCanvas - defensive against null ctx ===
 function initCanvas(type) {
     const canvas = document.getElementById(`${type}Canvas`); if(!canvas) return;
     canvasConfig[type].ctx = canvas.getContext('2d');
     if(type === 'entry') {
+        // Remove previous listener if any to avoid duplicates on re-init
+        if (canvas._csmsBound) return;
+        canvas._csmsBound = true;
         canvas.addEventListener("click", (e) => {
             if(!canvasConfig.entry.active) return;
             const rect = canvas.getBoundingClientRect(); 
@@ -452,7 +498,6 @@ function initCanvas(type) {
             const x = (e.clientX - rect.left) * scaleX; 
             const y = (e.clientY - rect.top) * scaleY;
             
-            // --- NEW: Collision Check with Old Defects ---
             const p = document.getElementById("project").value; 
             const t = document.getElementById("tower").value; 
             const f = document.getElementById("floor").value;
@@ -463,19 +508,17 @@ function initCanvas(type) {
                     const dx = parseFloat(d.mapx);
                     const dy = parseFloat(d.mapy);
                     const dist = Math.sqrt(Math.pow(dx - x, 2) + Math.pow(dy - y, 2));
-                    if(dist <= 15) { // 15px interaction radius
+                    if(dist <= 15) {
                         clickedDefect = d;
                         break;
                     }
                 }
             }
             
-            // Agar purane defect (red point) par click hua hai, toh details popup dikhaye
             if(clickedDefect) {
                 openDefectInfoModal(clickedDefect);
-                return; // Stop execution (Naya blue marker mat banao)
+                return;
             }
-            // --- END NEW LOGIC ---
 
             canvasConfig.entry.marker = {x, y}; 
             document.getElementById("entryCoordX").value = x; 
@@ -486,7 +529,6 @@ function initCanvas(type) {
     }
 }
 
-// UPGRADE: New Modal Open/Close Functions
 function openDefectInfoModal(d) {
     const content = document.getElementById("defectInfoContent");
     const photos = Array.isArray(d.initialPics) && d.initialPics.length > 0 
@@ -515,32 +557,104 @@ function closeDefectInfoModal() {
     document.getElementById("defectInfoModal").style.display = "none";
 }
 
+// === UPGRADED: loadEntryMap (async, awaits image, returns success) ===
 async function loadEntryMap() {
-    const p = document.getElementById("project").value; 
-    const t = document.getElementById("tower").value; 
-    const f = document.getElementById("floor").value;
+    const p = document.getElementById("project") ? document.getElementById("project").value : "";
+    const t = document.getElementById("tower") ? document.getElementById("tower").value : "";
+    const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
     
-    const base64Img = floorMaps[`${p}_${t}_${f}`]; 
+    if(!p || !t || !f) {
+        clearMapCanvas();
+        return false;
+    }
+
+    const key = `${p}_${t}_${f}`;
+    let base64Img = floorMaps[key];
+
+    // Defensive: also try fresh localStorage read (storage event might be lagging)
+    if(!base64Img) {
+        const lsMaps = getSafeStorage("qa_floorMaps", {});
+        if(lsMaps[key]) {
+            floorMaps[key] = lsMaps[key];
+            base64Img = lsMaps[key];
+        }
+    }
+
     const warn = document.getElementById("entryMapWarning");
     const canvas = document.getElementById('entryCanvas');
     
-    if (base64Img) {
-        if(warn) warn.style.display = "none"; 
-        canvasConfig.entry.active = true;
-        
+    if(!canvas) return false;
+
+    // Re-init ctx if missing (defensive against any earlier failure)
+    if(!canvasConfig.entry.ctx) {
+        canvasConfig.entry.ctx = canvas.getContext('2d');
+    }
+
+    if (!base64Img) {
+        // Map not found locally — remember and bail; caller (ensureMapLoaded) will retry via cloud
+        return false;
+    }
+
+    if(warn) warn.style.display = "none"; 
+    canvasConfig.entry.active = true;
+
+    return await new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             canvasConfig.entry.img = img;
-            if(canvas) {
-                canvas.width = img.width; 
-                canvas.height = img.height;
-                drawCanvas('entry');
-            }
+            canvas.width = img.width; 
+            canvas.height = img.height;
+            drawCanvas('entry');
+            resolve(true);
+        };
+        img.onerror = () => {
+            console.warn("Map image failed to decode for key:", key);
+            resolve(false);
         };
         img.src = base64Img;
-    } else {
-        clearMapCanvas();
+    });
+}
+
+// === NEW: ensureMapLoaded — single source of truth with retry + cloud fallback ===
+async function ensureMapLoaded() {
+    const entrySection = document.getElementById('entry');
+    if(!entrySection || !entrySection.classList.contains('active')) {
+        // Only relevant when entry section is visible
+        return;
     }
+
+    const p = document.getElementById("project") ? document.getElementById("project").value : "";
+    const t = document.getElementById("tower") ? document.getElementById("tower").value : "";
+    const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
+
+    if(!p || !t || !f) {
+        clearMapCanvas();
+        return;
+    }
+
+    const key = `${p}_${t}_${f}`;
+    pendingMapLoadKey = key;
+
+    // Attempt 1: load from current cache
+    let ok = await loadEntryMap();
+    if(ok) { pendingMapLoadKey = null; return; }
+
+    // Attempt 2: force fresh cloud sync, then retry
+    if(navigator.onLine) {
+        const cloudOk = await loadMapsFromCloud();
+        if(cloudOk) {
+            ok = await loadEntryMap();
+            if(ok) { pendingMapLoadKey = null; return; }
+        }
+    }
+
+    // Attempt 3: short delayed retry (in case section just became visible / canvas sized late)
+    await new Promise(r => setTimeout(r, 400));
+    ok = await loadEntryMap();
+    if(ok) { pendingMapLoadKey = null; return; }
+
+    // Final: keep warning visible
+    clearMapCanvas();
 }
 
 function drawCanvas(type) {
@@ -1077,17 +1191,29 @@ function delCategory(c) {
 }
 function resetCategoryForm() { document.getElementById("categoryForm").reset(); }
 
+// === UPGRADED: loadMapsFromCloud — now returns boolean success ===
 async function loadMapsFromCloud() {
-    if(!navigator.onLine) return;
+    if(!navigator.onLine) return false;
     try {
         const { data, error } = await supabaseClient.from('snag_maps').select('*');
-        if(!error && data) {
+        if(error) {
+            console.warn("Map cloud sync error:", error.message);
+            return false;
+        }
+        if(data) {
             data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
             localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps));
-            if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser.role === "admin") renderMapTable();
+            mapsCloudLoaded = true;
+            if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") renderMapTable();
+            return true;
         }
-    } catch(e) { console.error("Map sync error", e); }
+        return false;
+    } catch(e) { 
+        console.error("Map sync exception:", e); 
+        return false;
+    }
 }
+
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
 
