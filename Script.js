@@ -557,7 +557,7 @@ function closeDefectInfoModal() {
     document.getElementById("defectInfoModal").style.display = "none";
 }
 
-// === UPGRADED: loadEntryMap (async, awaits image, returns success) ===
+// === UPGRADED: loadEntryMap — guarantees defects are loaded before drawing red dots ===
 async function loadEntryMap() {
     const p = document.getElementById("project") ? document.getElementById("project").value : "";
     const t = document.getElementById("tower") ? document.getElementById("tower").value : "";
@@ -571,7 +571,6 @@ async function loadEntryMap() {
     const key = `${p}_${t}_${f}`;
     let base64Img = floorMaps[key];
 
-    // Defensive: also try fresh localStorage read (storage event might be lagging)
     if(!base64Img) {
         const lsMaps = getSafeStorage("qa_floorMaps", {});
         if(lsMaps[key]) {
@@ -585,18 +584,22 @@ async function loadEntryMap() {
     
     if(!canvas) return false;
 
-    // Re-init ctx if missing (defensive against any earlier failure)
     if(!canvasConfig.entry.ctx) {
         canvasConfig.entry.ctx = canvas.getContext('2d');
     }
 
     if (!base64Img) {
-        // Map not found locally — remember and bail; caller (ensureMapLoaded) will retry via cloud
         return false;
     }
 
     if(warn) warn.style.display = "none"; 
     canvasConfig.entry.active = true;
+
+    // FIX: Ensure defects are loaded BEFORE drawing red dots
+    // If defects array is empty but we're online, fetch them now
+    if((!defects || defects.length === 0) && navigator.onLine) {
+        await loadDefectsFromCloud(true);
+    }
 
     return await new Promise((resolve) => {
         const img = new Image();
@@ -604,7 +607,13 @@ async function loadEntryMap() {
             canvasConfig.entry.img = img;
             canvas.width = img.width; 
             canvas.height = img.height;
+            // Draw map + dots
             drawCanvas('entry');
+            // FIX: Double-draw after a micro-tick to catch any defects that arrived
+            // between image load and the first draw (handles cached-image race condition)
+            setTimeout(() => {
+                if(canvasConfig.entry.img) drawCanvas('entry');
+            }, 150);
             resolve(true);
         };
         img.onerror = () => {
@@ -651,7 +660,14 @@ async function ensureMapLoaded() {
     // Attempt 3: short delayed retry (in case section just became visible / canvas sized late)
     await new Promise(r => setTimeout(r, 400));
     ok = await loadEntryMap();
-    if(ok) { pendingMapLoadKey = null; return; }
+    if(ok) { 
+        pendingMapLoadKey = null; 
+        // FIX: Final safety net — redraw dots after a brief settle
+        setTimeout(() => {
+            if(canvasConfig.entry.img && canvasConfig.entry.ctx) drawCanvas('entry');
+        }, 200);
+        return; 
+    }
 
     // Final: keep warning visible
     clearMapCanvas();
@@ -851,7 +867,13 @@ async function loadDefectsFromCloud(isBackground = false) {
             if(document.getElementById('dashboard') && document.getElementById('dashboard').classList.contains('active')) {
                 if(typeof renderCharts === 'function') renderCharts();
             }
-            if(document.getElementById('entry') && document.getElementById('entry').classList.contains('active')) drawCanvas('entry');
+            // FIX: On entry section, redraw red dots whenever defects refresh
+            // Only redraw if map image is already loaded (avoid clearing during initial load)
+            if(document.getElementById('entry') && document.getElementById('entry').classList.contains('active')) {
+                if(canvasConfig.entry && canvasConfig.entry.img && canvasConfig.entry.ctx) {
+                    drawCanvas('entry');
+                }
+            }
         }
     } catch(e) { console.error("Critical Error loading defects:", e); }
     finally { 
