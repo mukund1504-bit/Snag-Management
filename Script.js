@@ -58,6 +58,10 @@ let autoSyncInterval;
 let mapsCloudLoaded = false;       // true once first successful cloud fetch completes
 let pendingMapLoadKey = null;       // remembers the key user wants to load if not ready yet
 
+// === NEW: Cloud sync state for hierarchy and categories (multi-device realtime sync) ===
+let hierarchyCloudLoaded = false;
+let categoriesCloudLoaded = false;
+
 let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
     "Fragrance": { 
         "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
@@ -76,12 +80,43 @@ let defectMatrix = getSafeStorage("qa_defectMatrix", {
 
 let floorMaps = getSafeStorage("qa_floorMaps", {});
 
+// === FIX #4 === Debounce + submit-lock flags to prevent auto-refresh from
+// racing with user submits (e.g. hierarchy add gets wiped by concurrent
+// loadHierarchyFromCloud() that fired mid-save)
+let _hierarchySaveInProgress = false;
+let _categorySaveInProgress = false;
+let _hierarchyLoadInProgress = false;
+let _categoryLoadInProgress = false;
+let _lastAutoRefreshAt = 0;
+
+// === FIX #4 === Non-blocking toast helper (replaces silent-fail patterns)
+function csmsToast(message, type) {
+    try {
+        let container = document.getElementById('csmsToastContainer');
+        if(!container) {
+            container = document.createElement('div');
+            container.id = 'csmsToastContainer';
+            container.className = 'csms-toast-container';
+            document.body.appendChild(container);
+        }
+        const el = document.createElement('div');
+        el.className = 'csms-toast ' + (type || '');
+        el.textContent = message;
+        container.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => {
+            el.classList.remove('show');
+            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }, 3500);
+    } catch(e) { console.warn("Toast failed:", e); }
+}
+
 let canvasConfig = {
     entry: { ctx: null, img: null, scale: 1, marker: null, active: true },
     modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
 };
 
-window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); });
+window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); flushHierarchyQueue(); flushCategoryQueue(); loadHierarchyFromCloud(); loadCategoriesFromCloud(); });
 window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
 
 window.addEventListener('storage', () => {
@@ -147,25 +182,74 @@ window.addEventListener("DOMContentLoaded", () => {
         if(el) el.addEventListener('change', renderReportTable);
     });
 
-    supabaseClient.channel('public:snagmanagement').on('postgres_changes', { event: '*', schema: 'public', table: 'snagmanagement' }, payload => {
+    // === FIX #4 === Wrap realtime channel subscribes with reconnect-on-close
+    // so listeners auto-rebind after network drop / mobile suspension.
+    function _subscribeWithReconnect(channelFactory, label) {
+        let ch;
+        const start = () => {
+            try {
+                ch = channelFactory();
+                ch.subscribe((status) => {
+                    if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        console.warn(`[Realtime:${label}] status=${status}, reconnecting in 3s...`);
+                        try { supabaseClient.removeChannel(ch); } catch(e){}
+                        setTimeout(start, 3000);
+                    }
+                });
+            } catch(e) { console.warn(`[Realtime:${label}] subscribe failed:`, e); setTimeout(start, 5000); }
+        };
+        start();
+    }
+
+    _subscribeWithReconnect(() => supabaseClient.channel('public:snagmanagement').on('postgres_changes', { event: '*', schema: 'public', table: 'snagmanagement' }, payload => {
         if(navigator.onLine) {
             console.log("Realtime Sync Triggered", payload);
             loadDefectsFromCloud(true);
         }
-    }).subscribe();
+    }), 'snagmanagement');
 
     // === NEW: Realtime listener for map updates (so other devices' uploads reflect instantly) ===
-    supabaseClient.channel('public:snag_maps').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_maps' }, payload => {
+    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_maps').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_maps' }, payload => {
         if(navigator.onLine) {
             console.log("Map Sync Triggered", payload);
             loadMapsFromCloud().then(() => {
-                // If user is on entry section and waiting for a map, retry
                 if (pendingMapLoadKey || (document.getElementById('entry') && document.getElementById('entry').classList.contains('active'))) {
                     ensureMapLoaded();
                 }
             });
         }
-    }).subscribe();
+    }), 'snag_maps');
+
+    // === FIX #1 === Realtime listener for STRUCTURAL HIERARCHY — skips reload
+    // while a local save is in flight (prevents overwrite of freshly-added row).
+    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_hierarchy').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_hierarchy' }, payload => {
+        if(navigator.onLine && !_hierarchySaveInProgress) {
+            console.log("Hierarchy Sync Triggered", payload);
+            loadHierarchyFromCloud().then(() => {
+                refreshDropdowns();
+                if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") {
+                    renderAdminTables();
+                    renderUserSetupCheckboxes();
+                }
+            });
+        }
+    }), 'snag_hierarchy');
+
+    // === NEW: Realtime listener for DEFECT CATEGORIES & SPECIFICATIONS ===
+    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_categories').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_categories' }, payload => {
+        if(navigator.onLine && !_categorySaveInProgress) {
+            console.log("Category Sync Triggered", payload);
+            loadCategoriesFromCloud().then(() => {
+                refreshDropdowns();
+                if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") {
+                    renderAdminTables();
+                }
+                const catEl = document.getElementById("defectcategory");
+                if(catEl && catEl.value) populateDefectList();
+            });
+        }
+    }), 'snag_categories');
+
 });
 
 document.addEventListener('click', function(e) {
@@ -242,7 +326,9 @@ function manualLogout() {
     location.reload(); 
 }
 
-// === UPGRADED: activateApp with strict map-ready sequencing ===
+// === FIX #2 === activateApp — runs identical init sequence for BOTH login AND
+// browser refresh paths. Explicitly re-inits canvas + click handlers AFTER
+// draft restoration so refresh-state === post-login-state for marker clicks.
 async function activateApp() {
     document.getElementById("loginOverlay").style.display = "none"; 
     document.getElementById("appContainer").style.display = "block";
@@ -262,20 +348,34 @@ async function activateApp() {
     initCanvas('entry'); 
     initCanvas('modal');
 
-    // Step 1: ensure cloud data fully fetched (maps + defects) BEFORE restoring form
+    // Step 1: ensure cloud data fully fetched (maps + defects + hierarchy + categories) BEFORE restoring form
+    // Fixes Issue #1 & #2: System Setup entries now sync across ALL devices in realtime
     await Promise.all([
         loadMapsFromCloud(),
-        loadDefectsFromCloud(false)
+        loadDefectsFromCloud(false),
+        loadHierarchyFromCloud(),
+        loadCategoriesFromCloud()
     ]);
+    // Refresh dropdowns now that cloud-synced hierarchy/categories are merged
+    refreshDropdowns();
+    initDropdownsOnLoad();
 
     // Step 2: restore form fields (project/tower/floor selections come back)
     restoreDraftState(); 
+
+    // === FIX #2 === Re-init canvas AFTER restoreDraftState so the click handler
+    // is guaranteed to be attached in the refresh path (identical to post-login).
+    // rebindEntryCanvasHandlers is idempotent — safe to call multiple times.
+    rebindEntryCanvasHandlers();
     
     // Step 3: explicitly trigger map load AFTER everything is in place.
     // Using requestAnimationFrame ensures canvas DOM is laid out (visible, has size).
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            ensureMapLoaded();
+            ensureMapLoaded().then(() => {
+                // Final rebind after map draws to defend against any race condition
+                rebindEntryCanvasHandlers();
+            });
         });
     });
 
@@ -482,15 +582,123 @@ function populateFlats() {
     }
 }
 
-// === UPGRADED: initCanvas - defensive against null ctx ===
+// === UPGRADED: zoomCanvas with bounds, transform-origin & wrapper sizing for proper pan ===
+function zoomCanvas(id, factor) { 
+    const type = id.replace('Canvas', ''); 
+    let next = canvasConfig[type].scale * factor;
+    // Clamp between 0.4x and 6x to avoid extreme zoom
+    next = Math.max(0.4, Math.min(6, next));
+    canvasConfig[type].scale = next; 
+    const el = document.getElementById(id);
+    if(el) {
+        el.style.transformOrigin = "top left";
+        el.style.transform = `scale(${canvasConfig[type].scale})`;
+    }
+}
+function resetCanvas(id) { 
+    const type = id.replace('Canvas', ''); 
+    canvasConfig[type].scale = 1; 
+    const el = document.getElementById(id);
+    if(el) {
+        el.style.transformOrigin = "top left";
+        el.style.transform = `scale(1)`;
+    }
+}
+
+// === FIX #3 === attachZoomGestures — proper 2-finger pinch inside map only.
+// Key improvements vs. previous version:
+//   • touch-action:none on wrapper (CSS) blocks browser page-zoom on 2 fingers
+//   • pinch is scoped to the .map-viewport-container so the surrounding page
+//     never zooms, only the canvas transform scales
+//   • scale clamped 0.4x – 6x
+//   • preventDefault on every touchstart/touchmove with 2 fingers so mobile
+//     browsers don't fall back to page pinch
+//   • idempotent: guarded by _csmsPinchBound flag so re-init after refresh
+//     does not stack duplicate handlers
+function attachZoomGestures(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if(!canvas) return;
+
+    // Mouse wheel zoom (laptop / desktop) — idempotent
+    if(!canvas._csmsWheelBound) {
+        canvas._csmsWheelBound = true;
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = (e.deltaY < 0) ? 1.12 : (1/1.12);
+            zoomCanvas(canvasId, factor);
+        }, { passive: false });
+    }
+
+    // Two-finger pinch on the nearest map-viewport wrapper — idempotent
+    let wrapper = canvas.closest('.map-viewport-container');
+    if(!wrapper) wrapper = canvas.parentElement;
+    if(!wrapper || wrapper._csmsPinchBound) return;
+    wrapper._csmsPinchBound = true;
+
+    let lastDist = 0;
+    let pinchActive = false;
+    const getDist = (touches) => {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(dx, dy);
+    };
+    wrapper.addEventListener('touchstart', (e) => {
+        if(e.touches.length === 2) {
+            e.preventDefault();
+            pinchActive = true;
+            lastDist = getDist(e.touches);
+        }
+    }, { passive: false });
+    wrapper.addEventListener('touchmove', (e) => {
+        if(e.touches.length === 2) {
+            // Prevent default on EVERY 2-finger touchmove so mobile browser
+            // never falls back to native page pinch-zoom.
+            e.preventDefault();
+            e.stopPropagation();
+            const dist = getDist(e.touches);
+            if(lastDist > 0) {
+                const factor = dist / lastDist;
+                zoomCanvas(canvasId, factor);
+            }
+            lastDist = dist;
+        } else if(pinchActive) {
+            // Fewer than 2 fingers now — end pinch gracefully
+            e.preventDefault();
+        }
+    }, { passive: false });
+    wrapper.addEventListener('touchend', (e) => {
+        if(e.touches.length < 2) {
+            lastDist = 0;
+            pinchActive = false;
+        }
+    }, { passive: true });
+    wrapper.addEventListener('touchcancel', () => {
+        lastDist = 0;
+        pinchActive = false;
+    }, { passive: true });
+
+    // Also swallow gesture events on iOS to prevent Safari page zoom.
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => {
+        wrapper.addEventListener(ev, (e) => { e.preventDefault(); }, { passive: false });
+    });
+}
+
+// === FIX #2 === initCanvas — click handler is now REBINDABLE (removes any
+// previously-attached listener before attaching fresh one). This guarantees
+// that after a page refresh the click-to-open-defect-popup binding is
+// identical to the post-login state. Function name & signature preserved.
 function initCanvas(type) {
     const canvas = document.getElementById(`${type}Canvas`); if(!canvas) return;
     canvasConfig[type].ctx = canvas.getContext('2d');
+    // Attach zoom gestures for BOTH entry and modal canvases (Issue #3)
+    attachZoomGestures(`${type}Canvas`);
     if(type === 'entry') {
-        // Remove previous listener if any to avoid duplicates on re-init
-        if (canvas._csmsBound) return;
-        canvas._csmsBound = true;
-        canvas.addEventListener("click", (e) => {
+        // === FIX #2 === Remove old listener (if any) then attach fresh.
+        // Storing the handler on the element so we can detach it on re-init.
+        if(canvas._csmsClickHandler) {
+            try { canvas.removeEventListener("click", canvas._csmsClickHandler); } catch(e){}
+        }
+        const clickHandler = (e) => {
             if(!canvasConfig.entry.active) return;
             const rect = canvas.getBoundingClientRect(); 
             const scaleX = canvas.width / rect.width;
@@ -508,7 +716,7 @@ function initCanvas(type) {
                     const dx = parseFloat(d.mapx);
                     const dy = parseFloat(d.mapy);
                     const dist = Math.sqrt(Math.pow(dx - x, 2) + Math.pow(dy - y, 2));
-                    if(dist <= 15) {
+                    if(dist <= 22) {
                         clickedDefect = d;
                         break;
                     }
@@ -525,8 +733,19 @@ function initCanvas(type) {
             document.getElementById("entryCoordY").value = y; 
             drawCanvas(type);
             saveDraftState(); 
-        });
+        };
+        canvas._csmsClickHandler = clickHandler;
+        canvas.addEventListener("click", clickHandler);
+        canvas._csmsBound = true;
     }
+}
+
+// === FIX #2 === rebindEntryCanvasHandlers — called after every canvas redraw
+// & from the DOMContentLoaded refresh path to guarantee marker → popup click
+// binding is always present, regardless of whether user just logged in or
+// refreshed the browser. Idempotent by design (initCanvas removes stale handler).
+function rebindEntryCanvasHandlers() {
+    initCanvas('entry');
 }
 
 function openDefectInfoModal(d) {
@@ -603,6 +822,9 @@ async function loadEntryMap() {
 
     return await new Promise((resolve) => {
         const img = new Image();
+        // NEW: Storage-hosted map URLs are cross-origin; set anonymous so canvas
+        // stays untainted and getMapThumbnailBase64 continues to work.
+        img.crossOrigin = "anonymous";
         img.onload = () => {
             canvasConfig.entry.img = img;
             canvas.width = img.width; 
@@ -685,9 +907,25 @@ function drawCanvas(type) {
         const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
         defects.forEach(d => {
             if(d.project === p && d.tower === t && d.floor === f && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
-                c.ctx.beginPath(); c.ctx.arc(d.mapx, d.mapy, 10, 0, 2 * Math.PI); c.ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; c.ctx.fill(); c.ctx.lineWidth = 2; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke();
+                // Bigger red dot (Issue #3 fix): radius 16 with subtle pulse-style ring for visibility
+                c.ctx.beginPath(); 
+                c.ctx.arc(d.mapx, d.mapy, 16, 0, 2 * Math.PI); 
+                c.ctx.fillStyle = "rgba(239, 68, 68, 0.88)"; 
+                c.ctx.fill(); 
+                c.ctx.lineWidth = 3; 
+                c.ctx.strokeStyle = "#ffffff"; 
+                c.ctx.stroke();
+                // Outer ring for better visibility against busy backgrounds
+                c.ctx.beginPath();
+                c.ctx.arc(d.mapx, d.mapy, 19, 0, 2 * Math.PI);
+                c.ctx.lineWidth = 2;
+                c.ctx.strokeStyle = "rgba(220, 38, 38, 0.55)";
+                c.ctx.stroke();
             }
         });
+        // === FIX #2 === Ensure click handler is (still) attached after every
+        // entry-canvas redraw. Idempotent — no duplicate listeners.
+        rebindEntryCanvasHandlers();
     }
 
     if(c.marker) { 
@@ -695,8 +933,7 @@ function drawCanvas(type) {
     }
 }
 
-function zoomCanvas(id, factor) { const type = id.replace('Canvas', ''); canvasConfig[type].scale *= factor; document.getElementById(id).style.transform = `scale(${canvasConfig[type].scale})`; }
-function resetCanvas(id) { const type = id.replace('Canvas', ''); canvasConfig[type].scale = 1; document.getElementById(id).style.transform = `scale(1)`; }
+// Legacy duplicate zoomCanvas/resetCanvas removed — upgraded versions are defined earlier in this file.
 
 function triggerPhoto(){ if(tempPhotos.length >= 4) return alert("Max 4 photos allowed."); document.getElementById("photoInput").click(); }
 function triggerEditPhoto(){ if(editTempPhotos.length >= 3) return alert("Max 3 photos allowed."); document.getElementById("editPhotoInput").click(); }
@@ -723,7 +960,7 @@ function getMapThumbnailBase64(x, y) {
     const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
     canvas.width = 150; canvas.height = 150;
     ctx.drawImage(canvasConfig.entry.img, x - 75, y - 75, 150, 150, 0, 0, 150, 150);
-    ctx.beginPath(); ctx.arc(75, 75, 10, 0, 2 * Math.PI); ctx.fillStyle = "#ef4444"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(75, 75, 14, 0, 2 * Math.PI); ctx.fillStyle = "#ef4444"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
     return canvas.toDataURL("image/jpeg", 0.7);
 }
 
@@ -808,12 +1045,24 @@ async function syncOfflineData() {
     localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
 }
 
+// === FIX #4 === startAutoRefresh — now debounced (skips a cycle if user is
+// actively saving) so auto-refresh doesn't race with hierarchy/category writes.
 function startAutoRefresh() { 
     autoSyncInterval = setInterval(() => { 
-        if(navigator.onLine) { 
-            loadDefectsFromCloud(true); 
-            loadMapsFromCloud(); 
-        } 
+        if(!navigator.onLine) return;
+        const now = Date.now();
+        if(now - _lastAutoRefreshAt < 20000) return;           // hard debounce floor
+        if(_hierarchySaveInProgress || _categorySaveInProgress) {
+            console.log("[AutoRefresh] Skipped: save in progress");
+            return;
+        }
+        _lastAutoRefreshAt = now;
+        loadDefectsFromCloud(true); 
+        loadMapsFromCloud(); 
+        loadHierarchyFromCloud();
+        loadCategoriesFromCloud();
+        flushHierarchyQueue();
+        flushCategoryQueue();
     }, 25000); 
 }
 
@@ -999,7 +1248,9 @@ function openEditModal(id) {
     const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}`];
     if(base64Img && d.mapx && d.mapy) {
         canvasConfig.modal.marker = {x: parseFloat(d.mapx), y: parseFloat(d.mapy)};
-        const img = new Image(); img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); };
+        const img = new Image();
+        img.crossOrigin = "anonymous"; // NEW: support Storage-hosted URLs (cross-origin)
+        img.onload = () => { canvasConfig.modal.img = img; document.getElementById('modalCanvas').width = img.width; document.getElementById('modalCanvas').height = img.height; drawCanvas('modal'); };
         img.src = base64Img;
     } else { canvasConfig.modal.img = null; if(document.getElementById('modalCanvas') && document.getElementById('modalCanvas').getContext('2d')) document.getElementById('modalCanvas').getContext('2d').clearRect(0,0,100,100); }
     document.getElementById("editModal").style.display = "flex";
@@ -1136,7 +1387,7 @@ function renderMapTable() {
     }
 }
 
-function saveHierarchy() {
+async function saveHierarchy() {
     const p = document.getElementById("setupProjName").value.trim(); 
     const t = document.getElementById("setupTowerName").value.trim(); 
     const f = document.getElementById("setupFloorName").value.trim();
@@ -1144,23 +1395,79 @@ function saveHierarchy() {
     
     if(!p || !t || !f || flats.length === 0) return alert("All fields are required including at least one unit/flat.");
 
+    // === FIX #1 === Write-first ordering: push to Supabase BEFORE mutating local
+    // state / UI so that if an auto-refresh fires it does not see stale local data.
+    // Also raise the _hierarchySaveInProgress flag so concurrent realtime/auto-refresh
+    // handlers skip loadHierarchyFromCloud() during this critical section.
+    const btn = document.getElementById("btnSaveHierarchy");
+    if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
+    _hierarchySaveInProgress = true;
+
+    const row = { project: p, tower: t, floor: f, flats: flats.join(",") };
+    let cloudOk = false;
+
+    try {
+        if(navigator.onLine) {
+            const { error } = await supabaseClient.from('snag_hierarchy').upsert(
+                [row],
+                { onConflict: 'project,tower,floor' }
+            );
+            if(error) throw error;
+            cloudOk = true;
+        }
+    } catch(err) {
+        console.warn("Hierarchy cloud upsert failed:", err);
+        // Queue for later so it isn't lost
+        let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+        queue.push(row);
+        localStorage.setItem('qa_hierarchy_queue', JSON.stringify(queue));
+        csmsToast("Saved locally, cloud sync will retry.", "error");
+    }
+
+    // === FIX #1 === Now that cloud is confirmed (or safely queued), update local
+    // in-memory state + localStorage + UI. This ordering guarantees local + cloud
+    // are consistent by the time UI refreshes.
     if(!structuralHierarchy[p]) structuralHierarchy[p] = {}; 
     if(!structuralHierarchy[p][t]) structuralHierarchy[p][t] = {};
-    
     structuralHierarchy[p][t][f] = flats;
-    
     localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); 
+
     refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes(); 
-    alert("Floor Mapping Saved Successfully!"); 
     resetHierarchyForm();
+
+    if(cloudOk) {
+        csmsToast("Floor mapping saved & synced.", "success");
+    } else if(!navigator.onLine) {
+        let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+        queue.push(row);
+        localStorage.setItem('qa_hierarchy_queue', JSON.stringify(queue));
+        csmsToast("Offline: Floor mapping queued, will auto-sync.", "error");
+    }
+
+    if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Save Floor"; }
+    // Release the guard after a short debounce so realtime echo doesn't immediately re-fetch.
+    setTimeout(() => { _hierarchySaveInProgress = false; }, 1500);
 }
-function delHierarchy(p, t, f) { 
+async function delHierarchy(p, t, f) { 
     if(confirm(`Delete Floor ${f} from ${t}?`)) { 
+        // === FIX #1 === Delete cloud row FIRST, then local — otherwise realtime
+        // reload can re-populate the local state before Supabase confirms delete.
+        _hierarchySaveInProgress = true;
+        try {
+            if(navigator.onLine) {
+                const { error } = await supabaseClient.from('snag_hierarchy').delete().eq('project', p).eq('tower', t).eq('floor', f);
+                if(error) throw error;
+            }
+        } catch(e) { 
+            console.warn("Cloud delete hierarchy failed:", e); 
+            csmsToast("Cloud delete failed, removed locally only.", "error");
+        }
         delete structuralHierarchy[p][t][f]; 
         if(Object.keys(structuralHierarchy[p][t]).length === 0) delete structuralHierarchy[p][t]; 
         if(Object.keys(structuralHierarchy[p]).length === 0) delete structuralHierarchy[p];
         localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); 
         refreshDropdowns(); renderAdminTables(); renderUserSetupCheckboxes();
+        setTimeout(() => { _hierarchySaveInProgress = false; }, 1500);
     } 
 }
 function resetHierarchyForm() { 
@@ -1168,12 +1475,38 @@ function resetHierarchyForm() {
     document.getElementById("setupFlats").value = "";
 }
 
-function saveCategory() {
+async function saveCategory() {
     const c = document.getElementById("setupCatName").value.trim(); 
     const s = document.getElementById("setupSpecName").value.trim(); 
     
     if(!c || !s) return alert("Category and Spec are required.");
 
+    // === FIX #1 === Cloud-first ordering + save-in-progress guard (mirrors saveHierarchy)
+    const btn = document.getElementById("btnSaveCategory");
+    if(btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving..."; }
+    _categorySaveInProgress = true;
+
+    const row = { category: c, spec: s };
+    let cloudOk = false;
+
+    try {
+        if(navigator.onLine) {
+            const { error } = await supabaseClient.from('snag_categories').upsert(
+                [row],
+                { onConflict: 'category,spec' }
+            );
+            if(error) throw error;
+            cloudOk = true;
+        }
+    } catch(err) {
+        console.warn("Category cloud upsert failed:", err);
+        let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+        queue.push(row);
+        localStorage.setItem('qa_category_queue', JSON.stringify(queue));
+        csmsToast("Saved locally, cloud sync will retry.", "error");
+    }
+
+    // Now safe to update local state / UI
     if(!defectMatrix[c]) defectMatrix[c] = [];
     if(!defectMatrix[c].includes(s)) defectMatrix[c].push(s);
     localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
@@ -1201,40 +1534,284 @@ function saveCategory() {
     } catch(err) { console.error("Format schema mapping synchronization error:", err); }
 
     refreshDropdowns(); renderAdminTables(); 
-    alert("Specification Added Successfully!"); 
     document.getElementById("setupSpecName").value = ""; 
+
+    if(cloudOk) csmsToast("Specification saved & synced.", "success");
+    else if(!navigator.onLine) {
+        let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+        queue.push(row);
+        localStorage.setItem('qa_category_queue', JSON.stringify(queue));
+        csmsToast("Offline: Spec queued, will auto-sync.", "error");
+    }
+
+    if(btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> Add Spec"; }
+    setTimeout(() => { _categorySaveInProgress = false; }, 1500);
 }
-function delCategory(c) { 
+async function delCategory(c) { 
     if(confirm(`Delete Complete Category: ${c}?`)) { 
+        // === FIX #1 === Cloud-first delete + guard to prevent realtime overwrite
+        _categorySaveInProgress = true;
+        try {
+            if(navigator.onLine) {
+                const { error } = await supabaseClient.from('snag_categories').delete().eq('category', c);
+                if(error) throw error;
+            }
+        } catch(e) { 
+            console.warn("Cloud delete category failed:", e); 
+            csmsToast("Cloud delete failed, removed locally only.", "error");
+        }
         delete defectMatrix[c]; 
         localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); 
         refreshDropdowns(); renderAdminTables(); 
+        setTimeout(() => { _categorySaveInProgress = false; }, 1500);
     } 
 }
 function resetCategoryForm() { document.getElementById("categoryForm").reset(); }
 
-// === UPGRADED: loadMapsFromCloud — now returns boolean success ===
+// === FIX #1/#4 === loadMapsFromCloud — now SAFE-MERGES with local cache
+// so an empty/errored cloud response never wipes locally cached maps.
 async function loadMapsFromCloud() {
     if(!navigator.onLine) return false;
     try {
         const { data, error } = await supabaseClient.from('snag_maps').select('*');
         if(error) {
             console.warn("Map cloud sync error:", error.message);
+            csmsToast("Map sync error (keeping local cache).", "error");
             return false;
         }
         if(data) {
-            data.forEach(m => { floorMaps[m.map_key] = m.base64_image; });
-            localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps));
+            const legacyRows = [];  // rows still on base64 — will auto-migrate in background
+            // MERGE: overlay cloud rows into existing floorMaps rather than replacing
+            data.forEach(m => {
+                const src = m.image_url || m.base64_image;
+                if(src) floorMaps[m.map_key] = src;
+                if(!m.image_url && m.base64_image) legacyRows.push(m);
+            });
+            // Cache to localStorage (skip huge base64 blobs to avoid quota errors)
+            try {
+                const trimmed = {};
+                Object.keys(floorMaps).forEach(k => {
+                    const v = floorMaps[k];
+                    if(typeof v === 'string' && (v.startsWith('http') || v.length < 500000)) trimmed[k] = v;
+                });
+                localStorage.setItem("qa_floorMaps", JSON.stringify(trimmed));
+            } catch(e) { console.warn("localStorage quota hit, cache skipped:", e); }
             mapsCloudLoaded = true;
             if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") renderMapTable();
+
+            if(currentUser && currentUser.role === "admin" && legacyRows.length > 0) {
+                migrateLegacyMapsToStorage(legacyRows); // fire-and-forget
+            }
             return true;
         }
         return false;
     } catch(e) { 
-        console.error("Map sync exception:", e); 
+        console.error("Map sync exception:", e);
+        csmsToast("Map sync failed (keeping local cache).", "error");
         return false;
     }
 }
+
+// === NEW: One-time background migration of legacy base64 maps → Storage ===
+let _migrationInProgress = false;
+async function migrateLegacyMapsToStorage(legacyRows) {
+    if(_migrationInProgress) return;
+    _migrationInProgress = true;
+    console.log(`[MapMigration] Starting for ${legacyRows.length} legacy row(s)...`);
+    for(const row of legacyRows) {
+        try {
+            if(!row.base64_image || !row.base64_image.startsWith('data:image')) continue;
+            const publicUrl = await uploadMapToStorage(row.map_key, row.base64_image);
+            const { error } = await supabaseClient
+                .from('snag_maps')
+                .update({ image_url: publicUrl, base64_image: null })
+                .eq('map_key', row.map_key);
+            if(error) { console.warn(`[MapMigration] Update failed for ${row.map_key}:`, error.message); continue; }
+            floorMaps[row.map_key] = publicUrl;
+            console.log(`[MapMigration] Migrated: ${row.map_key}`);
+            // Small pause between uploads so we don't hammer the API
+            await new Promise(r => setTimeout(r, 400));
+        } catch(e) {
+            console.warn(`[MapMigration] Skipped ${row.map_key}:`, e.message || e);
+        }
+    }
+    console.log("[MapMigration] Done.");
+    _migrationInProgress = false;
+    // Refresh admin map table view if visible
+    if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") {
+        renderMapTable();
+    }
+}
+
+// === FIX #1 === Load Structural Hierarchy from Supabase with SAFE MERGE.
+// Behaviour changes:
+//  - Never wipes local hierarchy on empty cloud response or fetch error.
+//  - Merges cloud rows INTO existing local structure (union, not replace).
+//  - Skips reload while a local save is in progress (guard in caller).
+//  - Persists merged result to localStorage as durable fallback.
+async function loadHierarchyFromCloud() {
+    if(!navigator.onLine) return false;
+    if(_hierarchyLoadInProgress) return false;                     // debounce
+    if(_hierarchySaveInProgress) { console.log("[Hierarchy] load skipped: save in progress"); return false; }
+    _hierarchyLoadInProgress = true;
+    try {
+        const { data, error } = await supabaseClient.from('snag_hierarchy').select('*');
+        if(error) {
+            console.warn("Hierarchy cloud sync error:", error.message);
+            csmsToast("Hierarchy sync error (keeping local copy).", "error");
+            return false;
+        }
+        if(data && Array.isArray(data)) {
+            // Build a canonical map from cloud rows
+            const cloudMap = {};
+            data.forEach(row => {
+                if(!row.project || !row.tower || !row.floor) return;
+                if(!cloudMap[row.project]) cloudMap[row.project] = {};
+                if(!cloudMap[row.project][row.tower]) cloudMap[row.project][row.tower] = {};
+                cloudMap[row.project][row.tower][row.floor] = (row.flats || "").split(",").map(s=>s.trim()).filter(Boolean);
+            });
+
+            const cloudProjectCount = Object.keys(cloudMap).length;
+
+            if(cloudProjectCount === 0) {
+                // Cloud is empty. Do NOT wipe local. Instead, if we have local data,
+                // push it up (one-time bootstrap so it isn't lost on other devices).
+                const localKeys = Object.keys(structuralHierarchy || {});
+                if(localKeys.length > 0) {
+                    const rows = [];
+                    localKeys.forEach(p => {
+                        Object.keys(structuralHierarchy[p]).forEach(t => {
+                            Object.keys(structuralHierarchy[p][t]).forEach(f => {
+                                rows.push({ project: p, tower: t, floor: f, flats: structuralHierarchy[p][t][f].join(",") });
+                            });
+                        });
+                    });
+                    if(rows.length > 0) {
+                        try { await supabaseClient.from('snag_hierarchy').upsert(rows, { onConflict: 'project,tower,floor' }); }
+                        catch(e) { console.warn("Initial hierarchy migration push failed:", e); }
+                    }
+                }
+                // keep local as-is; still counts as a successful load
+            } else {
+                // === SAFE MERGE === Take cloud as authoritative, but overlay any
+                // local-only entries that may not have synced yet (queued/offline).
+                // We also keep any local queued row while it's waiting to flush.
+                const merged = JSON.parse(JSON.stringify(cloudMap));
+                const pendingQueue = JSON.parse(localStorage.getItem('qa_hierarchy_queue') || '[]');
+                const pendingSet = new Set(pendingQueue.map(r => `${r.project}|${r.tower}|${r.floor}`));
+
+                Object.keys(structuralHierarchy || {}).forEach(p => {
+                    Object.keys(structuralHierarchy[p] || {}).forEach(t => {
+                        Object.keys(structuralHierarchy[p][t] || {}).forEach(f => {
+                            const key = `${p}|${t}|${f}`;
+                            const existsInCloud = merged[p] && merged[p][t] && merged[p][t][f];
+                            // Preserve local row only when:
+                            //   (a) it's in the pending write queue (not yet synced), OR
+                            //   (b) something is currently being saved locally (paranoia)
+                            if(!existsInCloud && (pendingSet.has(key) || _hierarchySaveInProgress)) {
+                                if(!merged[p]) merged[p] = {};
+                                if(!merged[p][t]) merged[p][t] = {};
+                                merged[p][t][f] = structuralHierarchy[p][t][f];
+                            }
+                        });
+                    });
+                });
+
+                structuralHierarchy = merged;
+                try { localStorage.setItem("qa_strict_hierarchy", JSON.stringify(structuralHierarchy)); } catch(e) {}
+            }
+            hierarchyCloudLoaded = true;
+            await flushHierarchyQueue();
+            return true;
+        }
+        return false;
+    } catch(e) {
+        console.error("Hierarchy sync exception:", e);
+        csmsToast("Hierarchy sync failed (keeping local copy).", "error");
+        return false;
+    } finally {
+        _hierarchyLoadInProgress = false;
+    }
+}
+
+// === FIX #1/#4 === Load Defect Categories & Specs with SAFE MERGE (same
+// contract as loadHierarchyFromCloud — never wipe local on empty/error).
+async function loadCategoriesFromCloud() {
+    if(!navigator.onLine) return false;
+    if(_categoryLoadInProgress) return false;
+    if(_categorySaveInProgress) { console.log("[Categories] load skipped: save in progress"); return false; }
+    _categoryLoadInProgress = true;
+    try {
+        const { data, error } = await supabaseClient.from('snag_categories').select('*');
+        if(error) {
+            console.warn("Category cloud sync error:", error.message);
+            csmsToast("Category sync error (keeping local copy).", "error");
+            return false;
+        }
+        if(data && Array.isArray(data)) {
+            const cloudMap = {};
+            data.forEach(row => {
+                if(!row.category || !row.spec) return;
+                if(!cloudMap[row.category]) cloudMap[row.category] = [];
+                if(!cloudMap[row.category].includes(row.spec)) cloudMap[row.category].push(row.spec);
+            });
+
+            if(Object.keys(cloudMap).length === 0) {
+                // Bootstrap: push local defectMatrix up if cloud is empty; do NOT wipe local.
+                const rows = [];
+                Object.keys(defectMatrix || {}).forEach(c => {
+                    (defectMatrix[c] || []).forEach(s => rows.push({ category: c, spec: s }));
+                });
+                if(rows.length > 0) {
+                    try { await supabaseClient.from('snag_categories').upsert(rows, { onConflict: 'category,spec' }); }
+                    catch(e) { console.warn("Initial categories migration push failed:", e); }
+                }
+            } else {
+                // MERGE — take cloud, then union in any pending queue items still to flush
+                const merged = JSON.parse(JSON.stringify(cloudMap));
+                const pendingQueue = JSON.parse(localStorage.getItem('qa_category_queue') || '[]');
+                pendingQueue.forEach(r => {
+                    if(!r.category || !r.spec) return;
+                    if(!merged[r.category]) merged[r.category] = [];
+                    if(!merged[r.category].includes(r.spec)) merged[r.category].push(r.spec);
+                });
+                defectMatrix = merged;
+                try { localStorage.setItem("qa_defectMatrix", JSON.stringify(defectMatrix)); } catch(e) {}
+            }
+            categoriesCloudLoaded = true;
+            await flushCategoryQueue();
+            return true;
+        }
+        return false;
+    } catch(e) {
+        console.error("Category sync exception:", e);
+        csmsToast("Category sync failed (keeping local copy).", "error");
+        return false;
+    } finally {
+        _categoryLoadInProgress = false;
+    }
+}
+
+// === NEW: Flush queued offline hierarchy/category writes on reconnect ===
+async function flushHierarchyQueue() {
+    if(!navigator.onLine) return;
+    let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+    if(queue.length === 0) return;
+    try {
+        const { error } = await supabaseClient.from('snag_hierarchy').upsert(queue, { onConflict: 'project,tower,floor' });
+        if(!error) localStorage.removeItem('qa_hierarchy_queue');
+    } catch(e) { console.warn("Flush hierarchy queue failed:", e); }
+}
+async function flushCategoryQueue() {
+    if(!navigator.onLine) return;
+    let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+    if(queue.length === 0) return;
+    try {
+        const { error } = await supabaseClient.from('snag_categories').upsert(queue, { onConflict: 'category,spec' });
+        if(!error) localStorage.removeItem('qa_category_queue');
+    } catch(e) { console.warn("Flush category queue failed:", e); }
+}
+
 
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
@@ -1282,32 +1859,82 @@ async function previewMapDrawing(e) {
     }
 }
 
+// === NEW: Helper — sanitize map key for use as a Storage filename ===
+function sanitizeMapKey(k) {
+    // Storage keys me / allowed hai, but hum special chars ko safe rakhna chahte hain
+    return String(k).replace(/[^a-zA-Z0-9_\-]/g, '_');
+}
+
+// === NEW: Convert data-URL / base64 to Blob so we can upload to Storage ===
+async function dataUrlToBlob(dataUrl) {
+    const res = await fetch(dataUrl);
+    return await res.blob();
+}
+
+// === NEW: Upload a floor-map image to Supabase Storage; returns public URL ===
+async function uploadMapToStorage(mapKey, dataUrl) {
+    const blob = await dataUrlToBlob(dataUrl);
+    const filename = sanitizeMapKey(mapKey) + '.jpg';
+    const { error } = await supabaseClient.storage
+        .from('snag-maps')
+        .upload(filename, blob, {
+            contentType: blob.type || 'image/jpeg',
+            upsert: true,
+            cacheControl: '3600'
+        });
+    if(error) throw error;
+    // Add a cache-buster so re-uploaded maps refresh on all devices
+    const { data: urlData } = supabaseClient.storage.from('snag-maps').getPublicUrl(filename);
+    if(!urlData || !urlData.publicUrl) throw new Error("Public URL not returned by Storage");
+    return urlData.publicUrl + '?v=' + Date.now();
+}
+
+// === NEW: Delete a floor-map image from Supabase Storage ===
+async function deleteMapFromStorage(mapKey) {
+    const filename = sanitizeMapKey(mapKey) + '.jpg';
+    try {
+        await supabaseClient.storage.from('snag-maps').remove([filename]);
+    } catch(e) { console.warn("Storage delete failed (safe to ignore if never uploaded):", e); }
+}
+
 async function submitMapDrawing() {
     const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const f = document.getElementById("mapSetupFloor").value; 
     const base64 = document.getElementById("tempMapBase64").value;
     if(!p || !t || !f || !base64) return alert("Select Project, Tower, Floor and upload an image/pdf first!");
     const mapKey = `${p}_${t}_${f}`;
     
+    const btn = document.getElementById("btnSubmitMap");
     try {
-        const btn = document.getElementById("btnSubmitMap"); btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting...";
-        const payload = { map_key: mapKey, base64_image: base64 };
+        btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Uploading to Storage...";
+
+        // NEW: Upload image bytes to Supabase Storage bucket (efficient — no more base64 in DB row)
+        const publicUrl = await uploadMapToStorage(mapKey, base64);
+
+        btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Saving reference...";
+
+        // Store only the URL in the table (compact ~150 bytes vs ~1MB base64)
+        // We explicitly set base64_image to null to purge any legacy value
+        const payload = { map_key: mapKey, image_url: publicUrl, base64_image: null };
         const { error } = await supabaseClient.from('snag_maps').upsert([payload], { onConflict: 'map_key' });
         
         if(!error) { 
-            floorMaps[mapKey] = base64; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
-            alert("Floor Map Successfully Saved to Backend!"); 
+            floorMaps[mapKey] = publicUrl; 
+            localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); 
+            alert("Floor Map Successfully Uploaded to Storage & Saved!"); 
             renderMapTable(); 
             document.getElementById("tempMapBase64").value = ""; document.getElementById("mapSetupFile").value = "";
         } else throw error;
     } catch(err) { alert("Error saving map: " + JSON.stringify(err.message || err)); }
-    finally { const btn = document.getElementById("btnSubmitMap"); btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
+    finally { btn.disabled = false; btn.innerHTML = "<i class='fas fa-upload'></i> Submit Map to Backend"; }
 }
 
 async function delMap(k) { 
     if(!confirm("Delete Floor Map from Database?")) return;
     try {
+        // Delete DB row first, then storage object
         const { error } = await supabaseClient.from('snag_maps').delete().eq('map_key', k);
         if(!error) {
+            await deleteMapFromStorage(k);
             delete floorMaps[k]; localStorage.setItem("qa_floorMaps", JSON.stringify(floorMaps)); renderMapTable();
         }
     } catch(e) { console.error("Could not delete from backend", e); }
