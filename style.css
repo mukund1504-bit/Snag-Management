@@ -85,17 +85,18 @@ section.active { display: block !important; }
 .thumb .x { position: absolute; top: 2px; right: 2px; background: var(--crimson-fail); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
 
 .map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; min-height:500px; max-height: 800px; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-/* === FIX #3 (v2) === Mobile pinch-zoom scoped to map box, WITHOUT clipping the map.
-   • wrapper touch-action: pan-x pan-y => single-finger native scroll still works
-     (so users can pan around a map bigger than the viewport)
-   • canvas touch-action: none => 2-finger pinch ON the canvas doesn't fall back
-     to browser page-zoom; our JS pinch handler runs instead
-   • overflow: auto so LARGE MAPS SHOW COMPLETELY via scrolling
-   • canvas defaults to width:100% / height:auto so the whole map is visible
-     on load (fit-to-container), not clipped */
-.map-viewport-container { position: relative; flex: 1; overflow: auto; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; touch-action: pan-x pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-#blueprint-wrapper { width: 100%; min-height: 100%; position: relative; cursor: crosshair; overflow: visible; display: block; touch-action: pan-x pan-y; }
-canvas { transition: transform 0.15s ease; transform-origin: top left; display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; -ms-touch-action: none; }
+/* === FIX #3 (v3) / FIX #5 === Mobile pinch-zoom + drag-to-pan scoped to map box.
+   • touch-action: none on both wrapper and canvas => browser stops hijacking
+     touch gestures, so our JS handles: 2-finger pinch (zoom) AND 1-finger
+     drag (pan when zoomed in) AND regular tap (mark defect) at scale 1
+   • overflow: hidden on wrapper so the transform-translated canvas never
+     bleeds outside the map box — corners always stay within the viewport
+   • canvas fits container by default via width:100% / height:auto so the
+     whole map is visible on load, and drag becomes possible only when zoomed
+     (see JS: dragActive only starts when scale > 1) */
+.map-viewport-container { position: relative; flex: 1; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
+#blueprint-wrapper { width: 100%; min-height: 100%; position: relative; cursor: crosshair; overflow: hidden; display: block; touch-action: none; -ms-touch-action: none; }
+canvas { transition: transform 0.12s ease; transform-origin: top left; display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; -ms-touch-action: none; will-change: transform; }
 #modalCanvas { width: 100%; height: auto; max-width: 100%; }
 
 /* === FIX #4 === Non-blocking toast (used instead of alert for background errors) */

@@ -1,635 +1,330 @@
-// ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
-const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
+/* ====== ADVANCED CSMS SYSTEM INTEGRATION THEME ====== */
+:root {
+    --primary-slate: #0f172a;      
+    --secondary-tech: #0284c7;    
+    --accent-glow: #0ea5e9;       
+    --amber-safety: #f59e0b;      
+    --emerald-pass: #10b981;      
+    --crimson-fail: #ef4444;      
+    --bg-mesh: #f8fafc;           
+    --card-surface: #ffffff;      
+    --border-matrix: #cbd5e1;     
+    --text-core: #334155;         
+}
 
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0; padding: 0;
+    background-color: var(--bg-mesh);
+    background-image: 
+        linear-gradient(rgba(14, 165, 233, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(14, 165, 233, 0.03) 1px, transparent 1px),
+        radial-gradient(rgba(15, 23, 42, 0.04) 1.5px, transparent 0);
+    background-size: 32px 32px, 32px 32px, 16px 16px;
+    background-position: 0 0, 0 0, 8px 8px;
+    color: var(--text-core);
+}
 
-function getSafeStorage(key, defaultValue) {
-    try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
-    } catch (e) {
-        console.warn("Storage corrupt, resetting key:", key);
-        localStorage.removeItem(key);
-        return defaultValue;
+.login-wrapper { position: fixed; inset: 0; background: rgba(15,23,42,0.95); display: flex; justify-content: center; align-items: center; z-index: 10000; backdrop-filter: blur(8px); }
+.login-box-tech { background: white; padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); border-top: 5px solid var(--secondary-tech); }
+
+header { background: linear-gradient(135deg, #090d16 0%, var(--primary-slate) 100%); color: white; display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.25); position: sticky; top: 0; z-index: 1000; border-bottom: 3px solid var(--accent-glow); }
+.logo-area { display:flex; align-items:center; gap: 20px; }
+.logo-area h2 { margin: 0; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; color: #f8fafc; }
+.network-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid; display:flex; align-items:center; gap:5px; }
+.network-badge.online { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: #059669; }
+.network-badge.offline { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: #dc2626; }
+
+.text-cyan { color: var(--accent-glow); text-shadow: 0 0 10px rgba(14,165,233,0.4); }
+nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.nav-btn { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.25s; display: flex; align-items: center; gap: 6px; }
+.nav-btn:hover { color: #f8fafc; background: rgba(14, 165, 233, 0.1); border-color: var(--accent-glow); }
+.nav-btn.active { background: linear-gradient(135deg, var(--secondary-tech) 0%, #0369a1 100%); color: white; border-color: var(--accent-glow); box-shadow: 0 0 15px rgba(14, 165, 233, 0.35); }
+.profile-btn { background: var(--amber-safety); color: white; border: none; }
+.logout-btn { background: var(--crimson-fail); color: white; border: none; }
+
+main { padding: 24px 20px; max-width: 1600px; margin: 0 auto; }
+section { display: none !important; animation: fade 0.3s; }
+section.active { display: block !important; }
+@keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.card-header-tech { margin-bottom: 24px; border-bottom: 1px solid var(--border-matrix); padding-bottom: 12px; }
+.tech-title-wrapper { display: flex; align-items: center; gap: 10px; }
+.card-header-tech h3 { margin: 0; color: var(--primary-slate); font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+.tech-badge { background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; }
+.tech-badge.live { background: rgba(16, 185, 129, 0.1); color: #059669; border-color: #34d399; }
+
+.form-map-grid { display: grid; grid-template-columns: 2.5fr 1.5fr; gap: 24px; align-items: stretch; }
+.form-section-card-tech { background: var(--card-surface); border: 1px solid var(--border-matrix); border-radius: 8px; padding: 22px; margin-bottom: 20px; box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05); position: relative; }
+.form-section-card-tech::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--secondary-tech); border-radius: 8px 0 0 8px; }
+.card-title-tech { margin: 0 0 18px 0; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; color: var(--primary-slate); font-size: 15px; font-weight: 700; text-transform: uppercase; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.field-box-tech { display: flex; flex-direction: column; gap: 6px; height: 100%; }
+.field-box-tech label { font-size: 12.5px; font-weight: 600; color: #475569; }
+.field-box-tech select, .field-box-tech input, .field-box-tech textarea { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background: #f8fafc; outline: none; width: 100%; transition: all 0.2s; }
+.field-box-tech select:focus, .field-box-tech input:focus, .field-box-tech textarea:focus { border-color: var(--accent-glow); box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12); background: white; }
+.full-width { grid-column: 1 / -1; }
+
+.photo-section-tech { margin-top: 15px; border: 2px dashed #cbd5e1; padding: 18px; border-radius: 8px; background: #fdfefe; }
+.photo-controls { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-capture-tech, .btn-submit-tech, .btn-danger-tech, .btn-export-tech { border: none; border-radius: 6px; font-weight: 700; cursor: pointer; padding: 10px 16px; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; }
+.btn-capture-tech { background-color: var(--primary-slate); color: white; }
+.btn-submit-tech { background: linear-gradient(135deg, #0284c7, #0369a1); color: white; width: 100%; padding: 16px; font-size: 15px; }
+.btn-submit-tech:disabled { opacity: 0.7; cursor: not-allowed; }
+.btn-danger-tech { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.btn-export-tech.xls { background: #15803d; color: white; }
+.btn-export-tech.pdf { background: #b91c1c; color: white; }
+
+.preview-wrap { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.thumb { position: relative; width: 70px; height: 70px; border-radius: 6px; border: 2px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,0.1); overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; transition: transform 0.2s; }
+.thumb img:hover { transform: scale(1.1); }
+.thumb .x { position: absolute; top: 2px; right: 2px; background: var(--crimson-fail); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
+
+.map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; min-height:500px; max-height: 800px; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+/* === FIX #3 (v3) / FIX #5 === Mobile pinch-zoom + drag-to-pan scoped to map box.
+   • touch-action: none on both wrapper and canvas => browser stops hijacking
+     touch gestures, so our JS handles: 2-finger pinch (zoom) AND 1-finger
+     drag (pan when zoomed in) AND regular tap (mark defect) at scale 1
+   • overflow: hidden on wrapper so the transform-translated canvas never
+     bleeds outside the map box — corners always stay within the viewport
+   • canvas fits container by default via width:100% / height:auto so the
+     whole map is visible on load, and drag becomes possible only when zoomed
+     (see JS: dragActive only starts when scale > 1) */
+.map-viewport-container { position: relative; flex: 1; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
+#blueprint-wrapper { width: 100%; min-height: 100%; position: relative; cursor: crosshair; overflow: hidden; display: block; touch-action: none; -ms-touch-action: none; }
+canvas { transition: transform 0.12s ease; transform-origin: top left; display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; -ms-touch-action: none; will-change: transform; }
+#modalCanvas { width: 100%; height: auto; max-width: 100%; }
+
+/* === FIX #4 === Non-blocking toast (used instead of alert for background errors) */
+.csms-toast-container { position: fixed; top: 20px; right: 20px; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.csms-toast { background: #0f172a; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); font-size: 13px; font-weight: 600; border-left: 4px solid var(--accent-glow); max-width: 340px; opacity: 0; transform: translateX(20px); transition: opacity 0.25s, transform 0.25s; pointer-events: auto; }
+.csms-toast.show { opacity: 1; transform: translateX(0); }
+.csms-toast.error { border-left-color: var(--crimson-fail); }
+.csms-toast.success { border-left-color: var(--emerald-pass); }
+.zoom-controls-floating { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+.zoom-btn { background: #ffffff; border: 1px solid #cbd5e1; width: 35px; height: 35px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #1e293b; font-weight: bold; }
+.zoom-btn:hover { background: #0f172a; color: #ffffff; }
+.map-instructions { text-align: center; font-size: 11px; color: #64748b; padding: 5px 10px 15px 10px; font-weight: 600; }
+
+.report-header-controls-tech { display: flex; flex-direction: column; gap:15px; margin-bottom: 24px; background: white; padding: 18px; border-radius: 8px; border: 1px solid var(--border-matrix); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+.advanced-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; }
+.actions-group-tech { display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end; }
+
+.records-table-container { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+.csms-pro-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; white-space: nowrap; }
+.csms-pro-table th { background: #0f172a; color: #ffffff; padding: 14px 18px; font-weight: 600; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 5; }
+.csms-pro-table td { padding: 12px 18px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+.csms-pro-table tr:hover { background-color: #f8fafc; }
+.csms-pro-table td a.drill-link { color: var(--secondary-tech); font-weight: bold; text-decoration: underline; cursor: pointer; }
+
+.locked-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; background: #e2e8f0; }
+.img-grid-cell { display: flex; gap: 4px; }
+.img-grid-cell img { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #cbd5e1; transition: transform 0.2s; }
+.img-grid-cell img:hover { transform: scale(1.5); box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 10; position: relative; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.dashboard-display-container-tech { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+.chart-card-tech { background: white; padding: 22px; border-radius: 12px; border: 1px solid var(--border-matrix); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+.chart-container-wrapper { height: 320px; width: 100%; position: relative; cursor: pointer; margin-top: 15px; }
+
+/* Point D: Changed admin grid to ensure 50-50 space is taken */
+.admin-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.admin-span-full { grid-column: 1 / -1; }
+.admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; }
+.setup-split-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
+.setup-form-pro { background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; }
+.setup-form-pro input, .setup-form-pro textarea, .setup-form-pro select { margin-bottom: 0; background: white; }
+.rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
+.checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+.mini-table { max-height: 300px; margin-top: 15px; flex: 1; }
+.action-icon-btn { cursor:pointer; padding:5px 8px; border-radius:4px; margin-right:5px; border:none; font-weight:bold; font-size:11px; }
+.edit-btn { background:#fef08a; color:#854d0e; }
+.del-btn { background:#fee2e2; color:#b91c1c; }
+
+/* MODALS - GENERAL */
+.drilldown-modal { display: none; position: fixed; inset: 0; background: rgba(9, 13, 22, 0.85); backdrop-filter: blur(5px); z-index: 9999; justify-content: center; align-items: center; padding: 20px; }
+.modal-content { background: white; width: 100%; max-width: 1300px; max-height: 90vh; border-radius: 12px; padding: 24px; overflow-y: auto; position: relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+.modal-header-pro { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 15px; margin-bottom: 15px; }
+
+/* EDIT MODAL PROFESSIONAL LAYOUT */
+.edit-modal-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; margin-top: 15px; }
+.edit-form-side { display: flex; flex-direction: column; gap: 15px; }
+.edit-photo-box { border: 1px solid var(--border-matrix); padding: 15px; border-radius: 8px; background: #f8fafc; }
+.edit-photo-box label { font-size: 12.5px; font-weight: bold; color: var(--text-core); }
+.photo-label-tech { font-weight: bold; font-size: 12.5px; margin-bottom: 8px; display: block; color: var(--text-core); }
+.map-label { font-size: 12.5px; font-weight: bold; color: var(--text-core); display: block; margin-bottom: 8px; }
+.edit-map-side { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+.edit-map { flex-grow: 1; min-height: 350px; margin: 0; border: 1px solid #cbd5e1; border-radius: 8px; }
+
+.img-zoom-layer { z-index: 99999; }
+.img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
+.close-img-btn { position: absolute; top: -40px; right: 0; }
+.zoomed-view-img { max-width: 90vw; max-height: 85vh; border-radius: 8px; border: 4px solid white; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+/* ------ RESPONSIVE GRID SEQUENCING UPGRADES ------ */
+@media screen and (min-width: 1025px) {
+    .form-map-grid {
+        display: grid;
+        grid-template-columns: 2.5fr 1.5fr;
+        grid-template-areas:
+            "p1 p2"
+            "p3 p2"
+            "p4 p2"
+            "submit p2";
+        gap: 24px;
+        align-items: start;
     }
+    .part-1 { grid-area: p1; }
+    .part-2 { grid-area: p2; height: 100%; min-height: 600px; }
+    .part-3 { grid-area: p3; }
+    .part-4 { grid-area: p4; }
+    .form-submit-btn { grid-area: submit; margin-bottom: 20px; }
 }
 
-function resolveCategoryName(catValue) {
-    if (!catValue) return "-";
-    try {
-        const categories = getSafeStorage("categories_list", getSafeStorage("csms_categories", []));
-        if(Array.isArray(categories)) {
-            const cat = categories.find(c => c.id === catValue || c.name === catValue || c.categoryId === catValue);
-            if(cat) return cat.name;
-        }
-    } catch(e) {}
-    return catValue || "-"; 
-}
-
-function resolveSpecificationName(specValue) {
-    if (!specValue) return "-";
-    try {
-        const specs = getSafeStorage("specifications_list", getSafeStorage("csms_specifications", []));
-        if(Array.isArray(specs)) {
-            const spec = specs.find(s => s.id === specValue || s.name === specValue || s.specId === specValue);
-            if(spec) return spec.name;
-        }
-    } catch(e) {}
-    return specValue || "-";
-}
-
-const DEFAULT_USERS = [
-    { id: "Mukund1504@gmail.com", firstName: "Mukund", middleName: "", lastName: "Admin", pass: "Abc1504@", role: "admin", projects: ["All"], permission: "edit" }
-];
-
-let USER_MATRIX = getSafeStorage("qa_users", DEFAULT_USERS);
-let currentUser = null;
-let defects = [];
-let filteredReportData = []; 
-let tempPhotos = []; 
-let editTempPhotos = []; 
-let currentDrilldownData = []; 
-let autoSyncInterval;
-
-// === NEW: Map readiness state (single source of truth) ===
-let mapsCloudLoaded = false;       // true once first successful cloud fetch completes
-let pendingMapLoadKey = null;       // remembers the key user wants to load if not ready yet
-
-// === NEW: Cloud sync state for hierarchy and categories (multi-device realtime sync) ===
-let hierarchyCloudLoaded = false;
-let categoriesCloudLoaded = false;
-
-let structuralHierarchy = getSafeStorage("qa_strict_hierarchy", {
-    "Fragrance": { 
-        "Tower-A": { "GF": ["Unit-1", "Unit-2"], "1st Floor": ["101", "102"], "2nd Floor": ["201", "202"] }, 
-        "Tower-B": { "GF": ["B-01"], "1st Floor": ["B-101", "B-102"] }
-    },
-    "Eutopia": { 
-        "B1": { "Basement": ["P-1"], "GF": ["G-1"] }, 
-        "STP": { "Area-1": ["Zone-A"] } 
-    }
-});
-
-let defectMatrix = getSafeStorage("qa_defectMatrix", {
-    "RCC Structure": ["Level uneven", "Honeycomb", "Crack Shown", "Poor Quality"],
-    "Plumbing Work": ["Leak", "Broken", "Clogging"]
-});
-
-let floorMaps = getSafeStorage("qa_floorMaps", {});
-
-// === FIX #4 === Debounce + submit-lock flags to prevent auto-refresh from
-// racing with user submits (e.g. hierarchy add gets wiped by concurrent
-// loadHierarchyFromCloud() that fired mid-save)
-let _hierarchySaveInProgress = false;
-let _categorySaveInProgress = false;
-let _hierarchyLoadInProgress = false;
-let _categoryLoadInProgress = false;
-let _lastAutoRefreshAt = 0;
-
-// === FIX #4 === Non-blocking toast helper (replaces silent-fail patterns)
-function csmsToast(message, type) {
-    try {
-        let container = document.getElementById('csmsToastContainer');
-        if(!container) {
-            container = document.createElement('div');
-            container.id = 'csmsToastContainer';
-            container.className = 'csms-toast-container';
-            document.body.appendChild(container);
-        }
-        const el = document.createElement('div');
-        el.className = 'csms-toast ' + (type || '');
-        el.textContent = message;
-        container.appendChild(el);
-        requestAnimationFrame(() => el.classList.add('show'));
-        setTimeout(() => {
-            el.classList.remove('show');
-            setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
-        }, 3500);
-    } catch(e) { console.warn("Toast failed:", e); }
-}
-
-let canvasConfig = {
-    entry: { ctx: null, img: null, scale: 1, marker: null, active: true },
-    modal: { ctx: null, img: null, scale: 1, marker: null, active: false }
-};
-
-window.addEventListener('online', () => { document.getElementById('networkStatus').className = "network-badge online"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi"></i> Online'; syncOfflineData(); flushHierarchyQueue(); flushCategoryQueue(); loadHierarchyFromCloud(); loadCategoriesFromCloud(); });
-window.addEventListener('offline', () => { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; });
-
-window.addEventListener('storage', () => {
-    structuralHierarchy = getSafeStorage("qa_strict_hierarchy", structuralHierarchy);
-    defectMatrix = getSafeStorage("qa_defectMatrix", defectMatrix);
-    floorMaps = getSafeStorage("qa_floorMaps", floorMaps);
-    refreshDropdowns();
-});
-
-let idleTime = 0;
-function resetIdleTimer() { idleTime = 0; }
-document.onmousemove = resetIdleTimer;
-document.onkeypress = resetIdleTimer;
-setInterval(() => {
-    idleTime++;
-    if(idleTime >= 60 && currentUser) { 
-        alert("Session Expired due to inactivity. You have been logged out securely.");
-        manualLogout(); 
-    }
-}, 60000); 
-
-window.addEventListener("DOMContentLoaded", () => {
-    if(!navigator.onLine) { document.getElementById('networkStatus').className = "network-badge offline"; document.getElementById('networkStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> Offline'; }
+@media screen and (max-width: 1024px) {
+    .form-map-grid { display: flex; flex-direction: column; }
+    .part-1 { order: 1; }
+    .part-2 { order: 2; height: auto; min-height: 400px; position: relative; top: 0; margin-bottom: 20px;} 
+    .part-3 { order: 3; }
+    .part-4 { order: 4; }
+    .form-submit-btn { order: 5; margin-bottom: 20px; }
     
-    try {
-        const savedUser = sessionStorage.getItem("qa_logged_in_user");
-        if(savedUser) { 
-            currentUser = JSON.parse(savedUser); 
-            activateApp(); 
-        }
-    } catch (e) {
-        console.error("Initialization error, clearing session:", e);
-        sessionStorage.clear();
-    }
-    
-    const defectForm = document.getElementById("defectForm");
-    if(defectForm) {
-        defectForm.addEventListener('input', saveDraftState);
-        defectForm.addEventListener('change', saveDraftState);
-    }
+    header { flex-direction: column; gap: 10px; padding: 14px; }
+    .logo-area { width: 100%; justify-content: space-between; }
+    .logo-area h2 { font-size: 16px; }
+    nav { overflow-x: auto; width: 100%; justify-content: flex-start; padding-bottom: 5px; flex-wrap: nowrap; }
+    .nav-btn { flex: 0 0 auto; }
+    .setup-split-layout { grid-template-columns: 1fr; }
+    .admin-grid-container { grid-template-columns: 1fr; }
+    .edit-modal-grid { grid-template-columns: 1fr; }
+}
 
-    const defecttypeEl = document.getElementById("defectcategory");
-    if(defecttypeEl) {
-        defecttypeEl.addEventListener('change', populateDefectList);
-    }
+@media screen and (max-width: 768px) {
+    main { padding: 12px 10px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .advanced-filter-grid { grid-template-columns: 1fr 1fr; }
+    .csms-pro-table th, .csms-pro-table td { padding: 10px 12px; font-size: 12px; }
+    .actions-group-tech { justify-content: stretch; }
+    .actions-group-tech button { flex: 1; text-align: center; justify-content: center; }
+    .dashboard-display-container-tech { grid-template-columns: 1fr; }
+    .chart-container-wrapper { height: 250px; }
+}
+/* --- MULTI-SELECT CHECKBOX CONTAINER STYLES --- */
+.checkbox-dropdown-container {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.checkbox-dropdown-container:focus-within {
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+    background: white;
+}
+.checkbox-dropdown-container::-webkit-scrollbar { width: 5px; }
+.checkbox-dropdown-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.spec-cb-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #334155 !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.spec-cb-label:hover {
+    background-color: #e0f2fe;
+}
+.spec-cb-label input {
+    width: auto !important;
+    margin: 0 !important;
+    cursor: pointer;
+}
+/* --- CUSTOM MULTI-SELECT DROPDOWN STYLES --- */
+.custom-multi-select { 
+    position: relative; 
+    width: 100%; 
+    outline: none; 
+}
+.select-box { 
+    padding: 10px 12px; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    background: #f8fafc; 
+    cursor: pointer; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    transition: all 0.2s; 
+}
+.select-box:hover { 
+    border-color: var(--accent-glow); 
+}
+.dropdown-list-checkboxes { 
+    position: absolute; 
+    top: 100%; 
+    left: 0; 
+    right: 0; 
+    background: white; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+    margin-top: 5px; 
+    z-index: 100; 
+    max-height: 220px; 
+    overflow-y: auto; 
+    display: none; /* Initially hidden */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); 
+    flex-direction: column; 
+}
+.custom-multi-select.open .dropdown-list-checkboxes { 
+    display: flex; /* Shown when 'open' class is applied */
+}
+.spec-cb-label { 
+    padding: 8px 12px; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    cursor: pointer; 
+    border-bottom: 1px solid #f1f5f9; 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: #334155; 
+}
+.spec-cb-label:hover { 
+    background: #f1f5f9; 
+}
+.spec-cb-label input { 
+    width: auto !important; 
+    margin: 0 !important; 
+    cursor: pointer; 
+}
 
-    // === NEW: Floor change ke baad map auto-reload (existing populateFlats untouched) ===
-    const floorEl = document.getElementById("floor");
-    if(floorEl) {
-        floorEl.addEventListener('change', () => {
-            // populateFlats already called via inline onchange; we just trigger map load
-            setTimeout(() => ensureMapLoaded(), 50);
+            if(mMoved) {
+                // Suppress the ensuing click so pan doesn't drop a marker
+                const suppress = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+                canvas.addEventListener('click', suppress, { capture: true, once: true });
+            }
         });
     }
-    // Same for project/tower in case they change directly (defensive)
-    const projEl = document.getElementById("project");
-    if(projEl) projEl.addEventListener('change', () => setTimeout(() => ensureMapLoaded(), 50));
-    const towerEl = document.getElementById("tower");
-    if(towerEl) towerEl.addEventListener('change', () => setTimeout(() => ensureMapLoaded(), 50));
 
-    ["reportProject", "reportTower", "reportCreatedBy", "reportStatus", "reportDateFrom", "reportDateTo"].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.addEventListener('change', renderReportTable);
-    });
-
-    // === FIX #4 === Wrap realtime channel subscribes with reconnect-on-close
-    // so listeners auto-rebind after network drop / mobile suspension.
-    function _subscribeWithReconnect(channelFactory, label) {
-        let ch;
-        const start = () => {
-            try {
-                ch = channelFactory();
-                ch.subscribe((status) => {
-                    if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-                        console.warn(`[Realtime:${label}] status=${status}, reconnecting in 3s...`);
-                        try { supabaseClient.removeChannel(ch); } catch(e){}
-                        setTimeout(start, 3000);
-                    }
-                });
-            } catch(e) { console.warn(`[Realtime:${label}] subscribe failed:`, e); setTimeout(start, 5000); }
-        };
-        start();
-    }
-
-    _subscribeWithReconnect(() => supabaseClient.channel('public:snagmanagement').on('postgres_changes', { event: '*', schema: 'public', table: 'snagmanagement' }, payload => {
-        if(navigator.onLine) {
-            console.log("Realtime Sync Triggered", payload);
-            loadDefectsFromCloud(true);
-        }
-    }), 'snagmanagement');
-
-    // === NEW: Realtime listener for map updates (so other devices' uploads reflect instantly) ===
-    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_maps').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_maps' }, payload => {
-        if(navigator.onLine) {
-            console.log("Map Sync Triggered", payload);
-            loadMapsFromCloud().then(() => {
-                if (pendingMapLoadKey || (document.getElementById('entry') && document.getElementById('entry').classList.contains('active'))) {
-                    ensureMapLoaded();
-                }
-            });
-        }
-    }), 'snag_maps');
-
-    // === FIX #1 === Realtime listener for STRUCTURAL HIERARCHY — skips reload
-    // while a local save is in flight (prevents overwrite of freshly-added row).
-    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_hierarchy').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_hierarchy' }, payload => {
-        if(navigator.onLine && !_hierarchySaveInProgress) {
-            console.log("Hierarchy Sync Triggered", payload);
-            loadHierarchyFromCloud().then(() => {
-                refreshDropdowns();
-                if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") {
-                    renderAdminTables();
-                    renderUserSetupCheckboxes();
-                }
-            });
-        }
-    }), 'snag_hierarchy');
-
-    // === NEW: Realtime listener for DEFECT CATEGORIES & SPECIFICATIONS ===
-    _subscribeWithReconnect(() => supabaseClient.channel('public:snag_categories').on('postgres_changes', { event: '*', schema: 'public', table: 'snag_categories' }, payload => {
-        if(navigator.onLine && !_categorySaveInProgress) {
-            console.log("Category Sync Triggered", payload);
-            loadCategoriesFromCloud().then(() => {
-                refreshDropdowns();
-                if(document.getElementById('setup') && document.getElementById('setup').classList.contains('active') && currentUser && currentUser.role === "admin") {
-                    renderAdminTables();
-                }
-                const catEl = document.getElementById("defectcategory");
-                if(catEl && catEl.value) populateDefectList();
-            });
-        }
-    }), 'snag_categories');
-
-});
-
-document.addEventListener('click', function(e) {
-    const selectBox = document.getElementById('customSpecSelect');
-    if (selectBox && !selectBox.contains(e.target)) {
-        selectBox.classList.remove('open');
-    }
-});
-function toggleSpecDropdown() {
-    const el = document.getElementById('customSpecSelect');
-    if(el) el.classList.toggle('open');
-}
-function updateSpecSelectText() {
-    const checked = Array.from(document.querySelectorAll('.spec-chk:checked')).map(cb => cb.value);
-    const textEl = document.getElementById('specSelectText');
-    if(textEl) {
-        if(checked.length === 0) textEl.innerText = '-- Select Specification --';
-        else if(checked.length === 1) textEl.innerText = checked[0];
-        else textEl.innerText = checked.length + ' Specs Selected';
-    }
-    saveDraftState();
-}
-
-function initDropdownsOnLoad() {
-    const projects = getAllowedProjects();
-    const projEl = document.getElementById("project");
-    if(projEl) {
-        const savedVal = projEl.value;
-        projEl.innerHTML = '<option value="">-- Select Project --</option>';
-        projects.forEach(p => projEl.appendChild(new Option(p, p)));
-        projEl.value = savedVal;
-        if(savedVal) populateTowers(); 
-    }
-
-    const catEl = document.getElementById("defectcategory");
-    if(catEl) {
-        const savedVal = catEl.value;
-        catEl.innerHTML = '<option value="">-- Select Category --</option>';
-        Object.keys(defectMatrix).forEach(type => catEl.appendChild(new Option(type, type)));
-        catEl.value = savedVal;
-        if(savedVal) populateDefectList(); 
-    }
-}
-
-window.addEventListener('beforeunload', () => {
-    saveDraftState();
-});
-
-function getFullName(u) {
-    if(u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
-    return u.id; 
-}
-
-function processLogin() {
-    const loginStr = document.getElementById("loginEmail").value.trim().toLowerCase(); 
-    const pass = document.getElementById("loginPassword").value; 
-    const err = document.getElementById("loginError");
-    
-    const validUser = USER_MATRIX.find(u => 
-        (u.id.toLowerCase() === loginStr) || 
-        (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
-    );
-    
-    if(validUser && validUser.pass === pass) { 
-        currentUser = validUser; sessionStorage.setItem("qa_logged_in_user", JSON.stringify(validUser)); activateApp(); 
-    } else { 
-        err.style.display = "block"; err.innerText = "Invalid credentials. Try full name or email."; 
-    }
-}
-
-function manualLogout() { 
-    sessionStorage.removeItem("qa_logged_in_user"); 
-    sessionStorage.removeItem("active_section");
-    location.reload(); 
-}
-
-// === FIX #2 === activateApp — runs identical init sequence for BOTH login AND
-// browser refresh paths. Explicitly re-inits canvas + click handlers AFTER
-// draft restoration so refresh-state === post-login-state for marker clicks.
-async function activateApp() {
-    document.getElementById("loginOverlay").style.display = "none"; 
-    document.getElementById("appContainer").style.display = "block";
-    
-    initDropdownsOnLoad();
-
-    if(currentUser.role !== "admin") { document.getElementById("navSetupBtn").style.display = "none"; }
-    
-    let targetSection = sessionStorage.getItem("active_section") || 'entry';
-    if(currentUser.role === "user" && currentUser.permission === "view") { 
-        document.getElementById("navEntryBtn").style.display = "none"; 
-        if(targetSection === 'entry') targetSection = 'dashboard';
-    } 
-    showSection(targetSection);
-
-    refreshDropdowns(); 
-    initCanvas('entry'); 
-    initCanvas('modal');
-
-    // Step 1: ensure cloud data fully fetched (maps + defects + hierarchy + categories) BEFORE restoring form
-    // Fixes Issue #1 & #2: System Setup entries now sync across ALL devices in realtime
-    await Promise.all([
-        loadMapsFromCloud(),
-        loadDefectsFromCloud(false),
-        loadHierarchyFromCloud(),
-        loadCategoriesFromCloud()
-    ]);
-    // Refresh dropdowns now that cloud-synced hierarchy/categories are merged
-    refreshDropdowns();
-    initDropdownsOnLoad();
-
-    // Step 2: restore form fields (project/tower/floor selections come back)
-    restoreDraftState(); 
-
-    // === FIX #2 === Re-init canvas AFTER restoreDraftState so the click handler
-    // is guaranteed to be attached in the refresh path (identical to post-login).
-    // rebindEntryCanvasHandlers is idempotent — safe to call multiple times.
-    rebindEntryCanvasHandlers();
-    
-    // Step 3: explicitly trigger map load AFTER everything is in place.
-    // Using requestAnimationFrame ensures canvas DOM is laid out (visible, has size).
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            ensureMapLoaded().then(() => {
-                // Final rebind after map draws to defend against any race condition
-                rebindEntryCanvasHandlers();
-            });
-        });
-    });
-
-    startAutoRefresh(); 
-    if(currentUser.role === "admin") { renderAdminTables(); renderUserSetupCheckboxes(); renderUserTable(); }
-}
-
-function saveDraftState() {
-    const formObj = {};
-    ['project','tower','floor','flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks', 'entryCoordX', 'entryCoordY'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) formObj[id] = el.value;
-    });
-
-    const selectedSpecs = Array.from(document.querySelectorAll('.spec-chk:checked')).map(cb => cb.value).join(', ');
-    formObj['specifications_multi'] = selectedSpecs;
-
-    sessionStorage.setItem("csms_draft_form", JSON.stringify(formObj));
-}
-
-// === UPGRADED: restoreDraftState (map-related portion only changed) ===
-function restoreDraftState() {
-    const draft = JSON.parse(sessionStorage.getItem("csms_draft_form"));
-    if(!draft) return;
-    
-    if(draft.project) { document.getElementById("project").value = draft.project; populateTowers(); }
-    if(draft.tower) { document.getElementById("tower").value = draft.tower; populateFloors(); }
-    if(draft.floor) { document.getElementById("floor").value = draft.floor; populateFlats(); }
-    
-    ['flatNo','defectcategory','riskspectrum','statusvector','sladuedate','engineeringremarks'].forEach(id => {
-        if(draft[id] && document.getElementById(id)) document.getElementById(id).value = draft[id];
-    });
-    
-    if(draft.defectcategory) populateDefectList();
-
-    if(draft.specifications_multi) {
-        const specs = draft.specifications_multi.split(', ');
-        setTimeout(() => {
-            document.querySelectorAll('.spec-chk').forEach(cb => {
-                if(specs.includes(cb.value)) cb.checked = true;
-            });
-            updateSpecSelectText();
-        }, 100);
-    }
-
-    if (draft.entryCoordX && draft.entryCoordY) {
-        document.getElementById("entryCoordX").value = draft.entryCoordX;
-        document.getElementById("entryCoordY").value = draft.entryCoordY;
-        canvasConfig.entry.marker = {
-            x: parseFloat(draft.entryCoordX),
-            y: parseFloat(draft.entryCoordY)
-        };
-    }
-    // Map load is NOT triggered here anymore (moved to activateApp via ensureMapLoaded)
-    // This avoids race condition.
-}
-
-// === UPGRADED: showSection - retrigger map load when user navigates to entry ===
-function showSection(id) {
-    sessionStorage.setItem("active_section", id); 
-    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
-    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-    
-    const sec = document.getElementById(id); 
-    if(sec) sec.classList.add("active");
-    
-    if(window.event && window.event.currentTarget) window.event.currentTarget.classList.add("active");
-    else {
-        const btns = document.querySelectorAll(".nav-btn");
-        btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
-    }
-    
-    if(id === 'report') {
-        renderReportTable(); 
-        loadDefectsFromCloud(true); 
-    }
-    if(id === 'dashboard') {
-        if(typeof renderCharts === 'function') renderCharts();
-        loadDefectsFromCloud(true);
-    }
-    if(id === 'setup' && currentUser && currentUser.role === "admin") {
-        renderAdminTables(); 
-        renderUserSetupCheckboxes(); 
-        renderUserTable();
-    }
-    // NEW: when entering the control panel (entry), re-ensure map is drawn
-    if(id === 'entry') {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => ensureMapLoaded());
-        });
-    }
-}
-
-function getAllowedProjects() { 
-    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); 
-    return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); 
-}
-
-function getAllowedTowers(proj) { 
-    if(!structuralHierarchy[proj]) return [];
-    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); 
-    return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); 
-}
-
-function refreshDropdowns() {
-    const allowed = getAllowedProjects();
-    
-    ["project", "reportProject", "dashboardProjectFilter", "mapSetupProject"].forEach(id => {
-        const el = document.getElementById(id); 
-        if(!el) return;
-        const currentValue = el.value; 
-        el.innerHTML = (id.includes("report") || id.includes("dashboard")) ? "<option value='All'>All Authorized Projects</option>" : "<option value=''>-- Select Project --</option>";
-        allowed.forEach(p => el.appendChild(new Option(p, p)));
-        if (currentValue && Array.from(el.options).some(opt => opt.value === currentValue)) {
-            el.value = currentValue;
-        }
-    });
-    
-    const typeSel = document.getElementById("defectcategory");
-    if(typeSel) { 
-        const currentCatValue = typeSel.value;
-        typeSel.innerHTML = "<option value=''>-- Select Category --</option>"; 
-        Object.keys(defectMatrix).forEach(type => typeSel.appendChild(new Option(type, type))); 
-        if (currentCatValue) typeSel.value = currentCatValue;
-    }
-    
-    const uSel = document.getElementById("reportCreatedBy");
-    if(uSel) {
-        const currentSelection = uSel.value; 
-        uSel.innerHTML = "<option value='All'>All Users</option>";
-        
-        let uniqueUsers = new Set();
-        USER_MATRIX.forEach(u => uniqueUsers.add(getFullName(u)));
-        
-        if (defects && defects.length > 0) {
-            defects.forEach(d => {
-                const creator = d.createdby || d.created_by || d.createdBy;
-                if(creator && creator !== "-") uniqueUsers.add(creator);
-            });
-        }
-        
-        uniqueUsers.forEach(name => uSel.appendChild(new Option(name, name)));
-        if (uniqueUsers.has(currentSelection) || currentSelection === 'All') {
-            uSel.value = currentSelection; 
-        }
-    }
-}
-
-function populateDefectList() {
-    const typeVal = document.getElementById("defectcategory") ? document.getElementById("defectcategory").value : "";
-    const container = document.getElementById("specCheckboxContainer");
-    if(!container) return;
-    
-    container.innerHTML = ''; 
-    
-    if(typeVal && defectMatrix[typeVal]) {
-        defectMatrix[typeVal].forEach(spec => {
-            container.innerHTML += `<label class="spec-cb-label"><input type="checkbox" value="${spec}" class="spec-chk" onchange="updateSpecSelectText()"> ${spec}</label>`;
-        });
-    } else {
-        container.innerHTML = '<span style="color:#94a3b8; font-size:13px; padding:10px;">-- Select Category First --</span>';
-    }
-    updateSpecSelectText();
-}
-
-function clearMapCanvas() {
-    if(document.getElementById("entryMapWarning")) document.getElementById("entryMapWarning").style.display = "block"; 
-    canvasConfig.entry.marker = null; 
-    canvasConfig.entry.img = null;
-    canvasConfig.entry.active = false;
-    if(canvasConfig.entry.ctx) {
-        const canvas = document.getElementById('entryCanvas');
-        if(canvas) canvasConfig.entry.ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    if(document.getElementById("entryCoordX")) document.getElementById("entryCoordX").value = ""; 
-    if(document.getElementById("entryCoordY")) document.getElementById("entryCoordY").value = "";
-    drawCanvas('entry');
-}
-
-function populateTowers() {
-    const p = document.getElementById("project").value; const tSel = document.getElementById("tower");
-    tSel.innerHTML = '<option value="">-- Select Tower --</option>';
-    if(p && structuralHierarchy[p]) { const allowedTowers = getAllowedTowers(p); allowedTowers.forEach(t => tSel.appendChild(new Option(t, t))); }
-    
-    document.getElementById("floor").innerHTML = '<option value="">-- Select Floor --</option>';
-    document.getElementById("flatNo").innerHTML = '<option value="">-- Select Unit --</option>';
-    clearMapCanvas(); 
-}
-
-function populateFloors() {
-    const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const fSel = document.getElementById("floor");
-    fSel.innerHTML = '<option value="">-- Select Floor --</option>';
-    if(p && t && structuralHierarchy[p][t]) { Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
-    document.getElementById("flatNo").innerHTML = '<option value="">-- Select Unit --</option>';
-    clearMapCanvas(); 
-}
-
-function populateFlats() {
-    const p = document.getElementById("project").value; const t = document.getElementById("tower").value; const f = document.getElementById("floor").value; 
-    const unitSel = document.getElementById("flatNo");
-    unitSel.innerHTML = '<option value="">-- Select Unit --</option>';
-    if(p && t && f && structuralHierarchy[p][t][f]) {
-        structuralHierarchy[p][t][f].forEach(unit => unitSel.appendChild(new Option(unit, unit)));
-    }
-}
-
-// === UPGRADED: zoomCanvas with bounds, transform-origin & wrapper sizing for proper pan ===
-function zoomCanvas(id, factor) { 
-    const type = id.replace('Canvas', ''); 
-    let next = canvasConfig[type].scale * factor;
-    // Clamp between 0.4x and 6x to avoid extreme zoom
-    next = Math.max(0.4, Math.min(6, next));
-    canvasConfig[type].scale = next; 
-    const el = document.getElementById(id);
-    if(el) {
-        el.style.transformOrigin = "top left";
-        el.style.transform = `scale(${canvasConfig[type].scale})`;
-    }
-}
-function resetCanvas(id) { 
-    const type = id.replace('Canvas', ''); 
-    canvasConfig[type].scale = 1; 
-    const el = document.getElementById(id);
-    if(el) {
-        el.style.transformOrigin = "top left";
-        el.style.transform = `scale(1)`;
-    }
-}
-
-// === FIX #3 === attachZoomGestures — proper 2-finger pinch inside map only.
-// Key improvements vs. previous version:
-//   • touch-action:none on wrapper (CSS) blocks browser page-zoom on 2 fingers
-//   • pinch is scoped to the .map-viewport-container so the surrounding page
-//     never zooms, only the canvas transform scales
-//   • scale clamped 0.4x – 6x
-//   • preventDefault on every touchstart/touchmove with 2 fingers so mobile
-//     browsers don't fall back to page pinch
-//   • idempotent: guarded by _csmsPinchBound flag so re-init after refresh
-//     does not stack duplicate handlers
-function attachZoomGestures(canvasId) {
-    const canvas = document.getElementById(canvasId);
-    if(!canvas) return;
-
-    // Mouse wheel zoom (laptop / desktop) — idempotent
-    if(!canvas._csmsWheelBound) {
-        canvas._csmsWheelBound = true;
-        canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const factor = (e.deltaY < 0) ? 1.12 : (1/1.12);
-            zoomCanvas(canvasId, factor);
-        }, { passive: false });
-    }
-
-    // Two-finger pinch on the nearest map-viewport wrapper — idempotent
+    // Two-finger pinch + one-finger drag on the wrapper — idempotent
     let wrapper = canvas.closest('.map-viewport-container');
     if(!wrapper) wrapper = canvas.parentElement;
     if(!wrapper || wrapper._csmsPinchBound) return;
@@ -637,22 +332,48 @@ function attachZoomGestures(canvasId) {
 
     let lastDist = 0;
     let pinchActive = false;
+    // Single-finger drag state
+    let dragActive = false;
+    let dragStartX = 0, dragStartY = 0;
+    let dragBaseTx = 0, dragBaseTy = 0;
+    let dragMoved = false;
+
     const getDist = (touches) => {
         const dx = touches[0].clientX - touches[1].clientX;
         const dy = touches[0].clientY - touches[1].clientY;
         return Math.hypot(dx, dy);
     };
+    const getMid = (touches) => ({
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+    });
+
+    let pinchMidStart = null;
+    let pinchBaseTx = 0, pinchBaseTy = 0;
+
     wrapper.addEventListener('touchstart', (e) => {
         if(e.touches.length === 2) {
             e.preventDefault();
             pinchActive = true;
+            dragActive = false;
             lastDist = getDist(e.touches);
+            pinchMidStart = getMid(e.touches);
+            pinchBaseTx = canvasConfig[type].tx;
+            pinchBaseTy = canvasConfig[type].ty;
+        } else if(e.touches.length === 1 && canvasConfig[type].scale > 1.01) {
+            // Start 1-finger drag only when zoomed in (so tap-to-mark still works at scale 1)
+            e.preventDefault();
+            dragActive = true;
+            dragMoved = false;
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            dragBaseTx = canvasConfig[type].tx;
+            dragBaseTy = canvasConfig[type].ty;
         }
     }, { passive: false });
+
     wrapper.addEventListener('touchmove', (e) => {
         if(e.touches.length === 2) {
-            // Prevent default on EVERY 2-finger touchmove so mobile browser
-            // never falls back to native page pinch-zoom.
             e.preventDefault();
             e.stopPropagation();
             const dist = getDist(e.touches);
@@ -661,20 +382,48 @@ function attachZoomGestures(canvasId) {
                 zoomCanvas(canvasId, factor);
             }
             lastDist = dist;
+            // Two-finger drag while pinching: shift by midpoint delta
+            const mid = getMid(e.touches);
+            if(pinchMidStart) {
+                const dmx = mid.x - pinchMidStart.x;
+                const dmy = mid.y - pinchMidStart.y;
+                canvasConfig[type].tx = pinchBaseTx + dmx;
+                canvasConfig[type].ty = pinchBaseTy + dmy;
+                _applyCanvasTransform(type);
+            }
+        } else if(e.touches.length === 1 && dragActive) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - dragStartX;
+            const dy = e.touches[0].clientY - dragStartY;
+            if(Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+            canvasConfig[type].tx = dragBaseTx + dx;
+            canvasConfig[type].ty = dragBaseTy + dy;
+            _applyCanvasTransform(type);
         } else if(pinchActive) {
-            // Fewer than 2 fingers now — end pinch gracefully
             e.preventDefault();
         }
     }, { passive: false });
+
     wrapper.addEventListener('touchend', (e) => {
         if(e.touches.length < 2) {
             lastDist = 0;
             pinchActive = false;
+            pinchMidStart = null;
+        }
+        if(e.touches.length === 0) {
+            if(dragActive && dragMoved) {
+                // Prevent tap-through so pan drag doesn't leave a marker
+                const suppress = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+                canvas.addEventListener('click', suppress, { capture: true, once: true });
+            }
+            dragActive = false;
         }
     }, { passive: true });
     wrapper.addEventListener('touchcancel', () => {
         lastDist = 0;
         pinchActive = false;
+        dragActive = false;
+        pinchMidStart = null;
     }, { passive: true });
 
     // Also swallow gesture events on iOS to prevent Safari page zoom.
@@ -2144,3 +1893,4 @@ function exportPDF(dataToExport) {
         windowObj.print(); 
     }, 1500);
 }
+
