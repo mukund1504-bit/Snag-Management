@@ -743,8 +743,11 @@ function attachZoomGestures(canvasId) {
             pinchBaseTx = canvasConfig[type].tx;
             pinchBaseTy = canvasConfig[type].ty;
         } else if(e.touches.length === 1 && canvasConfig[type].scale > 1.01) {
-            // Start 1-finger drag only when zoomed in (so tap-to-mark still works at scale 1)
-            e.preventDefault();
+            // === FIX #6 === DO NOT preventDefault on touchstart — that also
+            // suppresses the browser-synthesized click on stationary taps, which
+            // stops red-dot markers from opening the info popup on mobile.
+            // We only arm drag state here; preventDefault happens later in
+            // touchmove ONLY IF a real drag begins (movement > threshold).
             dragActive = true;
             dragMoved = false;
             dragStartX = e.touches[0].clientX;
@@ -774,13 +777,21 @@ function attachZoomGestures(canvasId) {
                 _applyCanvasTransform(type);
             }
         } else if(e.touches.length === 1 && dragActive) {
-            e.preventDefault();
             const dx = e.touches[0].clientX - dragStartX;
             const dy = e.touches[0].clientY - dragStartY;
-            if(Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
-            canvasConfig[type].tx = dragBaseTx + dx;
-            canvasConfig[type].ty = dragBaseTy + dy;
-            _applyCanvasTransform(type);
+            // === FIX #6 === Only preventDefault (and pan the map) AFTER movement
+            // crosses the drag threshold. Small unintentional finger jitter on tap
+            // stays under threshold and falls through as a normal tap → click →
+            // marker popup opens. Threshold matches desktop mousemove branch (>3 px).
+            if(Math.abs(dx) + Math.abs(dy) > 8) {
+                dragMoved = true;
+            }
+            if(dragMoved) {
+                e.preventDefault();
+                canvasConfig[type].tx = dragBaseTx + dx;
+                canvasConfig[type].ty = dragBaseTy + dy;
+                _applyCanvasTransform(type);
+            }
         } else if(pinchActive) {
             e.preventDefault();
         }
