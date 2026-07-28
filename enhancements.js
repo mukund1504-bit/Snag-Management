@@ -981,7 +981,7 @@
       });
       const sortedM = Object.keys(monMap).sort();
       let running = 0;
-      tBody.innerHTML = sortedM.map(m => { running += (monMap[m].created - monMap[m].closed); return `<tr><td>${m}</td><td>${monMap[m].created}</td><td>${monMap[m].closed}</td><td>${running}</td></tr>`; }).join('');
+      tBody.innerHTML = sortedM.map(m => { running += (monMap[m].created - monMap[m].closed); return `<tr><td><b>${m}</b></td>${L(m+' Created',{loggedMonth:m},monMap[m].created)}${L(m+' Closed',{closedMonth:m},monMap[m].closed)}<td><b>${running}</b></td></tr>`; }).join('');
     } else if (filterAnalytic === 'assignee') {
       tHead.innerHTML = `<th>ASSIGNEE</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
       const map = {};
@@ -989,7 +989,7 @@
         const assList = (d.assignedto ? d.assignedto.split('|').map(s=>s.trim()).filter(Boolean) : ['<Unassigned>']);
         assList.forEach(a => { if(!map[a]) map[a]={a,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')map[a].o++; if(d.statusvector==='In Progress')map[a].ip++; if(d.statusvector==='Closed')map[a].c++; map[a].tot++; });
       });
-      tBody.innerHTML = Object.values(map).map(m => `<tr><td><b>${m.a}</b></td><td>${m.o}</td><td>${m.ip}</td><td>${m.c}</td><td><b>${m.tot}</b></td></tr>`).join('');
+      tBody.innerHTML = Object.values(map).map(m => `<tr><td><b>${m.a}</b></td>${L(m.a+' Open',{assignee:m.a,status:'Open'},m.o)}${L(m.a+' In Progress',{assignee:m.a,status:'In Progress'},m.ip)}${L(m.a+' Closed',{assignee:m.a,status:'Closed'},m.c)}${L(m.a+' All',{assignee:m.a},'<b>'+m.tot+'</b>')}</tr>`).join('');
     }
 
     // Auxiliary charts
@@ -1056,6 +1056,8 @@
       if (p.ontimeOpen) { if(d.statusvector==='Closed') return false; if(d.sladuedate && new Date(d.sladuedate) < now) return false; }
       if (p.closedWithinSla) { if(d.statusvector!=='Closed') return false; if(!(d.closeddate && d.sladuedate && new Date(d.closeddate) <= new Date(d.sladuedate))) return false; }
       if (p.closedLate) { if(d.statusvector!=='Closed') return false; if(d.closeddate && d.sladuedate && new Date(d.closeddate) <= new Date(d.sladuedate)) return false; }
+      if (p.loggedMonth && (d.loggeddate||'').slice(0,7) !== p.loggedMonth) return false;
+      if (p.closedMonth && ((d.closeddate||'').slice(0,7) !== p.closedMonth || d.statusvector !== 'Closed')) return false;
       return true;
     });
     if (!data.length) return csmsToast('No records for this selection.', 'error');
