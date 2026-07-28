@@ -1386,7 +1386,7 @@ function openEditModal(id) {
     const d = defects.find(x => x.id == id); if(!d) return;
     if(d.statusvector === "Closed") return alert("This defect has been closed and locked.");
 
-    document.getElementById("editDefectId").value = id; document.getElementById("editstatusvector").value = d.statusvector;
+    document.getElementById("editDefectId").value = id; document.getElementById("editstatusvector").value = "Closed";
     
     const initPics = Array.isArray(d.initialPics) ? d.initialPics.filter(Boolean) : [];
     document.getElementById("editInitialPhotoWrap").innerHTML = initPics.map(p => `<div class="thumb"><img src="${p}" onclick="openZoomImage('${p}')"/></div>`).join('');
@@ -1394,7 +1394,7 @@ function openEditModal(id) {
     editTempPhotos = Array.isArray(d.finalPics) ? [...d.finalPics.filter(Boolean)] : []; 
     renderEditPhotoPreview();
 
-    const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}`];
+    const base64Img = floorMaps[`${d.project}_${d.tower}_${d.floor}_${d.flat}`] || floorMaps[`${d.project}_${d.tower}_${d.floor}`];
     if(base64Img && d.mapx && d.mapy) {
         canvasConfig.modal.marker = {x: parseFloat(d.mapx), y: parseFloat(d.mapy)};
         const img = new Image();

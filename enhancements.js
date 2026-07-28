@@ -925,6 +925,8 @@
     const tBody = document.getElementById('analyticsTableBody');
     const filterAnalytic = document.getElementById('dashboardAnalyticFilter').value;
     let matrixData = {};
+    const E = (o) => encodeURIComponent(JSON.stringify(o));
+    const L = (t, o, n) => `<td><a class="drill-link" style="cursor:pointer;color:#0284c7;font-weight:600;text-decoration:underline;" onclick="_biDrill('${String(t).replace(/'/g,'')}','${E(o)}')">${n}</a></td>`;
     if (filterAnalytic === 'floor') {
       tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>FLOOR</th><th>FLAT</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,f:d.floor,fl:d.flat,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
@@ -932,7 +934,7 @@
     } else if (filterAnalytic === 'tower') {
       tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = `${d.project}_${d.tower}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.o}</td><td>${m.ip}</td><td>${m.c}</td><td><b>${m.tot}</b></td></tr>`).join('');
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td>${L(m.p+' '+m.t+' Open',{project:m.p,tower:m.t,status:'Open'},m.o)}${L(m.p+' '+m.t+' In Progress',{project:m.p,tower:m.t,status:'In Progress'},m.ip)}${L(m.p+' '+m.t+' Closed',{project:m.p,tower:m.t,status:'Closed'},m.c)}${L(m.p+' '+m.t+' All',{project:m.p,tower:m.t},'<b>'+m.tot+'</b>')}</tr>`).join('');
     } else if (filterAnalytic === 'defect') {
       tHead.innerHTML = `<th>PROJECT</th><th>CATEGORY</th><th>SPECIFICATION</th><th>TOTAL</th>`;
       filteredData.forEach(d => { const specs = (d.specificationmatrix||'').split(',').map(s=>s.trim()).filter(Boolean); if (specs.length===0) specs.push('-'); specs.forEach(s => { const k = `${d.project}_${d.defectcategory}_${s}`; if(!matrixData[k]) matrixData[k]={p:d.project,c:d.defectcategory,s:s,tot:0}; matrixData[k].tot++; }); });
@@ -940,7 +942,7 @@
     } else if (filterAnalytic === 'intensity') {
       tHead.innerHTML = `<th>PROJECT</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = d.project; if(!matrixData[k]) matrixData[k]={p:d.project,l:0,m:0,h:0,tot:0}; if(d.riskspectrum==='Low')matrixData[k].l++; if(d.riskspectrum==='Medium')matrixData[k].m++; if(d.riskspectrum==='High')matrixData[k].h++; matrixData[k].tot++; });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.l}</td><td>${m.m}</td><td>${m.h}</td><td><b>${m.tot}</b></td></tr>`).join('');
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td>${L(m.p+' Low Risk',{project:m.p,risk:'Low'},m.l)}${L(m.p+' Medium Risk',{project:m.p,risk:'Medium'},m.m)}${L(m.p+' High Risk',{project:m.p,risk:'High'},m.h)}${L(m.p+' All',{project:m.p},'<b>'+m.tot+'</b>')}</tr>`).join('');
     } else if (filterAnalytic === 'user') {
       tHead.innerHTML = `<th>USER</th><th>CREATED</th><th>CLOSED</th><th>PENDING (Assigned)</th>`;
       const users = new Set();
@@ -951,7 +953,7 @@
         const pending = filteredData.filter(d => d.statusvector !== 'Closed' && (d.assignedto || '').split('|').map(s=>s.trim()).includes(u)).length;
         matrixData[u] = { u, created, closed, pending };
       });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.u}</b></td><td>${m.created}</td><td>${m.closed}</td><td>${m.pending}</td></tr>`).join('');
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.u}</b></td>${L(m.u+' Created',{createdby:m.u},m.created)}${L(m.u+' Closed',{closedby:m.u},m.closed)}${L(m.u+' Pending',{pendingAssignee:m.u},m.pending)}</tr>`).join('');
     } else if (filterAnalytic === 'sla') {
       tHead.innerHTML = `<th>PROJECT</th><th>ON TIME</th><th>DELAYED (Open)</th><th>CLOSED WITHIN SLA</th><th>CLOSED LATE</th>`;
       filteredData.forEach(d => {
@@ -964,7 +966,12 @@
           else matrixData[k].on++;
         }
       });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.on}</td><td style="color:#dc2626;">${m.del}</td><td style="color:#059669;">${m.closedOk}</td><td style="color:#dc2626;">${m.closedLate}</td></tr>`).join('');
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td>${L(m.p+' On Time',{project:m.p,ontimeOpen:1},m.on)}${L(m.p+' Delayed (Open)',{project:m.p,overdueOpen:1},'<span style="color:#dc2626;">'+m.del+'</span>')}${L(m.p+' Closed within SLA',{project:m.p,closedWithinSla:1},'<span style="color:#059669;">'+m.closedOk+'</span>')}${L(m.p+' Closed Late',{project:m.p,closedLate:1},'<span style="color:#dc2626;">'+m.closedLate+'</span>')}</tr>`).join('');
+    } else if (filterAnalytic === 'critical') {
+      tHead.innerHTML = `<th>PROJECT</th><th>HIGH RISK OPEN</th><th>OVERDUE (Open)</th><th>HIGH+OVERDUE</th><th>TOTAL OPEN</th>`;
+      const now2 = new Date();
+      filteredData.forEach(d => { let k=d.project; if(!matrixData[k]) matrixData[k]={p:d.project,hi:0,od:0,both:0,open:0}; if(d.statusvector!=='Closed'){ matrixData[k].open++; const isHi=d.riskspectrum==='High'; const isOd=d.sladuedate && new Date(d.sladuedate)<now2; if(isHi)matrixData[k].hi++; if(isOd)matrixData[k].od++; if(isHi&&isOd)matrixData[k].both++; } });
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td>${L(m.p+' High Risk Open',{project:m.p,risk:'High',openOnly:1},'<span style="color:#dc2626;">'+m.hi+'</span>')}${L(m.p+' Overdue Open',{project:m.p,overdueOpen:1},'<span style="color:#dc2626;">'+m.od+'</span>')}${L(m.p+' High & Overdue',{project:m.p,risk:'High',overdueOpen:1},'<span style="color:#dc2626;font-weight:800;">'+m.both+'</span>')}${L(m.p+' All Open',{project:m.p,openOnly:1},'<b>'+m.open+'</b>')}</tr>`).join('');
     } else if (filterAnalytic === 'monthly') {
       tHead.innerHTML = `<th>YEAR-MONTH</th><th>CREATED</th><th>CLOSED</th><th>OPEN AT END</th>`;
       const monMap = {};
@@ -990,6 +997,77 @@
     chartsObj.c3 = new Chart(document.getElementById('intensityChartCanvas'), { type:'polarArea', data:{ labels:Object.keys(anaMap), datasets:[{data:Object.values(anaMap), backgroundColor:['#3b82f6','#f59e0b','#ef4444']}] }, options:{ responsive:true, maintainAspectRatio:false }});
     const catMap = {}; filteredData.forEach(d => catMap[d.defectcategory] = (catMap[d.defectcategory]||0)+1);
     chartsObj.c4 = new Chart(document.getElementById('categoryChartCanvas'), { type:'bar', data:{ labels:Object.keys(catMap), datasets:[{label:'Categories', data:Object.values(catMap), backgroundColor:'#8b5cf6'}] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false }});
+    if (typeof renderBiExtraTables === 'function') renderBiExtraTables(filteredData);
+  };
+
+  // NEW: always-on BI summary tables (User Performance, Critical/Overdue, SLA).
+  // Rendered together with the main analytics table, updated by the same filter.
+  // Every number is clickable → _biDrill popup (which has Excel + PDF download).
+  window.renderBiExtraTables = function(data) {
+    data = data || [];
+    const E = (o) => encodeURIComponent(JSON.stringify(o));
+    const cell = (t, o, n, color) => `<td><a class="drill-link" style="cursor:pointer;color:${color||'#0284c7'};font-weight:600;text-decoration:underline;" onclick="_biDrill('${String(t).replace(/'/g,'')}','${E(o)}')">${n}</a></td>`;
+    const now = new Date();
+    const uBody = document.getElementById('biUserTableBody');
+    if (uBody) {
+      const users = new Set(); data.forEach(d => { if(d.createdby)users.add(d.createdby); if(d.closedby)users.add(d.closedby); });
+      const rows = Array.from(users).map(u => {
+        const created = data.filter(d => d.createdby===u).length;
+        const closed = data.filter(d => d.closedby===u && d.statusvector==='Closed').length;
+        const pending = data.filter(d => d.statusvector!=='Closed' && (d.assignedto||'').split('|').map(s=>s.trim()).includes(u)).length;
+        return `<tr><td><b>${u}</b></td>${cell(u+' Created',{createdby:u},created)}${cell(u+' Closed',{closedby:u},closed)}${cell(u+' Pending',{pendingAssignee:u},pending)}</tr>`;
+      }).join('');
+      uBody.innerHTML = rows || `<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:14px;">No data</td></tr>`;
+    }
+    const cBody = document.getElementById('biCriticalTableBody');
+    if (cBody) {
+      const m = {}; data.forEach(d => { let k=d.project; if(!m[k])m[k]={p:d.project,hi:0,od:0,both:0,open:0}; if(d.statusvector!=='Closed'){ m[k].open++; const isHi=d.riskspectrum==='High'; const isOd=d.sladuedate && new Date(d.sladuedate)<now; if(isHi)m[k].hi++; if(isOd)m[k].od++; if(isHi&&isOd)m[k].both++; } });
+      const rows = Object.values(m).map(x => `<tr><td><b>${x.p}</b></td>${cell(x.p+' High Risk Open',{project:x.p,risk:'High',openOnly:1},x.hi,'#dc2626')}${cell(x.p+' Overdue Open',{project:x.p,overdueOpen:1},x.od,'#dc2626')}${cell(x.p+' High & Overdue',{project:x.p,risk:'High',overdueOpen:1},x.both,'#dc2626')}${cell(x.p+' All Open',{project:x.p,openOnly:1},x.open)}</tr>`).join('');
+      cBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px;">No data</td></tr>`;
+    }
+    const sBody = document.getElementById('biSlaTableBody');
+    if (sBody) {
+      const m = {}; data.forEach(d => { let k=d.project; if(!m[k])m[k]={p:d.project,on:0,del:0,ok:0,late:0}; if(d.statusvector==='Closed'){ if(d.closeddate&&d.sladuedate&&new Date(d.closeddate)<=new Date(d.sladuedate))m[k].ok++; else m[k].late++; } else { if(d.sladuedate&&new Date(d.sladuedate)<now)m[k].del++; else m[k].on++; } });
+      const rows = Object.values(m).map(x => `<tr><td><b>${x.p}</b></td>${cell(x.p+' On Time',{project:x.p,ontimeOpen:1},x.on)}${cell(x.p+' Delayed',{project:x.p,overdueOpen:1},x.del,'#dc2626')}${cell(x.p+' Closed OK',{project:x.p,closedWithinSla:1},x.ok,'#059669')}${cell(x.p+' Closed Late',{project:x.p,closedLate:1},x.late,'#dc2626')}</tr>`).join('');
+      sBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px;">No data</td></tr>`;
+    }
+  };
+
+  // Clickable drill from any BI analytics number → popup (Drilldown modal already
+  // has Excel + PDF download buttons). Predicate is passed as encoded JSON.
+  window._biDrill = function(title, enc) {
+    let p = {}; try { p = JSON.parse(decodeURIComponent(enc)); } catch(e){}
+    const f = (typeof getBiFilteredData === 'function') ? getBiFilteredData() : (defects || []);
+    const now = new Date();
+    const data = f.filter(d => {
+      if (p.project && d.project !== p.project) return false;
+      if (p.tower && d.tower !== p.tower) return false;
+      if (p.floor && d.floor !== p.floor) return false;
+      if (p.flat && d.flat !== p.flat) return false;
+      if (p.status && d.statusvector !== p.status) return false;
+      if (p.risk && d.riskspectrum !== p.risk) return false;
+      if (p.category && d.defectcategory !== p.category) return false;
+      if (p.openOnly && d.statusvector === 'Closed') return false;
+      if (p.createdby && d.createdby !== p.createdby) return false;
+      if (p.closedby && (d.closedby !== p.closedby || d.statusvector !== 'Closed')) return false;
+      if (p.assignee) { const a=(d.assignedto||'').split('|').map(s=>s.trim()); if(p.assignee==='<Unassigned>'){ if(d.assignedto) return false; } else if(!a.includes(p.assignee)) return false; }
+      if (p.pendingAssignee) { if(d.statusvector==='Closed') return false; const a=(d.assignedto||'').split('|').map(s=>s.trim()); if(!a.includes(p.pendingAssignee)) return false; }
+      if (p.overdueOpen) { if(d.statusvector==='Closed') return false; if(!(d.sladuedate && new Date(d.sladuedate) < now)) return false; }
+      if (p.ontimeOpen) { if(d.statusvector==='Closed') return false; if(d.sladuedate && new Date(d.sladuedate) < now) return false; }
+      if (p.closedWithinSla) { if(d.statusvector!=='Closed') return false; if(!(d.closeddate && d.sladuedate && new Date(d.closeddate) <= new Date(d.sladuedate))) return false; }
+      if (p.closedLate) { if(d.statusvector!=='Closed') return false; if(d.closeddate && d.sladuedate && new Date(d.closeddate) <= new Date(d.sladuedate)) return false; }
+      return true;
+    });
+    if (!data.length) return csmsToast('No records for this selection.', 'error');
+    if (typeof openDrillModal === 'function') openDrillModal(title, data);
+  };
+
+  // Download Pending Defects Summary (Closure tab) as Excel
+  window.exportClosureExcel = function() {
+    const rows = (typeof _clFilteredDefects === 'function') ? _clFilteredDefects() : [];
+    if (!rows || rows.length === 0) return alert('No pending defects to export.');
+    if (typeof exportExcelWithPhotos === 'function') exportExcelWithPhotos(rows);
+    else alert('Export function unavailable.');
   };
 
   // Excel export of analytics table
@@ -1260,7 +1338,8 @@
       @page { size: A4 portrait; margin: 10mm; }
       body { font-family:'Segoe UI',Tahoma,sans-serif; margin:0; padding:0; background:#fff; color:#334155; }
       h1 { text-align:center; color:#0f172a; border-bottom:3px solid #0284c7; padding-bottom:8px; margin:0 0 15px 0; font-size:18px; text-transform:uppercase; }
-      .page { padding:5mm; display:flex; flex-direction:column; gap:6mm; }
+      .page { padding:4mm; display:flex; flex-direction:column; gap:4mm; }
+      .defect-card-half { min-height:88mm; }
       .defect-card-half { border:1px solid #94a3b8; border-radius:6px; padding:8px 12px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box; }
       .dh { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #cbd5e1; padding-bottom:5px; margin-bottom:6px; }
       .did { font-size:14px; font-weight:800; color:#0284c7; }
@@ -1274,8 +1353,8 @@
       .media-box { border:1px solid #e2e8f0; padding:4px; border-radius:4px; }
       .media-title { font-size:9px; font-weight:700; margin-bottom:3px; text-align:center; color:#475569; }
       .img-grid { display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
-      .img-grid img { width:48px; height:48px; object-fit:cover; border-radius:3px; border:1px solid #cbd5e1; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .defect-card-half:nth-child(2n) { break-after: page; page-break-after: always; } }
+      .img-grid img { width:38px; height:38px; object-fit:cover; border-radius:3px; border:1px solid #cbd5e1; }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .defect-card-half:nth-child(3n) { break-after: page; page-break-after: always; } }
     </style>`;
     let html = '<div class="page"><h1>Consolidated Defect Audit Report</h1>';
     dataToExport.forEach((d, i) => {

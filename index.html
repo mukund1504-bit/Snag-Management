@@ -251,6 +251,7 @@
                                 <option value="intensity">Risk Intensity Profiles</option>
                                 <option value="user">User Performance (Created/Closed)</option>
                                 <option value="sla">SLA Compliance (On-time vs Delayed)</option>
+                                <option value="critical">Critical / Most Delayed (Open)</option>
                                 <option value="monthly">Monthly Trend</option>
                                 <option value="assignee">Assignee Workload</option>
                             </select>
@@ -273,6 +274,22 @@
                         <thead><tr id="analyticsTableHeader"></tr></thead>
                         <tbody id="analyticsTableBody"></tbody>
                     </table>
+                </div>
+
+                <!-- NEW: Always-on summary tables (render together with the table above, update with the same filter). Numbers are clickable → drill popup with Excel/PDF. -->
+                <div class="bi-extra-grid">
+                    <div class="bi-extra-card">
+                        <h4 class="bi-extra-title"><i class="fas fa-users-cog"></i> User Performance (Name-wise)</h4>
+                        <div class="records-table-container mini-table"><table class="csms-pro-table"><thead><tr><th>User</th><th>Created</th><th>Closed</th><th>Pending</th></tr></thead><tbody id="biUserTableBody"></tbody></table></div>
+                    </div>
+                    <div class="bi-extra-card">
+                        <h4 class="bi-extra-title" style="color:#b91c1c;"><i class="fas fa-exclamation-triangle"></i> Critical / Most Delayed (Open)</h4>
+                        <div class="records-table-container mini-table"><table class="csms-pro-table"><thead><tr><th>Project</th><th>High Risk</th><th>Overdue</th><th>High+Overdue</th><th>Total Open</th></tr></thead><tbody id="biCriticalTableBody"></tbody></table></div>
+                    </div>
+                    <div class="bi-extra-card">
+                        <h4 class="bi-extra-title" style="color:#059669;"><i class="fas fa-tachometer-alt"></i> SLA Compliance</h4>
+                        <div class="records-table-container mini-table"><table class="csms-pro-table"><thead><tr><th>Project</th><th>On Time</th><th>Delayed</th><th>Closed OK</th><th>Closed Late</th></tr></thead><tbody id="biSlaTableBody"></tbody></table></div>
+                    </div>
                 </div>
 
                 <div class="dashboard-display-container-tech">
@@ -333,7 +350,7 @@
                     </div>
                     <div class="closure-list-card">
                         <div class="card-header-pro">
-                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#0f172a; color:white;"><i class="fas fa-list-ul"></i> Pending Defects Summary</h4>
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#0f172a; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span><i class="fas fa-list-ul"></i> Pending Defects Summary</span><button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosureExcel()"><i class="fas fa-file-excel"></i> Download Excel</button></h4>
                         </div>
                         <div class="records-table-container" style="max-height: 560px; overflow-y:auto;">
                             <table id="closureTable" class="csms-pro-table">
@@ -483,9 +500,9 @@
                     <div class="field-box-tech" style="margin-bottom: 15px;">
                         <label>Update Status Vector:</label>
                         <select id="editstatusvector">
+                            <option value="Closed">Closed / Certified (Locks Record)</option>
                             <option value="Open">Open Audit</option>
                             <option value="In Progress">In Progress</option>
-                            <option value="Closed">Closed / Certified (Locks Record)</option>
                         </select>
                     </div>
                     <div class="edit-photo-box">
@@ -579,7 +596,7 @@
         </div>
     </div>
 
-    <script src="Script.js?v=2.1"></script>
-    <script src="enhancements.js?v=2.1"></script>
+    <script src="Script.js?v=2.3"></script>
+    <script src="enhancements.js?v=2.3"></script>
 </body>
 </html>
