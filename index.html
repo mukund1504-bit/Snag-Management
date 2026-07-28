@@ -451,13 +451,13 @@
 
                     <div class="admin-card admin-span-full">
                         <h4 class="card-title-tech"><i class="fas fa-map"></i> Flat-Level Drawing / Blueprint Mapping</h4>
-                        <p style="font-size:12px; color:#64748b; margin:-8px 0 12px 0;"><i class="fas fa-info-circle"></i> Drawings are now uploaded per FLAT (not per floor). Legacy floor-level maps are still supported as fallback.</p>
+                        <p style="font-size:12px; color:#64748b; margin:-8px 0 12px 0;"><i class="fas fa-info-circle"></i> Drawings are uploaded per FLAT (mandatory). Each flat gets its own blueprint.</p>
                         <form onsubmit="event.preventDefault(); submitMapDrawing();" class="form-grid">
                             <input type="hidden" id="tempMapBase64">
                             <div class="field-box-tech"><label>Project</label><select id="mapSetupProject" onchange="populateMapSetupTowers()" required></select></div>
                             <div class="field-box-tech"><label>Tower</label><select id="mapSetupTower" onchange="populateMapSetupFloors()" required></select></div>
                             <div class="field-box-tech"><label>Floor</label><select id="mapSetupFloor" onchange="populateMapSetupFlats()" required></select></div>
-                            <div class="field-box-tech"><label>Flat / Unit <small style="color:#94a3b8;">(leave blank for floor-level)</small></label><select id="mapSetupFlat"><option value="">-- Floor-level (legacy) --</option></select></div>
+                            <div class="field-box-tech"><label>Flat / Unit <span style="color:#dc2626;">*</span></label><select id="mapSetupFlat" required><option value="">-- Select Flat --</option></select></div>
                             <div class="field-box-tech"><label>Upload Blueprint (IMG/PDF)</label><input type="file" id="mapSetupFile" accept="image/*,application/pdf" class="file-input-pro" onchange="previewMapDrawing(event)"></div>
                             <div class="field-box-tech full-width" style="align-items:flex-start;">
                                 <button type="submit" id="btnSubmitMap" class="btn-submit-tech" style="width:auto;"><i class="fas fa-upload"></i> Submit Map to Backend</button>
@@ -579,7 +579,7 @@
         </div>
     </div>
 
-    <script src="Script.js"></script>
-    <script src="enhancements.js"></script>
+    <script src="Script.js?v=2.1"></script>
+    <script src="enhancements.js?v=2.1"></script>
 </body>
 </html>

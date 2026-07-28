@@ -26,6 +26,126 @@
 (function(){
   'use strict';
 
+  // ==============================================================
+  // v2.1 — USERS CROSS-DEVICE SYNC (Supabase snag_users table)
+  //   Fixes: user created on laptop unable to login from phone/iOS Safari
+  // ==============================================================
+  const _USERS_TABLE = 'snag_users';
+
+  window.loadUsersFromCloud = async function() {
+    if (typeof supabaseClient === 'undefined') return null;
+    try {
+      const { data, error } = await supabaseClient.from(_USERS_TABLE).select('*');
+      if (error) { console.warn('[CSMS] loadUsersFromCloud failed:', error.message); return null; }
+      if (!data || data.length === 0) return null;
+      // Merge into USER_MATRIX (cloud wins; keep local-only users too)
+      const cloudUsers = data.map(u => ({
+        id: u.email,
+        firstName: u.first_name || '',
+        middleName: u.middle_name || '',
+        lastName: u.last_name || '',
+        pass: u.pass,
+        role: u.role || 'user',
+        permission: u.permission || 'edit',
+        projects: Array.isArray(u.projects) ? u.projects : (typeof u.projects === 'string' ? JSON.parse(u.projects) : [])
+      }));
+      const merged = new Map();
+      (USER_MATRIX || []).forEach(u => merged.set(String(u.id).toLowerCase(), u));
+      cloudUsers.forEach(u => merged.set(String(u.id).toLowerCase(), u));
+      USER_MATRIX.length = 0;
+      merged.forEach(u => USER_MATRIX.push(u));
+      localStorage.setItem('qa_users', JSON.stringify(USER_MATRIX));
+      return USER_MATRIX;
+    } catch(e) { console.warn('[CSMS] loadUsersFromCloud exception:', e); return null; }
+  };
+
+  window.saveUserToCloud = async function(user) {
+    if (typeof supabaseClient === 'undefined' || !user || !user.id) return false;
+    try {
+      const payload = {
+        email: user.id,
+        first_name: user.firstName || null,
+        middle_name: user.middleName || null,
+        last_name: user.lastName || null,
+        pass: user.pass,
+        role: user.role || 'user',
+        permission: user.permission || 'edit',
+        projects: user.projects || []
+      };
+      const { error } = await supabaseClient.from(_USERS_TABLE).upsert([payload], { onConflict: 'email' });
+      if (error) { console.warn('[CSMS] saveUserToCloud failed:', error.message); return false; }
+      return true;
+    } catch(e) { console.warn('[CSMS] saveUserToCloud exception:', e); return false; }
+  };
+
+  window.deleteUserFromCloud = async function(email) {
+    if (typeof supabaseClient === 'undefined' || !email) return false;
+    try {
+      const { error } = await supabaseClient.from(_USERS_TABLE).delete().eq('email', email);
+      if (error) { console.warn('[CSMS] deleteUserFromCloud failed:', error.message); return false; }
+      return true;
+    } catch(e) { return false; }
+  };
+
+  // Override processLogin — try cloud fetch if user not found locally
+  const _origProcessLogin = window.processLogin;
+  window.processLogin = async function() {
+    const loginStr = document.getElementById('loginEmail').value.trim().toLowerCase();
+    const pass = document.getElementById('loginPassword').value;
+    const err = document.getElementById('loginError');
+
+    let validUser = (USER_MATRIX || []).find(u =>
+      (u.id && u.id.toLowerCase() === loginStr) ||
+      (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
+    );
+
+    if (!validUser && navigator.onLine) {
+      // Not found locally — try cloud
+      try {
+        if (err) { err.style.display = 'block'; err.style.color = '#0369a1'; err.innerText = 'Syncing users from cloud...'; }
+        await loadUsersFromCloud();
+      } catch(e) {}
+      validUser = (USER_MATRIX || []).find(u =>
+        (u.id && u.id.toLowerCase() === loginStr) ||
+        (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
+      );
+    }
+
+    if (validUser && validUser.pass === pass) {
+      currentUser = validUser;
+      sessionStorage.setItem('qa_logged_in_user', JSON.stringify(validUser));
+      if (err) err.style.display = 'none';
+      activateApp();
+    } else {
+      if (err) { err.style.display = 'block'; err.style.color = ''; err.innerText = 'Invalid credentials. Try full name or email.'; }
+    }
+  };
+
+  // Override user-save function (called from setup form)
+  const _origSubmitUserForm = window.submitUserForm;
+  window.submitUserForm = async function() {
+    if (_origSubmitUserForm) _origSubmitUserForm();
+    // After local save, also push to cloud
+    const email = (document.getElementById('suEmail') || {}).value;
+    if (email) {
+      const u = USER_MATRIX.find(x => x.id === email);
+      if (u) {
+        const ok = await saveUserToCloud(u);
+        if (ok) csmsToast('User synced to cloud — can login from any device.', 'success');
+        else csmsToast('Saved locally. Cloud sync failed (check snag_users table).', 'error');
+      }
+    }
+  };
+
+  const _origDeleteUser = window.deleteUser;
+  window.deleteUser = async function(email) {
+    if (!confirm(`Delete access for ${email}?`)) return;
+    USER_MATRIX = USER_MATRIX.filter(u => u.id !== email);
+    localStorage.setItem('qa_users', JSON.stringify(USER_MATRIX));
+    if (typeof renderUserTable === 'function') renderUserTable();
+    await deleteUserFromCloud(email);
+  };
+
   // ---------- Utility: create canvas config slots for new canvases ----------
   if (typeof canvasConfig !== 'undefined') {
     canvasConfig.closure = { ctx: null, img: null, scale: 1, tx: 0, ty: 0, marker: null, active: false, defectsOnMap: [] };
@@ -887,13 +1007,13 @@
     const f = document.getElementById('mapSetupFloor').value;
     const flatSel = document.getElementById('mapSetupFlat');
     if (!flatSel) return;
-    flatSel.innerHTML = '<option value="">-- Floor-level (legacy) --</option>';
+    flatSel.innerHTML = '<option value="">-- Select Flat --</option>';
     if (p && t && f && structuralHierarchy[p] && structuralHierarchy[p][t] && structuralHierarchy[p][t][f]) {
       structuralHierarchy[p][t][f].forEach(u => flatSel.appendChild(new Option(u, u)));
     }
   };
 
-  // Override submitMapDrawing to use flat-level key
+  // Override submitMapDrawing — REQUIRE flat-level (no more floor-level uploads)
   const _origSubmitMapDrawing = window.submitMapDrawing;
   window.submitMapDrawing = async function() {
     const p = document.getElementById('mapSetupProject').value;
@@ -901,8 +1021,10 @@
     const f = document.getElementById('mapSetupFloor').value;
     const flat = document.getElementById('mapSetupFlat') ? document.getElementById('mapSetupFlat').value : '';
     const base64 = document.getElementById('tempMapBase64').value;
-    if (!p || !t || !f || !base64) return alert('Select Project/Tower/Floor and upload a file first.');
-    const mapKey = flat ? `${p}_${t}_${f}_${flat}` : `${p}_${t}_${f}`;
+    if (!p || !t || !f) return alert('Please select Project, Tower, and Floor.');
+    if (!flat) return alert('Please select a Flat / Unit. Drawings are now uploaded per flat.');
+    if (!base64) return alert('Please upload a blueprint file first.');
+    const mapKey = `${p}_${t}_${f}_${flat}`;
     const btn = document.getElementById('btnSubmitMap');
     try {
       btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Uploading...";
@@ -913,7 +1035,7 @@
       if (error) throw error;
       floorMaps[mapKey] = publicUrl;
       localStorage.setItem('qa_floorMaps', JSON.stringify(floorMaps));
-      alert('Drawing uploaded & saved.');
+      alert('Drawing uploaded & saved for flat: ' + flat);
       renderMapTable();
       document.getElementById('tempMapBase64').value = ''; document.getElementById('mapSetupFile').value = '';
     } catch(e) { alert('Error: ' + (e.message || e)); }
@@ -1298,7 +1420,13 @@
   // =========================================================
   // 12. Init hooks — run when app activates
   // =========================================================
+  let _didPreloadUsers = false;
   function _bootstrapEnhancements() {
+    // Try to preload users from cloud (once) — enables cross-device login
+    if (!_didPreloadUsers && typeof supabaseClient !== 'undefined' && navigator.onLine) {
+      _didPreloadUsers = true;
+      loadUsersFromCloud().catch(() => {});
+    }
     // Wait until user logged in
     if (!currentUser) { setTimeout(_bootstrapEnhancements, 500); return; }
     // Hide sections user can't access based on rights
