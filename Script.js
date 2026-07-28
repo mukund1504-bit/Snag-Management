@@ -471,14 +471,16 @@ function showSection(id) {
 }
 
 function getAllowedProjects() { 
-    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy); 
-    return Array.from(new Set(currentUser.projects.map(p => p.split("_")[0]))); 
+    if(!currentUser) return [];
+    if(currentUser.role === "admin" || (currentUser.projects && currentUser.projects.includes("All"))) return Object.keys(structuralHierarchy); 
+    return Array.from(new Set((currentUser.projects || []).map(p => p.split("_")[0]))); 
 }
 
 function getAllowedTowers(proj) { 
+    if(!currentUser) return [];
     if(!structuralHierarchy[proj]) return [];
-    if(currentUser.role === "admin" || currentUser.projects.includes("All")) return Object.keys(structuralHierarchy[proj]); 
-    return currentUser.projects.filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); 
+    if(currentUser.role === "admin" || (currentUser.projects && currentUser.projects.includes("All"))) return Object.keys(structuralHierarchy[proj]); 
+    return (currentUser.projects || []).filter(p => p.startsWith(proj + "_")).map(p => p.split("_")[1]); 
 }
 
 function refreshDropdowns() {

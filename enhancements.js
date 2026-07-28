@@ -211,7 +211,20 @@
       _clBindClick();
       clRenderTable(); // regenerates with dot numbers
     };
-    img.onerror = () => { clClearMap(); if (warn) warn.style.display = 'block'; };
+    img.onerror = () => {
+      // CORS fallback: try without crossOrigin
+      const img2 = new Image();
+      img2.onload = () => {
+        canvasConfig.closure.img = img2;
+        canvasConfig.closure.active = true;
+        canvas.width = img2.width; canvas.height = img2.height;
+        _clDrawMap();
+        _clBindClick();
+        clRenderTable();
+      };
+      img2.onerror = () => { clClearMap(); if (warn) { warn.style.display = 'block'; warn.textContent = 'Map found but failed to load (check bucket public access).'; } };
+      img2.src = mapRes.url;
+    };
     img.src = mapRes.url;
   };
 
@@ -931,11 +944,28 @@
 
     if (!p || !t || !f) { clearMapCanvas(); return false; }
 
+    // Also check localStorage cached maps (in case cloud not yet synced)
+    if (!floorMaps || Object.keys(floorMaps).length === 0) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('qa_floorMaps') || '{}');
+        Object.assign(floorMaps, cached);
+      } catch(e) {}
+    }
+
     const mapRes = _resolveMapKey(p, t, f, flat);
     const warn = document.getElementById('entryMapWarning');
     const canvas = document.getElementById('entryCanvas'); if (!canvas) return false;
     if (!canvasConfig.entry.ctx) canvasConfig.entry.ctx = canvas.getContext('2d');
-    if (!mapRes) return false;
+
+    if (!mapRes) {
+      // No map found → clear canvas + show warning
+      canvasConfig.entry.img = null;
+      canvasConfig.entry.active = false;
+      canvasConfig.entry.marker = null;
+      if (canvasConfig.entry.ctx) canvasConfig.entry.ctx.clearRect(0, 0, canvas.width || 100, canvas.height || 100);
+      if (warn) warn.style.display = 'block';
+      return false;
+    }
     if (warn) warn.style.display = 'none';
     canvasConfig.entry.active = true;
 
@@ -951,7 +981,22 @@
         setTimeout(() => { if (canvasConfig.entry.img) drawCanvas('entry'); }, 150);
         resolve(true);
       };
-      img.onerror = () => resolve(false);
+      img.onerror = () => {
+        console.warn('[CSMS] Map image failed to load:', mapRes.url);
+        // Retry without crossOrigin — some CDNs/buckets serve without CORS headers
+        const img2 = new Image();
+        img2.onload = () => {
+          canvasConfig.entry.img = img2;
+          canvas.width = img2.width; canvas.height = img2.height;
+          drawCanvas('entry');
+          resolve(true);
+        };
+        img2.onerror = () => {
+          if (warn) { warn.style.display = 'block'; warn.textContent = 'Map found but failed to load (check bucket public access).'; }
+          resolve(false);
+        };
+        img2.src = mapRes.url;
+      };
       img.src = mapRes.url;
     });
   };
@@ -1225,9 +1270,10 @@
 
   // =========================================================
   // 11. Notifications realtime + auto-refresh
+  const _origLoadDefects = window.loadDefectsFromCloud;
   let _lastKnownDefectIds = new Set();
   window.loadDefectsFromCloud = async function(isBg) {
-    const r = await _origLoadDefects(isBg);
+    const r = _origLoadDefects ? await _origLoadDefects(isBg) : null;
     try {
       // Detect new-defect events and toast/notify current user (only after first load)
       if (_lastKnownDefectIds.size > 0 && currentUser && Array.isArray(defects)) {
