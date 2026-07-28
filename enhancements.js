@@ -1340,13 +1340,12 @@
       @page { size: A4 portrait; margin: 10mm; }
       body { font-family:'Segoe UI',Tahoma,sans-serif; margin:0; padding:0; background:#fff; color:#334155; }
       h1 { text-align:center; color:#0f172a; border-bottom:3px solid #0284c7; padding-bottom:8px; margin:0 0 15px 0; font-size:18px; text-transform:uppercase; }
-      .page { padding:4mm; display:flex; flex-direction:column; gap:4mm; }
-      .defect-card-half { min-height:88mm; }
-      .defect-card-half { border:1px solid #94a3b8; border-radius:6px; padding:8px 12px; page-break-inside:avoid; break-inside:avoid; box-sizing:border-box; }
+      .page { padding:0; margin:0; }
+      .defect-card-half { height:90mm; margin-bottom:2mm; overflow:hidden; border:1px solid #94a3b8; border-radius:6px; padding:7px 11px; break-inside:avoid; page-break-inside:avoid; box-sizing:border-box; display:flex; flex-direction:column; }
       .dh { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #cbd5e1; padding-bottom:5px; margin-bottom:6px; }
       .did { font-size:14px; font-weight:800; color:#0284c7; }
       .status-badge { padding:3px 8px; border-radius:12px; font-weight:700; font-size:10px; border:1px solid #cbd5e1; text-transform:uppercase; }
-      .grid-info { display:grid; grid-template-columns:repeat(4,1fr); gap:4px 8px; font-size:10.5px; }
+      .grid-info { display:grid; grid-template-columns:repeat(4,1fr); gap:4px 8px; font-size:10.5px; flex:1 1 auto; align-content:flex-start; }
       .info-box { background:#f1f5f9; padding:5px 7px; border-radius:4px; border:1px solid #e2e8f0; }
       .info-label { font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700; display:block; margin-bottom:2px; }
       .info-value { font-weight:600; color:#0f172a; word-wrap:break-word; font-size:10.5px; }
@@ -1356,9 +1355,9 @@
       .media-title { font-size:9px; font-weight:700; margin-bottom:3px; text-align:center; color:#475569; }
       .img-grid { display:flex; gap:3px; flex-wrap:wrap; justify-content:center; }
       .img-grid img { width:38px; height:38px; object-fit:cover; border-radius:3px; border:1px solid #cbd5e1; }
-      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .defect-card-half:nth-child(3n) { break-after: page; page-break-after: always; } }
+      @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin:0; } .defect-card-half:nth-child(3n) { margin-bottom:0; break-after: page; page-break-after: always; } }
     </style>`;
-    let html = '<div class="page"><h1>Consolidated Defect Audit Report</h1>';
+    let html = '<div class="page">';
     dataToExport.forEach((d, i) => {
       const initPics = (d.initialPics || []).slice(0,2).map(s => `<img src="${s}"/>`).join('');
       const finPics = (d.finalPics || []).slice(0,2).map(s => `<img src="${s}"/>`).join('');
