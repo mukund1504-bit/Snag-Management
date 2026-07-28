@@ -87,28 +87,32 @@
     } catch(e) { return false; }
   };
 
-  // Override processLogin — try cloud fetch if user not found locally
+  // Override processLogin — ENTERPRISE cross-device / cross-browser login.
+  // Always refresh users from Supabase (snag_users) when online so a user created
+  // on ANY device or browser can log in immediately, and password changes
+  // propagate everywhere. Chrome + Safari both use this exact same path.
   const _origProcessLogin = window.processLogin;
   window.processLogin = async function() {
     const loginStr = document.getElementById('loginEmail').value.trim().toLowerCase();
     const pass = document.getElementById('loginPassword').value;
     const err = document.getElementById('loginError');
 
-    let validUser = (USER_MATRIX || []).find(u =>
+    const findUser = () => (USER_MATRIX || []).find(u =>
       (u.id && u.id.toLowerCase() === loginStr) ||
       (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
     );
 
-    if (!validUser && navigator.onLine) {
-      // Not found locally — try cloud
+    let validUser = findUser();
+
+    // Refresh from cloud whenever online AND (user missing locally OR the local
+    // cached password does not match) — guarantees freshest credentials so a
+    // freshly-created user always works on a second browser/device.
+    if (navigator.onLine && (!validUser || validUser.pass !== pass)) {
       try {
-        if (err) { err.style.display = 'block'; err.style.color = '#0369a1'; err.innerText = 'Syncing users from cloud...'; }
+        if (err) { err.style.display = 'block'; err.style.color = '#0369a1'; err.innerText = 'Verifying credentials…'; }
         await loadUsersFromCloud();
       } catch(e) {}
-      validUser = (USER_MATRIX || []).find(u =>
-        (u.id && u.id.toLowerCase() === loginStr) ||
-        (u.firstName && u.lastName && (`${u.firstName} ${u.lastName}`.toLowerCase() === loginStr))
-      );
+      validUser = findUser();
     }
 
     if (validUser && validUser.pass === pass) {
@@ -121,20 +125,25 @@
     }
   };
 
-  // Override user-save function (called from setup form)
-  const _origSubmitUserForm = window.submitUserForm;
-  window.submitUserForm = async function() {
-    if (_origSubmitUserForm) _origSubmitUserForm();
-    // After local save, also push to cloud
-    const email = (document.getElementById('suEmail') || {}).value;
-    if (email) {
-      const u = USER_MATRIX.find(x => x.id === email);
-      if (u) {
-        const ok = await saveUserToCloud(u);
-        if (ok) csmsToast('User synced to cloud — can login from any device.', 'success');
-        else csmsToast('Saved locally. Cloud sync failed (check snag_users table).', 'error');
-      }
-    }
+  // Override the ACTUAL user-save function used by the Security & Access form.
+  // index.html calls saveSystemUser() (NOT submitUserForm), which previously
+  // saved ONLY to localStorage — that is why new users never appeared in the
+  // Supabase snag_users table and could not log in from another browser.
+  // We capture the email BEFORE the original runs (it resets the form), then
+  // push the saved user to Supabase so login works on any device & browser.
+  const _origSaveSystemUser = window.saveSystemUser;
+  window.saveSystemUser = async function() {
+    const emailEl = document.getElementById('suEmail');
+    const email = emailEl ? emailEl.value.trim() : '';
+    // Original: validates + saves to USER_MATRIX/localStorage + resets the form
+    if (_origSaveSystemUser) _origSaveSystemUser();
+    if (!email) return;
+    // Original stores id === email; match case-insensitively.
+    const u = (USER_MATRIX || []).find(x => String(x.id).toLowerCase() === email.toLowerCase());
+    if (!u) return; // original validation failed (e.g. no project selected)
+    const ok = await saveUserToCloud(u);
+    if (ok) csmsToast('User saved & synced to cloud — login works on any device & browser.', 'success');
+    else csmsToast('Saved locally, but CLOUD SYNC FAILED. Check snag_users table & Supabase anon key.', 'error');
   };
 
   const _origDeleteUser = window.deleteUser;
@@ -201,17 +210,24 @@
       const chk = prev.includes(val) ? 'checked' : '';
       return `<label class="spec-cb-label"><input type="checkbox" class="ms-chk" value="${_esc(val)}" ${chk} onchange="_msUpdateLabel('${msId}','${_esc(showAll)}')"> ${_esc(val)}</label>`;
     }).join('');
-    _msUpdateLabel(msId, showAll);
+    // FIX (infinite recursion / stack overflow): programmatic (re)population must
+    // NOT fire the bound _onChange — otherwise populateReportMS/populateBiMS call
+    // _msSetOptions → _msUpdateLabel → _onChange → populateReportMS → … forever,
+    // crashing init so tabs never finish loading after a refresh. Pass false.
+    _msUpdateLabel(msId, showAll, false);
   }
-  window._msUpdateLabel = function(msId, showAll) {
+  window._msUpdateLabel = function(msId, showAll, fireChange) {
     const ms = document.getElementById(msId); if (!ms) return;
     const chks = ms.querySelectorAll('.ms-chk:checked');
     const span = ms.querySelector('.select-box span');
-    if (chks.length === 0) span.textContent = showAll;
-    else if (chks.length === 1) span.textContent = chks[0].value;
-    else span.textContent = chks.length + ' selected';
-    // Trigger renderer if bound
-    if (ms._onChange) ms._onChange();
+    if (span) {
+      if (chks.length === 0) span.textContent = showAll;
+      else if (chks.length === 1) span.textContent = chks[0].value;
+      else span.textContent = chks.length + ' selected';
+    }
+    // Fire the bound renderer ONLY on genuine user interaction (inline checkbox
+    // onchange calls this with 2 args → fireChange undefined → treated as true).
+    if (fireChange !== false && ms._onChange) ms._onChange();
   };
   window._msGetSelected = function(msId) {
     const ms = document.getElementById(msId); if (!ms) return [];
@@ -1411,8 +1427,16 @@
       }
       if (Array.isArray(defects)) _lastKnownDefectIds = new Set(defects.map(d => String(d.id)));
       updateNotifCounts();
-      if (document.getElementById('notifications') && document.getElementById('notifications').classList.contains('active')) renderNotifications();
-      if (document.getElementById('closure') && document.getElementById('closure').classList.contains('active')) clRenderTable();
+      // FIX (refresh: all tabs auto-load with data): once cloud defects arrive,
+      // re-render whichever tab is currently active so it fills with full data —
+      // no matter which section was restored on refresh. Race-free: this never
+      // switches sections, it only refreshes the content of the active one.
+      const _isActive = (id) => { const s = document.getElementById(id); return !!(s && s.classList.contains('active')); };
+      if (_isActive('notifications')) renderNotifications();
+      if (_isActive('closure')) clRenderTable();
+      if (_isActive('report') && typeof renderReportTable === 'function') { populateReportMS(); renderReportTable(); }
+      if (_isActive('dashboard') && typeof renderCharts === 'function') { populateBiMS(); renderCharts(); }
+      if (_isActive('entry') && typeof ensureMapLoaded === 'function') ensureMapLoaded();
     } catch(e) {}
     return r;
   };

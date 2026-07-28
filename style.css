@@ -96,8 +96,8 @@ section.active { display: block !important; }
      (see JS: dragActive only starts when scale > 1) */
 .map-viewport-container { position: relative; flex: 1; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
 #blueprint-wrapper { width: 100%; min-height: 100%; position: relative; cursor: crosshair; overflow: hidden; display: block; touch-action: none; -ms-touch-action: none; }
-canvas { transition: transform 0.12s ease; transform-origin: top left; display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; -ms-touch-action: none; will-change: transform; }
-#modalCanvas { width: 100%; height: auto; max-width: 100%; }
+canvas { transition: transform 0.12s ease; transform-origin: top left; display: block; width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; touch-action: none; -ms-touch-action: none; will-change: transform; }
+#modalCanvas { width: auto; height: auto; max-width: 100%; max-height: 78vh; margin: 0 auto; }
 
 /* === FIX #4 === Non-blocking toast (used instead of alert for background errors) */
 .csms-toast-container { position: fixed; top: 20px; right: 20px; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -360,7 +360,7 @@ canvas { transition: transform 0.12s ease; transform-origin: top left; display: 
     min-height: 400px;
 }
 #closureCanvas { width: 100%; height: auto; max-width: 100%; }
-#cdCanvas { width: 100%; height: auto; max-width: 100%; }
+#cdCanvas { width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; }
 
 .close-btn-inline {
     background: linear-gradient(135deg,#059669,#047857);

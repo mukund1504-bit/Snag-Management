@@ -443,11 +443,15 @@ function showSection(id) {
     const sec = document.getElementById(id); 
     if(sec) sec.classList.add("active");
     
-    if(window.event && window.event.currentTarget) window.event.currentTarget.classList.add("active");
-    else {
-        const btns = document.querySelectorAll(".nav-btn");
-        btns.forEach(b => { if(b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`)) b.classList.add("active"); });
-    }
+    // Highlight the matching nav button by its onclick target. We deliberately do
+    // NOT use window.event.currentTarget: on a page refresh showSection() runs from
+    // the DOMContentLoaded handler where window.event.currentTarget is window/
+    // document (no .classList), which threw and ABORTED activateApp before data
+    // loaded — leaving every tab blank ("Loading feed…", empty tables).
+    document.querySelectorAll(".nav-btn").forEach(b => {
+        const oc = b.getAttribute("onclick");
+        if (oc && oc.includes(`'${id}'`)) b.classList.add("active");
+    });
     
     if(id === 'report') {
         renderReportTable(); 
@@ -857,7 +861,7 @@ function initCanvas(type) {
             let clickedDefect = null;
             
             for(let d of defects) {
-                if(d.project === p && d.tower === t && d.floor === f && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
+                if(d.project === p && d.tower === t && d.floor === f && (d.flat || "") === (document.getElementById("flatNo") ? document.getElementById("flatNo").value : "") && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
                     const dx = parseFloat(d.mapx);
                     const dy = parseFloat(d.mapy);
                     const dist = Math.sqrt(Math.pow(dx - x, 2) + Math.pow(dy - y, 2));
@@ -1051,7 +1055,7 @@ function drawCanvas(type) {
         const t = document.getElementById("tower") ? document.getElementById("tower").value : ""; 
         const f = document.getElementById("floor") ? document.getElementById("floor").value : "";
         defects.forEach(d => {
-            if(d.project === p && d.tower === t && d.floor === f && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
+            if(d.project === p && d.tower === t && d.floor === f && (d.flat || "") === (document.getElementById("flatNo") ? document.getElementById("flatNo").value : "") && d.statusvector !== 'Closed' && d.mapx && d.mapy && d.mapx !== "0") {
                 // Bigger red dot (Issue #3 fix): radius 16 with subtle pulse-style ring for visibility
                 c.ctx.beginPath(); 
                 c.ctx.arc(d.mapx, d.mapy, 16, 0, 2 * Math.PI); 
