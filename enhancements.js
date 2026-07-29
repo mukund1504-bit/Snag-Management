@@ -416,6 +416,7 @@
       c.ctx.fillText(String(idx+1), x, y);
     });
     document.getElementById('cl_map_count').textContent = pending.length;
+    requestAnimationFrame(() => { if (typeof _applyCanvasTransform === 'function') _applyCanvasTransform('closure'); });
   }
 
   function _clBindClick() {
@@ -539,7 +540,7 @@
   }
   function _clDrawClosedMap() {
     const canvas=document.getElementById('closedCanvas'); if(!canvas) return;
-    if(!canvasConfig.closed) canvasConfig.closed={ctx:null,img:null,active:false,defectsOnMap:[]};
+    if(!canvasConfig.closed) canvasConfig.closed={ctx:null,img:null,scale:1,tx:0,ty:0,active:false,defectsOnMap:[]};
     if(!canvasConfig.closed.ctx) canvasConfig.closed.ctx=canvas.getContext('2d');
     const img=canvasConfig.closure.img; const warn=document.getElementById('clClosedMapWarning'); const cnt=document.getElementById('cl_closed_count');
     const closed=_clClosedDefects(); canvasConfig.closed.defectsOnMap=closed; if(cnt) cnt.textContent=closed.length;
@@ -556,6 +557,7 @@
     const handler=(e)=>{ const rect=canvas.getBoundingClientRect(); const sx=canvas.width/rect.width, sy=canvas.height/rect.height; const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy; for(const d of canvasConfig.closed.defectsOnMap){ if(!d.mapx||!d.mapy) continue; if(Math.hypot(parseFloat(d.mapx)-cx,parseFloat(d.mapy)-cy)<=25){ if(typeof openDefectInfoModal==='function') openDefectInfoModal(d); break; } } };
     canvas._csmsClosedClick=handler; canvas.addEventListener('click',handler);
     if(typeof attachZoomGestures==='function') attachZoomGestures('closedCanvas');
+    requestAnimationFrame(() => { if (typeof _applyCanvasTransform === 'function') _applyCanvasTransform('closed'); });
   }
   window.clRenderClosedTable = function() {
     const tbody=document.querySelector('#closedTable tbody'); if(!tbody) return;
@@ -613,6 +615,7 @@
           ctx.beginPath(); ctx.arc(m.x, m.y, 18, 0, 2*Math.PI);
           ctx.fillStyle = 'rgba(239,68,68,0.9)'; ctx.fill();
           ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+          requestAnimationFrame(() => { if (typeof _applyCanvasTransform === 'function') _applyCanvasTransform('cd'); });
         };
         img.src = mapRes.url;
         if (typeof attachZoomGestures === 'function') attachZoomGestures('cdCanvas');

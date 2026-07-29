@@ -1089,6 +1089,8 @@ function drawCanvas(type) {
     if(c.marker) { 
         c.ctx.beginPath(); c.ctx.arc(c.marker.x, c.marker.y, 14, 0, 2 * Math.PI); c.ctx.fillStyle = "#3b82f6"; c.ctx.fill(); c.ctx.lineWidth = 4; c.ctx.strokeStyle = "#ffffff"; c.ctx.stroke(); 
     }
+    // Center/clamp the map inside its A4 box using current scale/pan (fits A4 maps to fill box).
+    requestAnimationFrame(() => { if(typeof _applyCanvasTransform === 'function') _applyCanvasTransform(type); });
 }
 
 // Legacy duplicate zoomCanvas/resetCanvas removed — upgraded versions are defined earlier in this file.

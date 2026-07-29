@@ -84,7 +84,7 @@ section.active { display: block !important; }
 .thumb img:hover { transform: scale(1.1); }
 .thumb .x { position: absolute; top: 2px; right: 2px; background: var(--crimson-fail); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
 
-.map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%; min-height:500px; max-height: 800px; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+.map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: auto; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
 /* === FIX #3 (v3) / FIX #5 === Mobile pinch-zoom + drag-to-pan scoped to map box.
    • touch-action: none on both wrapper and canvas => browser stops hijacking
      touch gestures, so our JS handles: 2-finger pinch (zoom) AND 1-finger
@@ -94,10 +94,15 @@ section.active { display: block !important; }
    • canvas fits container by default via width:100% / height:auto so the
      whole map is visible on load, and drag becomes possible only when zoomed
      (see JS: dragActive only starts when scale > 1) */
-.map-viewport-container { position: relative; flex: 1; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
-#blueprint-wrapper { width: 100%; min-height: 100%; position: relative; cursor: crosshair; overflow: hidden; display: block; touch-action: none; -ms-touch-action: none; }
-canvas { transition: transform 0.12s ease; transform-origin: top left; display: block; width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; touch-action: none; -ms-touch-action: none; will-change: transform; }
-#modalCanvas { width: auto; height: auto; max-width: 100%; max-height: 78vh; margin: 0 auto; }
+/* === A4 PORTRAIT MAP BOX ===
+   Box locked to A4 proportion (210:297) so an A4 blueprint fills it 100% with
+   no blank gaps. Canvas is absolutely positioned at top-left and fully driven
+   by the JS transform (scale + clamped translate) for smooth zoom/pan in all
+   directions. max-width/max-height:100% => whole map visible on load. */
+.map-viewport-container { position: relative; width: 100%; max-width: 480px; aspect-ratio: 210 / 297; margin: 12px auto; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
+#blueprint-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; overflow: hidden; touch-action: none; -ms-touch-action: none; }
+canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; transform-origin: top left; display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; touch-action: none; -ms-touch-action: none; will-change: transform; }
+#modalCanvas { position: absolute; left: 0; top: 0; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; }
 
 /* === FIX #4 === Non-blocking toast (used instead of alert for background errors) */
 .csms-toast-container { position: fixed; top: 20px; right: 20px; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -220,7 +225,7 @@ canvas { transition: transform 0.12s ease; transform-origin: top left; display: 
 .photo-label-tech { font-weight: bold; font-size: 12.5px; margin-bottom: 8px; display: block; color: var(--text-core); }
 .map-label { font-size: 12.5px; font-weight: bold; color: var(--text-core); display: block; margin-bottom: 8px; }
 .edit-map-side { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
-.edit-map { flex-grow: 1; min-height: 350px; margin: 0; border: 1px solid #cbd5e1; border-radius: 8px; }
+.edit-map { margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 8px; }
 
 .img-zoom-layer { z-index: 99999; }
 .img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
@@ -414,11 +419,9 @@ canvas { transition: transform 0.12s ease; transform-origin: top left; display: 
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
 }
 .closure-map-card .map-viewport-container {
-    margin: 12px;
-    min-height: 400px;
+    margin: 12px auto;
 }
-#closureCanvas { width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; }
-#cdCanvas { width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; }
+#closureCanvas, #cdCanvas, #closedCanvas, #entryCanvas { position: absolute; left: 0; top: 0; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; }
 
 .close-btn-inline {
     background: linear-gradient(135deg,#059669,#047857);
@@ -602,7 +605,7 @@ canvas { transition: transform 0.12s ease; transform-origin: top left; display: 
     .notif-list { grid-template-columns: 1fr; }
     .notif-tabs { gap: 4px; }
     .notif-tab-btn { padding: 8px 10px; font-size: 12px; }
-    .closure-map-card .map-viewport-container { min-height: 320px; }
+    .closure-map-card .map-viewport-container { margin: 12px auto; }
 }
 
 /* PDF: 2 defects per A4 page */
