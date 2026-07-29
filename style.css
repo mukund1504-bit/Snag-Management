@@ -417,7 +417,7 @@ canvas { transition: transform 0.12s ease; transform-origin: top left; display: 
     margin: 12px;
     min-height: 400px;
 }
-#closureCanvas { width: 100%; height: auto; max-width: 100%; }
+#closureCanvas { width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; }
 #cdCanvas { width: auto; height: auto; max-width: 100%; max-height: 70vh; margin: 0 auto; }
 
 .close-btn-inline {

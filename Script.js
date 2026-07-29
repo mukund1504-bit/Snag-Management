@@ -609,12 +609,13 @@ function _clampPan(type) {
     // (no empty gap), tx must be in [viewW - boxW*s, 0], ty in [viewH - boxH*s, 0].
     // When map is smaller than view (s < viewW/boxW), we center it (tx = ty = 0
     // effectively — allow no drag).
-    const minX = Math.min(0, viewW - boxW * s);
-    const minY = Math.min(0, viewH - boxH * s);
-    const maxX = 0;
-    const maxY = 0;
-    canvasConfig[type].tx = Math.max(minX, Math.min(maxX, canvasConfig[type].tx));
-    canvasConfig[type].ty = Math.max(minY, Math.min(maxY, canvasConfig[type].ty));
+    const contentW = boxW * s, contentH = boxH * s;
+    // Center the map when it is smaller than the view (fixes "one edge stuck / gap"),
+    // and allow full free panning in every direction once zoomed larger than the view.
+    if (contentW <= viewW) canvasConfig[type].tx = (viewW - contentW) / 2;
+    else canvasConfig[type].tx = Math.max(viewW - contentW, Math.min(0, canvasConfig[type].tx));
+    if (contentH <= viewH) canvasConfig[type].ty = (viewH - contentH) / 2;
+    else canvasConfig[type].ty = Math.max(viewH - contentH, Math.min(0, canvasConfig[type].ty));
 }
 
 function _applyCanvasTransform(type) {
@@ -899,9 +900,13 @@ function rebindEntryCanvasHandlers() {
 
 function openDefectInfoModal(d) {
     const content = document.getElementById("defectInfoContent");
+    const _imgCss = "width:80px; height:80px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1);";
     const photos = Array.isArray(d.initialPics) && d.initialPics.length > 0 
-        ? d.initialPics.map(src => `<img src="${src}" onclick="openZoomImage('${src}')" style="width:80px; height:80px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #cbd5e1; box-shadow:0 2px 4px rgba(0,0,0,0.1); transition:transform 0.2s;"/>`).join(' ') 
+        ? d.initialPics.map(src => `<img src="${src}" onclick="openZoomImage('${src}')" style="${_imgCss}"/>`).join(' ') 
         : '<span style="color:#94a3b8; font-size:12px;">No Evidence Found</span>';
+    const fphotos = Array.isArray(d.finalPics) && d.finalPics.length > 0 
+        ? d.finalPics.map(src => `<img src="${src}" onclick="openZoomImage('${src}')" style="${_imgCss}"/>`).join(' ') 
+        : '<span style="color:#94a3b8; font-size:12px;">No Final Photos</span>';
     
     content.innerHTML = `
         <div style="background:#f1f5f9; padding:10px; border-radius:6px; border:1px solid #cbd5e1;">
@@ -916,6 +921,10 @@ function openDefectInfoModal(d) {
         <div>
             <strong style="color:#334155;">Initial Evidence Photos:</strong><br>
             <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">${photos}</div>
+        </div>
+        <div>
+            <strong style="color:#065f46;">Final Evidence Photos (Post-Repair):</strong><br>
+            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">${fphotos}</div>
             <p style="font-size:11px; color:#64748b; margin-top:5px;">(Click image to enlarge)</p>
         </div>
     `;
