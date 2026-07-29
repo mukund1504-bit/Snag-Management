@@ -429,13 +429,24 @@
                 <div class="admin-card" style="margin-bottom:18px;">
                     <h4 class="card-title-tech"><i class="fas fa-bullhorn"></i> Raise / Share an Issue</h4>
                     <div class="form-grid">
-                        <div class="field-box-tech"><label>Project*</label><select id="msg_project"><option value="">-- Select --</option></select></div>
+                        <div class="field-box-tech"><label>Project*</label><select id="msg_project" onchange="populateMsgRecipients()"><option value="">-- Select --</option></select></div>
                         <div class="field-box-tech"><label>Tower</label><input type="text" id="msg_tower" placeholder="e.g. Tower-A"></div>
                         <div class="field-box-tech"><label>Floor</label><input type="text" id="msg_floor" placeholder="e.g. 3rd Floor"></div>
+                        <div class="field-box-tech full-width"><label>Send To <small style="color:#64748b;">(optional — leave empty = ALL project users)</small></label>
+                            <div class="custom-multi-select" id="msg_recipients_ms"><div class="select-box" onclick="toggleMS(this)"><span>All Project Users</span><i class="fas fa-chevron-down"></i></div><div class="dropdown-list-checkboxes"><span style="color:#94a3b8;font-size:13px;padding:10px;">-- Select Project first --</span></div></div>
+                        </div>
                         <div class="field-box-tech full-width"><label>Subject*</label><input type="text" id="msg_subject" placeholder="Short issue title"></div>
                         <div class="field-box-tech full-width"><label>Message*</label><textarea id="msg_body" rows="3" placeholder="Describe the issue / information to share with the project team..."></textarea></div>
                     </div>
                     <button class="btn-submit-tech" style="width:auto;" onclick="submitMessage()"><i class="fas fa-paper-plane"></i> Send to Project Team</button>
+                </div>
+                <div class="notif-tabs" id="msgTabs">
+                    <button class="notif-tab-btn active" onclick="switchMsgTab(this,'all')"><i class="fas fa-inbox"></i> All</button>
+                    <button class="notif-tab-btn" onclick="switchMsgTab(this,'sent')"><i class="fas fa-paper-plane"></i> Sent</button>
+                    <button class="notif-tab-btn" onclick="switchMsgTab(this,'received')"><i class="fas fa-envelope-open"></i> Received</button>
+                    <button class="notif-tab-btn" onclick="switchMsgTab(this,'pending')"><i class="fas fa-hourglass-half"></i> Reply Pending</button>
+                    <button class="notif-tab-btn" onclick="switchMsgTab(this,'closed')"><i class="fas fa-check-double"></i> Closed</button>
+                    <button class="btn-export-tech xls" style="margin:0 0 0 auto;" onclick="exportMessagesExcel()"><i class="fas fa-file-excel"></i> Excel Report</button>
                 </div>
                 <div id="msgThreadList" class="msg-list"><p style="text-align:center;padding:24px;color:#64748b;">Loading messages…</p></div>
             </section>
@@ -649,7 +660,7 @@
         </div>
     </div>
 
-    <script src="Script.js?v=2.8"></script>
-    <script src="enhancements.js?v=2.8"></script>
+    <script src="Script.js?v=2.9"></script>
+    <script src="enhancements.js?v=2.9"></script>
 </body>
 </html>

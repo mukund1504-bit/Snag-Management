@@ -1674,13 +1674,17 @@
   // 5. TEAM MESSAGES / ISSUE ESCALATION  (Supabase: snag_messages)
   // =========================================================
   let _msgThreads = [];
+  let _msgTab = 'all';
   function _esc2(s){ return String(s||'').replace(/</g,'&lt;').replace(/\n/g,'<br>'); }
   function _msgVisible(m){
     if (!currentUser) return false;
+    if (m.author === currentUser.id) return true;
+    const rec = (m.recipients||'').split('|').map(s=>s.trim()).filter(Boolean);
+    if (rec.length) { return currentUser.role === 'admin' || rec.includes(currentUser.id); }
+    // no explicit recipients = broadcast to whole project
     if (currentUser.role === 'admin') return true;
     if ((currentUser.projects||[]).includes('All')) return true;
-    if (m.author === currentUser.id) return true;
-    return (currentUser.projects||[]).some(x => x === `${m.project}_${m.tower}` || x.startsWith(m.project+'_'));
+    return (currentUser.projects||[]).some(x => x.startsWith(m.project+'_'));
   }
   function _msgDelay(root, replies){
     if (!root.created_at) return '';
@@ -1710,7 +1714,12 @@
     }
     const projSel = document.getElementById('msg_project');
     if (projSel && projSel.options.length <= 1) getAllowedProjects().forEach(p => projSel.appendChild(new Option(p,p)));
-    const roots = _msgThreads.filter(m => !m.parent_id && _msgVisible(m)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+    let roots = _msgThreads.filter(m => !m.parent_id && _msgVisible(m));
+    if (_msgTab === 'sent') roots = roots.filter(r => r.author === currentUser.id);
+    else if (_msgTab === 'received') roots = roots.filter(r => r.author !== currentUser.id);
+    else if (_msgTab === 'pending') roots = roots.filter(r => !r.is_resolved);
+    else if (_msgTab === 'closed') roots = roots.filter(r => r.is_resolved);
+    roots.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
     if (!roots.length){ wrap.innerHTML = '<p style="text-align:center;padding:24px;color:#94a3b8;">No messages yet. Raise an issue above to alert your project team.</p>'; return; }
     wrap.innerHTML = roots.map(r => {
       const replies = _msgThreads.filter(m => m.parent_id === r.id).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
@@ -1744,7 +1753,7 @@
     const subj=document.getElementById('msg_subject').value.trim(), body=document.getElementById('msg_body').value.trim();
     if(!p) return alert('Select a project.');
     if(!subj||!body) return alert('Enter a subject and message.');
-    try{ const {error}=await supabaseClient.from('snag_messages').insert([{project:p,tower:t||null,floor:f||null,subject:subj,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:null,is_resolved:false}]);
+    try{ const {error}=await supabaseClient.from('snag_messages').insert([{project:p,tower:t||null,floor:f||null,subject:subj,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:null,is_resolved:false,recipients:((_msGetSelected('msg_recipients_ms')||[]).join('|'))||null}]);
       if(error) throw error;
       csmsToast('Issue raised & shared with the project team.','success');
       document.getElementById('msg_subject').value=''; document.getElementById('msg_body').value='';
@@ -1776,6 +1785,21 @@
       </tbody></table></div>
       <div style="text-align:right;margin-top:14px;"><button class="btn-danger-tech" onclick="document.getElementById('msgReportModal').style.display='none'">Close</button></div></div>`;
     const modal=document.getElementById('msgReportModal'); modal.innerHTML=html; modal.style.display='flex';
+  };
+
+  window.switchMsgTab = function(btn,t){ _msgTab=t; document.querySelectorAll('#msgTabs .notif-tab-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); renderMessages(); };
+  function _projectUsers(p){ return (USER_MATRIX||[]).filter(u=> u.id!==currentUser.id && (u.role==='admin' || (u.projects||[]).includes('All') || (p && (u.projects||[]).some(x=>x.startsWith(p+'_'))))); }
+  window.populateMsgRecipients = function(){ const p=document.getElementById('msg_project').value; const users=_projectUsers(p); _msSetOptions('msg_recipients_ms', users.map(u=>u.id), {showAll:'All Project Users'}); };
+  window.exportMessagesExcel = async function(){
+    const roots=_msgThreads.filter(m=>!m.parent_id&&_msgVisible(m));
+    if(!roots.length) return alert('No messages to export.');
+    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet('Messages');
+    ws.columns=[{header:'Issue #',width:8},{header:'Project',width:16},{header:'Tower',width:12},{header:'Floor',width:12},{header:'Subject',width:26},{header:'Issue Detail',width:40},{header:'Raised By',width:18},{header:'Raised On',width:18},{header:'Recipients',width:24},{header:'Replies',width:8},{header:'Full Conversation',width:60},{header:'Status',width:10},{header:'Resolved By',width:16},{header:'Resolved On',width:18},{header:'Resolution (h)',width:13}];
+    const hr=ws.getRow(1); hr.font={bold:true,color:{argb:'FFFFFFFF'}}; hr.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0F172A'}};
+    roots.forEach((r,i)=>{ const reps=_msgThreads.filter(m=>m.parent_id===r.id).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||'')); const convo=reps.map(rp=>`[${(rp.created_at||'').replace('T',' ').slice(0,16)}] ${rp.author_name||rp.author}: ${rp.body}`).join('\n'); const resH=(r.is_resolved&&r.resolved_at)?Math.round((new Date(r.resolved_at)-new Date(r.created_at))/3600000):''; ws.addRow([i+1,r.project,r.tower||'-',r.floor||'-',r.subject||'',r.body||'',r.author_name||r.author,(r.created_at||'').replace('T',' ').slice(0,16),r.recipients||'ALL',reps.length,convo,r.is_resolved?'RESOLVED':'OPEN',r.resolved_by||'',(r.resolved_at||'').replace('T',' ').slice(0,16),resH]); });
+    ws.eachRow(row=>{ row.alignment={vertical:'top',wrapText:true}; });
+    const buf=await wb.xlsx.writeBuffer(); const blob=new Blob([buf],{type:'application/octet-stream'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CSMS_Messages_Report.xlsx'; a.click();
+    csmsToast('Messages Excel report downloaded.','success');
   };
 
   console.log('[CSMS Enhancements v2] loaded');
