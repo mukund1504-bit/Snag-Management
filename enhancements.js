@@ -1753,7 +1753,10 @@
     const subj=document.getElementById('msg_subject').value.trim(), body=document.getElementById('msg_body').value.trim();
     if(!p) return alert('Select a project.');
     if(!subj||!body) return alert('Enter a subject and message.');
-    try{ const {error}=await supabaseClient.from('snag_messages').insert([{project:p,tower:t||null,floor:f||null,subject:subj,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:null,is_resolved:false,recipients:((_msGetSelected('msg_recipients_ms')||[]).join('|'))||null}]);
+    const _rec=((_msGetSelected('msg_recipients_ms')||[]).join('|'))||null;
+    const _base={project:p,tower:t||null,floor:f||null,subject:subj,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:null,is_resolved:false};
+    try{ let {error}=await supabaseClient.from('snag_messages').insert([{..._base,recipients:_rec}]);
+      if(error && /recipients/i.test(error.message||'')){ const _r2=await supabaseClient.from('snag_messages').insert([_base]); error=_r2.error; }
       if(error) throw error;
       csmsToast('Issue raised & shared with the project team.','success');
       document.getElementById('msg_subject').value=''; document.getElementById('msg_body').value='';
