@@ -158,6 +158,7 @@
   // ---------- Utility: create canvas config slots for new canvases ----------
   if (typeof canvasConfig !== 'undefined') {
     canvasConfig.closure = { ctx: null, img: null, scale: 1, tx: 0, ty: 0, marker: null, active: false, defectsOnMap: [] };
+    canvasConfig.closed  = { ctx: null, img: null, scale: 1, tx: 0, ty: 0, marker: null, active: false, defectsOnMap: [] };
     canvasConfig.cd      = { ctx: null, img: null, scale: 1, tx: 0, ty: 0, marker: null, active: false };
   }
 
@@ -172,7 +173,7 @@
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     const p = currentUser.permission || 'edit';
-    if (!(p === 'edit' || p === 'close')) return false;
+    if (!(p === 'edit' || p === 'close' || p === 'reopen')) return false;
     // If defect is assigned to specific users, only those users can close
     if (defect && defect.assignedto && String(defect.assignedto).trim().length > 0) {
       const assignees = String(defect.assignedto).split('|').map(s => s.trim().toLowerCase());
@@ -187,7 +188,31 @@
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
     const p = currentUser.permission || 'edit';
-    return p === 'edit' || p === 'editonly' || p === 'close';
+    return p === 'edit' || p === 'editonly' || p === 'close' || p === 'reopen';
+  };
+  // NEW: only users with the special 'reopen' right (or admin) can re-open a
+  // closed/locked defect that was closed incorrectly.
+  window.canReopenDefect = function() {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    return (currentUser.permission || '') === 'reopen';
+  };
+  window.reopenDefect = async function(id) {
+    const d = (defects||[]).find(x => String(x.id) === String(id));
+    if (!d) return;
+    if (!canReopenDefect()) return alert('You do not have the Re-open permission for closed defects.');
+    if (d.statusvector !== 'Closed') return;
+    if (!confirm('Re-open this closed defect? It will become editable/closable again.')) return;
+    try {
+      const { error } = await supabaseClient.from('snagmanagement').update({ statusvector:'Open', closedby:'-', closeddate:'-' }).eq('id', d.id);
+      if (error) throw error;
+      csmsToast('Defect re-opened successfully.', 'success');
+      await loadDefectsFromCloud(true);
+      if (typeof renderNotifications==='function') renderNotifications();
+      if (typeof clRenderTable==='function') clRenderTable();
+      if (typeof clLoadMap==='function') clLoadMap();
+      if (typeof renderReportTable==='function') renderReportTable();
+    } catch(e){ alert('Re-open failed: ' + (e.message||e)); }
   };
 
   // ---------- Multi-Select: generic helper ----------
@@ -429,6 +454,10 @@
       canvasConfig.closure.ctx.clearRect(0,0,canvas.width,canvas.height);
     }
     const cnt = document.getElementById('cl_map_count'); if (cnt) cnt.textContent = '0';
+    const canvas2 = document.getElementById('closedCanvas');
+    if (canvas2 && canvasConfig.closed && canvasConfig.closed.ctx) canvasConfig.closed.ctx.clearRect(0,0,canvas2.width,canvas2.height);
+    if (canvasConfig.closed) { canvasConfig.closed.img = null; canvasConfig.closed.active = false; canvasConfig.closed.defectsOnMap = []; }
+    const cnt2 = document.getElementById('cl_closed_count'); if (cnt2) cnt2.textContent = '0';
   };
 
   function _clFilteredDefects() {
@@ -470,6 +499,8 @@
     const pending = _clFilteredDefects();
     // Redraw map dots (numbering stays aligned)
     if (canvasConfig.closure.img) _clDrawMap();
+    _clDrawClosedMap();
+    if (typeof clRenderClosedTable === 'function') clRenderClosedTable();
     if (pending.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#64748b;">No pending defects.</td></tr>';
       return;
@@ -489,6 +520,52 @@
         <td>${closable ? `<button class="close-btn-inline" onclick="openCloseDefectModal(defects.find(x=>x.id=='${d.id}'))"><i class="fas fa-check"></i> Close</button>` : '<span style="color:#94a3b8;font-size:11px;">Not assigned to you</span>'}</td>
       </tr>`;
     }).join('');
+  };
+
+  // ---------- NEW: Closed Defects map (green dots) + summary ----------
+  function _clClosedDefects() {
+    const p=document.getElementById('cl_project').value, t=document.getElementById('cl_tower').value, f=document.getElementById('cl_floor').value, flat=document.getElementById('cl_flat').value;
+    const cats=_msGetSelected('cl_cat_ms'), risks=_msGetSelected('cl_risk_ms');
+    return (defects||[]).filter(d=>{
+      if(d.statusvector!=='Closed') return false;
+      if(p&&d.project!==p) return false;
+      if(t&&d.tower!==t) return false;
+      if(f&&d.floor!==f) return false;
+      if(flat&&d.flat!==flat) return false;
+      if(cats.length&&!cats.includes(d.defectcategory)) return false;
+      if(risks.length&&!risks.includes(d.riskspectrum)) return false;
+      return true;
+    });
+  }
+  function _clDrawClosedMap() {
+    const canvas=document.getElementById('closedCanvas'); if(!canvas) return;
+    if(!canvasConfig.closed) canvasConfig.closed={ctx:null,img:null,active:false,defectsOnMap:[]};
+    if(!canvasConfig.closed.ctx) canvasConfig.closed.ctx=canvas.getContext('2d');
+    const img=canvasConfig.closure.img; const warn=document.getElementById('clClosedMapWarning'); const cnt=document.getElementById('cl_closed_count');
+    const closed=_clClosedDefects(); canvasConfig.closed.defectsOnMap=closed; if(cnt) cnt.textContent=closed.length;
+    if(!img){ if(canvasConfig.closed.ctx) canvasConfig.closed.ctx.clearRect(0,0,canvas.width,canvas.height); if(warn) warn.style.display=(canvasConfig.closure.active?'none':'block'); return; }
+    if(warn) warn.style.display='none';
+    canvas.width=img.width; canvas.height=img.height;
+    const ctx=canvasConfig.closed.ctx; canvasConfig.closed.img=img; canvasConfig.closed.active=true;
+    ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0);
+    closed.forEach((d,idx)=>{ if(!d.mapx||!d.mapy||d.mapx==='0') return; const x=parseFloat(d.mapx),y=parseFloat(d.mapy);
+      ctx.beginPath(); ctx.arc(x,y,20,0,2*Math.PI); ctx.fillStyle='rgba(16,185,129,0.9)'; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='#fff'; ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 16px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(idx+1),x,y);
+    });
+    if(canvas._csmsClosedClick) canvas.removeEventListener('click',canvas._csmsClosedClick);
+    const handler=(e)=>{ const rect=canvas.getBoundingClientRect(); const sx=canvas.width/rect.width, sy=canvas.height/rect.height; const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy; for(const d of canvasConfig.closed.defectsOnMap){ if(!d.mapx||!d.mapy) continue; if(Math.hypot(parseFloat(d.mapx)-cx,parseFloat(d.mapy)-cy)<=25){ if(typeof openDefectInfoModal==='function') openDefectInfoModal(d); break; } } };
+    canvas._csmsClosedClick=handler; canvas.addEventListener('click',handler);
+    if(typeof attachZoomGestures==='function') attachZoomGestures('closedCanvas');
+  }
+  window.clRenderClosedTable = function() {
+    const tbody=document.querySelector('#closedTable tbody'); if(!tbody) return;
+    const closed=_clClosedDefects();
+    if(!closed.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#64748b;">No closed defects for this selection.</td></tr>'; return; }
+    tbody.innerHTML=closed.map((d,i)=>`<tr><td><span class="serial-badge-inline" style="background:#10b981;">${i+1}</span></td><td>${d.flat||'-'}</td><td><b>${d.defectcategory||'-'}</b></td><td>${d.specificationmatrix||'-'}</td><td>${d.riskspectrum||'-'}</td><td>${d.closedby||'-'}</td><td>${d.closeddate||'-'}</td><td><button class="view-btn" onclick="_notifView('${d.id}')"><i class='fas fa-eye'></i> View</button></td></tr>`).join('');
+  };
+  window.exportClosedExcel = function() {
+    const rows=_clClosedDefects(); if(!rows.length) return alert('No closed defects to export.');
+    if(typeof exportExcelWithPhotos==='function') exportExcelWithPhotos(rows); else alert('Export unavailable.');
   };
 
   // =========================================================
@@ -676,6 +753,11 @@
   window.updateNotifCounts = function() {
     if (!currentUser) return;
     const c = _computeNotifCounts();
+    // Show the 2 new task tabs only to users who can be assigned/close (edit/close/reopen or admin)
+    const canAssign = (currentUser.role==='admin') || ['edit','close','reopen'].includes(currentUser.permission||'');
+    ['nt_mytasks','nt_commonclose'].forEach(id => { const b=document.getElementById(id); if(b) b.style.display = canAssign ? '' : 'none'; });
+    const mt=document.getElementById('nc_mytasks'); if(mt) mt.textContent = c.direct;
+    const cc=document.getElementById('nc_commonclose'); if(cc) cc.textContent = (defects||[]).filter(d=>d.statusvector!=='Closed'&&_isCommonProject(d)&&canCloseDefect(d)).length;
     ['direct','common','closed','mine'].forEach(k => {
       const el = document.getElementById('nc_' + k);
       if (el) el.textContent = c[k];
@@ -693,6 +775,17 @@
     updateNotifCounts();
     const list = document.getElementById('notifList');
     if (!list) return;
+    // NEW tabs: My Tasks (by Flat) & Common (Closable) — grouped tables of defects
+    // this user can close. Only relevant to users with close capability.
+    if (_notifTab === 'mytasks' || _notifTab === 'commonclose') {
+      const base = (_notifTab === 'mytasks')
+        ? (defects||[]).filter(d => d.statusvector!=='Closed' && _isAssignedToMe(d) && canCloseDefect(d))
+        : (defects||[]).filter(d => d.statusvector!=='Closed' && _isCommonProject(d) && canCloseDefect(d));
+      const grp={}; base.forEach(d=>{ const k=`${d.project}|${d.tower}|${d.floor}|${d.flat}`; grp[k]=grp[k]||{p:d.project,t:d.tower,f:d.floor,fl:d.flat,n:0}; grp[k].n++; });
+      const rows=Object.values(grp);
+      list.innerHTML = `<div class="records-table-container"><table class="csms-pro-table"><thead><tr><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>No. of Defects</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td><b>${r.p}</b></td><td>${r.t}</td><td>${r.f}</td><td>${r.fl||'-'}</td><td><b>${r.n}</b></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;padding:20px;color:#94a3b8;">No closable defects assigned.</td></tr>'}</tbody></table></div>`;
+      return;
+    }
     let items;
     if (_notifTab === 'direct') items = (defects||[]).filter(d => d.statusvector !== 'Closed' && _isAssignedToMe(d));
     else if (_notifTab === 'common') items = (defects||[]).filter(d => d.statusvector !== 'Closed' && _isCommonProject(d));
@@ -740,6 +833,7 @@
         <div class="notif-actions">
           <button class="view-btn" onclick="_notifView('${d.id}')"><i class="fas fa-eye"></i> View</button>
           ${canClose ? `<button class="close-btn" onclick="openCloseDefectModal(defects.find(x=>x.id=='${d.id}'))"><i class="fas fa-check"></i> Close</button>` : ''}
+          ${(isClosed && canReopenDefect()) ? `<button class="close-btn" style="background:#b45309;" onclick="reopenDefect('${d.id}')"><i class="fas fa-lock-open"></i> Re-open</button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -930,7 +1024,11 @@
     if (filterAnalytic === 'floor') {
       tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>FLOOR</th><th>FLAT</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = `${d.project}_${d.tower}_${d.floor}_${d.flat}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,f:d.floor,fl:d.flat,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td><td>${m.o}</td><td>${m.ip}</td><td>${m.c}</td><td><b>${m.tot}</b></td></tr>`).join('');
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td><td>${m.fl}</td>${L(m.p+' '+m.fl+' Open',{project:m.p,tower:m.t,floor:m.f,flat:m.fl,status:'Open'},m.o)}${L(m.p+' '+m.fl+' In Progress',{project:m.p,tower:m.t,floor:m.f,flat:m.fl,status:'In Progress'},m.ip)}${L(m.p+' '+m.fl+' Closed',{project:m.p,tower:m.t,floor:m.f,flat:m.fl,status:'Closed'},m.c)}${L(m.p+' '+m.fl+' All',{project:m.p,tower:m.t,floor:m.f,flat:m.fl},'<b>'+m.tot+'</b>')}</tr>`).join('');
+    } else if (filterAnalytic === 'floordist') {
+      tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>FLOOR</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
+      filteredData.forEach(d => { let k = `${d.project}_${d.tower}_${d.floor}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,f:d.floor,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
+      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td><td>${m.f}</td>${L(m.p+' '+m.f+' Open',{project:m.p,tower:m.t,floor:m.f,status:'Open'},m.o)}${L(m.p+' '+m.f+' In Progress',{project:m.p,tower:m.t,floor:m.f,status:'In Progress'},m.ip)}${L(m.p+' '+m.f+' Closed',{project:m.p,tower:m.t,floor:m.f,status:'Closed'},m.c)}${L(m.p+' '+m.f+' All',{project:m.p,tower:m.t,floor:m.f},'<b>'+m.tot+'</b>')}</tr>`).join('');
     } else if (filterAnalytic === 'tower') {
       tHead.innerHTML = `<th>PROJECT</th><th>TOWER</th><th>OPEN</th><th>IN PROGRESS</th><th>CLOSED</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = `${d.project}_${d.tower}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
@@ -1407,6 +1505,7 @@
     }
     if (id === 'closure') { clPopulateDropdowns(); clRenderTable(); }
     if (id === 'notifications') { renderNotifications(); }
+    if (id === 'messages') { renderMessages(); }
     if (id === 'report') { populateReportMS(); renderReportTable(); }
     if (id === 'dashboard') { populateBiMS(); renderCharts(); }
     if (id === 'setup') { setTimeout(() => { if (typeof renderAdminTables === 'function') renderAdminTables(); if (typeof renderUserSetupCheckboxes === 'function') renderUserSetupCheckboxes(); if (typeof renderUserTable === 'function') renderUserTable(); }, 100); }
@@ -1570,6 +1669,114 @@
       return r;
     };
   }
+
+  // =========================================================
+  // 5. TEAM MESSAGES / ISSUE ESCALATION  (Supabase: snag_messages)
+  // =========================================================
+  let _msgThreads = [];
+  function _esc2(s){ return String(s||'').replace(/</g,'&lt;').replace(/\n/g,'<br>'); }
+  function _msgVisible(m){
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if ((currentUser.projects||[]).includes('All')) return true;
+    if (m.author === currentUser.id) return true;
+    return (currentUser.projects||[]).some(x => x === `${m.project}_${m.tower}` || x.startsWith(m.project+'_'));
+  }
+  function _msgDelay(root, replies){
+    if (!root.created_at) return '';
+    const start = new Date(root.created_at);
+    if (root.is_resolved && root.resolved_at) return `Resolved in ${Math.round((new Date(root.resolved_at)-start)/3600000)}h`;
+    if (replies[0] && replies[0].created_at) return `1st reply +${Math.round((new Date(replies[0].created_at)-start)/3600000)}h`;
+    return `Awaiting ${Math.round((Date.now()-start)/3600000)}h`;
+  }
+  window.loadMessages = async function(){
+    if (typeof supabaseClient === 'undefined') return;
+    try { const { data, error } = await supabaseClient.from('snag_messages').select('*').order('created_at',{ascending:true});
+      if (error) { console.warn('[CSMS] loadMessages', error.message); return; }
+      _msgThreads = data || []; updateMsgBadge();
+    } catch(e){ console.warn(e); }
+  };
+  window.updateMsgBadge = function(){
+    if (!currentUser) return;
+    const openForMe = _msgThreads.filter(m => !m.parent_id && !m.is_resolved && _msgVisible(m)).length;
+    const b = document.getElementById('msgBadge');
+    if (b) { if (openForMe>0){ b.style.display='inline-block'; b.textContent = openForMe>99?'99+':openForMe; } else b.style.display='none'; }
+  };
+  window.renderMessages = async function(){
+    const wrap = document.getElementById('msgThreadList'); if (!wrap) return;
+    await loadMessages();
+    if (!window._msgSub && typeof supabaseClient !== 'undefined' && supabaseClient.channel) {
+      try { window._msgSub = supabaseClient.channel('csms_msgs').on('postgres_changes',{event:'*',schema:'public',table:'snag_messages'},()=>{ loadMessages().then(()=>{ const s=document.getElementById('messages'); if(s && s.classList.contains('active')) renderMessages(); }); }).subscribe(); } catch(e){}
+    }
+    const projSel = document.getElementById('msg_project');
+    if (projSel && projSel.options.length <= 1) getAllowedProjects().forEach(p => projSel.appendChild(new Option(p,p)));
+    const roots = _msgThreads.filter(m => !m.parent_id && _msgVisible(m)).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+    if (!roots.length){ wrap.innerHTML = '<p style="text-align:center;padding:24px;color:#94a3b8;">No messages yet. Raise an issue above to alert your project team.</p>'; return; }
+    wrap.innerHTML = roots.map(r => {
+      const replies = _msgThreads.filter(m => m.parent_id === r.id).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+      const resolved = r.is_resolved;
+      const canResolve = !resolved && (r.author===currentUser.id || currentUser.role==='admin');
+      return `<div class="msg-thread ${resolved?'resolved':'open'}">
+        <div class="msg-thread-head" onclick="toggleThread('${r.id}')">
+          <div><span class="msg-badge ${resolved?'ok':'warn'}">${resolved?'RESOLVED':'OPEN'}</span> <b>${_esc2(r.subject)||'(no subject)'}</b>
+            <div class="msg-sub">${r.project} → ${r.tower||'-'} ${r.floor?('→ '+r.floor):''} · by <b>${r.author_name||r.author}</b> · ${(r.created_at||'').replace('T',' ').slice(0,16)}</div></div>
+          <div class="msg-meta">${replies.length} repl${replies.length===1?'y':'ies'}${_msgDelay(r,replies)?(' · '+_msgDelay(r,replies)):''}</div>
+        </div>
+        <div class="msg-thread-body" id="thr_${r.id}" style="display:none;">
+          <div class="msg-body-text">${_esc2(r.body)}</div>
+          ${replies.map(rp=>`<div class="msg-reply"><b>${rp.author_name||rp.author}</b> <span class="msg-sub">${(rp.created_at||'').replace('T',' ').slice(0,16)}</span><div>${_esc2(rp.body)}</div></div>`).join('')}
+          ${resolved?`<div class="msg-reply" style="background:#ecfdf5;"><i class="fas fa-check-circle" style="color:#059669;"></i> Resolved by <b>${r.resolved_by||'-'}</b> · ${(r.resolved_at||'').replace('T',' ').slice(0,16)}</div>`:''}
+          <div class="msg-reply-box">
+            <textarea id="reply_${r.id}" rows="2" placeholder="Type a reply..."></textarea>
+            <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+              <button class="btn-capture-tech" onclick="submitReply('${r.id}')"><i class="fas fa-reply"></i> Reply</button>
+              ${canResolve?`<button class="btn-submit-tech" style="background:#059669;margin:0;width:auto;" onclick="resolveThread('${r.id}')"><i class="fas fa-check"></i> Mark Resolved</button>`:''}
+              <button class="btn-export-tech pdf" onclick="msgThreadReport('${r.id}')"><i class="fas fa-file-alt"></i> Escalation Report</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  };
+  window.toggleThread = function(id){ const el=document.getElementById('thr_'+id); if(el) el.style.display = el.style.display==='none'?'block':'none'; };
+  window.submitMessage = async function(){
+    const p=document.getElementById('msg_project').value, t=document.getElementById('msg_tower').value.trim(), f=document.getElementById('msg_floor').value.trim();
+    const subj=document.getElementById('msg_subject').value.trim(), body=document.getElementById('msg_body').value.trim();
+    if(!p) return alert('Select a project.');
+    if(!subj||!body) return alert('Enter a subject and message.');
+    try{ const {error}=await supabaseClient.from('snag_messages').insert([{project:p,tower:t||null,floor:f||null,subject:subj,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:null,is_resolved:false}]);
+      if(error) throw error;
+      csmsToast('Issue raised & shared with the project team.','success');
+      document.getElementById('msg_subject').value=''; document.getElementById('msg_body').value='';
+      await loadMessages(); renderMessages();
+    }catch(e){ alert('Failed to send (did you run snag_messages_setup.sql?): '+(e.message||e)); }
+  };
+  window.submitReply = async function(rootId){
+    const ta=document.getElementById('reply_'+rootId); const body=(ta&&ta.value||'').trim(); if(!body) return;
+    const root=_msgThreads.find(m=>String(m.id)===String(rootId)); if(!root) return;
+    try{ const {error}=await supabaseClient.from('snag_messages').insert([{project:root.project,tower:root.tower,floor:root.floor,subject:root.subject,body:body,author:currentUser.id,author_name:getFullName(currentUser),parent_id:root.id,is_resolved:false}]);
+      if(error) throw error; await loadMessages(); renderMessages(); const e2=document.getElementById('thr_'+rootId); if(e2) e2.style.display='block';
+    }catch(e){ alert('Reply failed: '+(e.message||e)); }
+  };
+  window.resolveThread = async function(rootId){
+    if(!confirm('Mark this issue as RESOLVED? Do this only when the problem is actually solved.')) return;
+    try{ const {error}=await supabaseClient.from('snag_messages').update({is_resolved:true,resolved_by:getFullName(currentUser),resolved_at:new Date().toISOString()}).eq('id',rootId);
+      if(error) throw error; csmsToast('Issue marked resolved.','success'); await loadMessages(); renderMessages();
+    }catch(e){ alert('Failed: '+(e.message||e)); }
+  };
+  window.msgThreadReport = function(rootId){
+    const root=_msgThreads.find(m=>String(m.id)===String(rootId)); if(!root) return;
+    const replies=_msgThreads.filter(m=>m.parent_id===root.id).sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||''));
+    const rows=[root,...replies]; let prev=new Date(root.created_at);
+    const html=`<div class="modal-content" style="max-width:760px;"><h3 style="margin-top:0;"><i class="fas fa-file-alt text-cyan"></i> Escalation Report — ${_esc2(root.subject)}</h3>
+      <p class="msg-sub" style="margin-bottom:12px;"><b>${root.project}</b> → ${root.tower||'-'} ${root.floor?('→ '+root.floor):''} · Status: <b>${root.is_resolved?'RESOLVED':'STILL OPEN'}</b></p>
+      <div class="records-table-container"><table class="csms-pro-table"><thead><tr><th>#</th><th>Type</th><th>By</th><th>Date/Time</th><th>Gap</th><th>Message</th></tr></thead><tbody>
+      ${rows.map((m,i)=>{ const dt=new Date(m.created_at); const gap=i===0?'-':Math.round((dt-prev)/3600000)+'h'; prev=dt; return `<tr><td>${i+1}</td><td>${m.parent_id?'Reply':'<b>Raised</b>'}</td><td>${m.author_name||m.author}</td><td>${(m.created_at||'').replace('T',' ').slice(0,16)}</td><td style="${(i>0 && (dt-new Date(rows[i-1].created_at))/3600000>24)?'color:#dc2626;font-weight:700;':''}">${gap}</td><td>${_esc2(m.body)}</td></tr>`; }).join('')}
+      ${root.is_resolved?`<tr style="background:#ecfdf5;"><td>✓</td><td>Resolved</td><td>${root.resolved_by||'-'}</td><td>${(root.resolved_at||'').replace('T',' ').slice(0,16)}</td><td><b>${Math.round((new Date(root.resolved_at)-new Date(root.created_at))/3600000)}h total</b></td><td>Issue closed</td></tr>`:`<tr style="background:#fef2f2;"><td>!</td><td colspan="5" style="color:#dc2626;"><b>UNRESOLVED for ${Math.round((Date.now()-new Date(root.created_at))/3600000)}h</b> — escalate to senior.</td></tr>`}
+      </tbody></table></div>
+      <div style="text-align:right;margin-top:14px;"><button class="btn-danger-tech" onclick="document.getElementById('msgReportModal').style.display='none'">Close</button></div></div>`;
+    const modal=document.getElementById('msgReportModal'); modal.innerHTML=html; modal.style.display='flex';
+  };
 
   console.log('[CSMS Enhancements v2] loaded');
 })();

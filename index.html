@@ -46,6 +46,7 @@
                 <button class="nav-btn" onclick="showSection('report')"><i class="fas fa-database"></i> Records Matrix</button>
                 <button class="nav-btn" onclick="showSection('dashboard')"><i class="fas fa-chart-pie"></i> BI Telemetry</button>
                 <button class="nav-btn" id="navNotifBtn" onclick="showSection('notifications')"><i class="fas fa-bell"></i> Notifications <span id="notifBadge" class="notif-badge" style="display:none;">0</span></button>
+                <button class="nav-btn" id="navMsgBtn" onclick="showSection('messages')"><i class="fas fa-comments"></i> Messages <span id="msgBadge" class="notif-badge" style="display:none;">0</span></button>
                 <button class="nav-btn" id="navSetupBtn" onclick="showSection('setup')"><i class="fas fa-cogs"></i> System Setup</button>
                 <button class="nav-btn profile-btn" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i> My Profile</button>
                 <button class="nav-btn logout-btn" onclick="manualLogout()"><i class="fas fa-power-off"></i> Logout</button>
@@ -245,7 +246,8 @@
                         <div class="field-box-tech"><label>Date To:</label><input type="date" id="biDateTo" onchange="renderCharts()"></div>
                         <div class="field-box-tech"><label>Analytical Cross-Section:</label>
                             <select id="dashboardAnalyticFilter" onchange="renderCharts()">
-                                <option value="floor">Floor & Flat Distribution</option>
+                                <option value="floor">Flat Distribution (per Flat)</option>
+                                <option value="floordist">Floor Distribution (per Floor)</option>
                                 <option value="defect">Defect Category Matrix</option>
                                 <option value="tower">Tower Segregation</option>
                                 <option value="intensity">Risk Intensity Profiles</option>
@@ -360,6 +362,36 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- NEW: Closed Defects (map + summary) below pending. Green numbered dots = closed defects; click a dot to view details. -->
+                <div class="closure-split" style="margin-top:24px;">
+                    <div class="closure-map-card">
+                        <div class="card-header-pro">
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#065f46; color:white;"><i class="fas fa-check-circle"></i> Closed Defects Map <span id="cl_closed_count" class="tech-badge live" style="margin-left:8px; background:#10b981;">0</span></h4>
+                        </div>
+                        <div class="map-viewport-container" style="min-height:420px;">
+                            <div class="zoom-controls-floating">
+                                <button type="button" class="zoom-btn" onclick="zoomCanvas('closedCanvas', 1.2)">＋</button>
+                                <button type="button" class="zoom-btn" onclick="zoomCanvas('closedCanvas', 0.8)">－</button>
+                                <button type="button" class="zoom-btn" onclick="resetCanvas('closedCanvas')">⟲</button>
+                            </div>
+                            <div id="blueprint-wrapper"><canvas id="closedCanvas"></canvas></div>
+                        </div>
+                        <p id="clClosedMapWarning" style="color:var(--crimson-fail); font-weight:bold; font-size:13px; text-align:center; padding:10px; display:none;">No drawing mapped. Upload in Setup section.</p>
+                        <div class="map-instructions">Numbered GREEN dots = closed defects. Click any dot to view closed defect details.</div>
+                    </div>
+                    <div class="closure-list-card">
+                        <div class="card-header-pro">
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#065f46; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span><i class="fas fa-clipboard-check"></i> Closed Defects Summary</span><button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosedExcel()"><i class="fas fa-file-excel"></i> Download Excel</button></h4>
+                        </div>
+                        <div class="records-table-container" style="max-height: 560px; overflow-y:auto;">
+                            <table id="closedTable" class="csms-pro-table">
+                                <thead><tr><th>SL</th><th>Flat</th><th>Category</th><th>Spec</th><th>Risk</th><th>Closed By</th><th>Closed Date</th><th>View</th></tr></thead>
+                                <tbody><tr><td colspan="8" style="text-align:center; padding:20px;">Select Project → Tower → Floor</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- ================= NEW: NOTIFICATIONS TAB ================= -->
@@ -375,6 +407,8 @@
                     <button class="notif-tab-btn" data-nfilter="common" onclick="switchNotifTab(this,'common')"><i class="fas fa-users"></i> Project Common <span class="notif-count" id="nc_common">0</span></button>
                     <button class="notif-tab-btn" data-nfilter="closed" onclick="switchNotifTab(this,'closed')"><i class="fas fa-check-double"></i> Recently Closed <span class="notif-count" id="nc_closed">0</span></button>
                     <button class="notif-tab-btn" data-nfilter="mine" onclick="switchNotifTab(this,'mine')"><i class="fas fa-pen"></i> Created by Me <span class="notif-count" id="nc_mine">0</span></button>
+                    <button class="notif-tab-btn" id="nt_mytasks" data-nfilter="mytasks" onclick="switchNotifTab(this,'mytasks')"><i class="fas fa-tasks"></i> My Tasks (by Flat) <span class="notif-count" id="nc_mytasks">0</span></button>
+                    <button class="notif-tab-btn" id="nt_commonclose" data-nfilter="commonclose" onclick="switchNotifTab(this,'commonclose')"><i class="fas fa-people-carry"></i> Common (Closable) <span class="notif-count" id="nc_commonclose">0</span></button>
                 </div>
                 <div class="notif-filter-row">
                     <input type="text" id="notif_search" placeholder="🔍 Search category, flat, tower..." oninput="renderNotifications()">
@@ -389,6 +423,24 @@
                 </div>
                 <div id="notifList" class="notif-list"><p style="text-align:center; padding:30px; color:#64748b;">Loading feed…</p></div>
             </section>
+
+            <section id="messages">
+                <div class="card-header-tech"><div class="tech-title-wrapper"><span class="tech-badge" style="background:#0369a1;color:#fff;">TEAM</span><h3><i class="fas fa-comments"></i> Team Messages &amp; Issue Escalation</h3></div></div>
+                <div class="admin-card" style="margin-bottom:18px;">
+                    <h4 class="card-title-tech"><i class="fas fa-bullhorn"></i> Raise / Share an Issue</h4>
+                    <div class="form-grid">
+                        <div class="field-box-tech"><label>Project*</label><select id="msg_project"><option value="">-- Select --</option></select></div>
+                        <div class="field-box-tech"><label>Tower</label><input type="text" id="msg_tower" placeholder="e.g. Tower-A"></div>
+                        <div class="field-box-tech"><label>Floor</label><input type="text" id="msg_floor" placeholder="e.g. 3rd Floor"></div>
+                        <div class="field-box-tech full-width"><label>Subject*</label><input type="text" id="msg_subject" placeholder="Short issue title"></div>
+                        <div class="field-box-tech full-width"><label>Message*</label><textarea id="msg_body" rows="3" placeholder="Describe the issue / information to share with the project team..."></textarea></div>
+                    </div>
+                    <button class="btn-submit-tech" style="width:auto;" onclick="submitMessage()"><i class="fas fa-paper-plane"></i> Send to Project Team</button>
+                </div>
+                <div id="msgThreadList" class="msg-list"><p style="text-align:center;padding:24px;color:#64748b;">Loading messages…</p></div>
+            </section>
+
+            <div id="msgReportModal" class="drilldown-modal"></div>
 
             <section id="setup">
                 <div class="card-header-tech">
@@ -418,6 +470,7 @@
                                     <label class="rights-label" style="margin-top:12px;">Action Rights:</label>
                                     <select id="suRights">
                                         <option value="edit">Full Rights (Create + Edit + Close)</option>
+                                        <option value="reopen">Full + Re-open Closed Defects</option>
                                         <option value="create">Create Defect Only</option>
                                         <option value="close">Close Defect Only</option>
                                         <option value="editonly">Edit Existing Only (No Close/Create)</option>
@@ -596,7 +649,7 @@
         </div>
     </div>
 
-    <script src="Script.js?v=2.5"></script>
-    <script src="enhancements.js?v=2.5"></script>
+    <script src="Script.js?v=2.8"></script>
+    <script src="enhancements.js?v=2.8"></script>
 </body>
 </html>
