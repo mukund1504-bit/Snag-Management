@@ -145,8 +145,10 @@
                             </div>
                             <div class="photo-section-tech">
                                 <div class="photo-controls">
-                                    <button type="button" class="btn-capture-tech" onclick="triggerPhoto()"><i class="fas fa-camera"></i> Capture Initial Img</button>
+                                    <button type="button" class="btn-capture-tech" onclick="document.getElementById('photoInputCam').click()"><i class="fas fa-camera"></i> Camera</button>
+                                    <button type="button" class="btn-capture-tech" onclick="document.getElementById('photoInput').click()"><i class="fas fa-image"></i> Gallery</button>
                                     <button type="button" class="btn-danger-tech" onclick="clearTempPhotos()"><i class="fas fa-trash-alt"></i> Clear</button>
+                                    <input type="file" id="photoInputCam" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoPicked(event)">
                                     <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="onPhotoPicked(event)">
                                 </div>
                                 <div id="photoPreview" class="preview-wrap"></div>
@@ -583,7 +585,9 @@
                     <div class="photo-section-tech" style="margin-top:0;">
                         <label class="photo-label-tech"><i class="fas fa-camera"></i> Final Evidence Photos (Post-Repair)</label>
                         <div class="photo-controls">
-                            <button type="button" class="btn-capture-tech" onclick="triggerEditPhoto()"><i class="fas fa-plus"></i> Add Photo</button>
+                            <button type="button" class="btn-capture-tech" onclick="document.getElementById('editPhotoInputCam').click()"><i class="fas fa-camera"></i> Camera</button>
+                            <button type="button" class="btn-capture-tech" onclick="document.getElementById('editPhotoInput').click()"><i class="fas fa-image"></i> Gallery</button>
+                            <input type="file" id="editPhotoInputCam" accept="image/*" capture="environment" style="display:none;" onchange="onEditPhotoPicked(event)">
                             <input type="file" id="editPhotoInput" accept="image/*" style="display:none;" onchange="onEditPhotoPicked(event)">
                         </div>
                         <div id="editPhotoPreview" class="preview-wrap"></div>
@@ -638,7 +642,9 @@
                     <div class="photo-section-tech" style="margin-top:0;">
                         <label class="photo-label-tech"><i class="fas fa-camera"></i> Final Evidence Photos (Required for Close)</label>
                         <div class="photo-controls">
-                            <button type="button" class="btn-capture-tech" onclick="cdTriggerPhoto()"><i class="fas fa-plus"></i> Add Photo</button>
+                            <button type="button" class="btn-capture-tech" onclick="document.getElementById('cd_photoInputCam').click()"><i class="fas fa-camera"></i> Camera</button>
+                            <button type="button" class="btn-capture-tech" onclick="document.getElementById('cd_photoInput').click()"><i class="fas fa-image"></i> Gallery</button>
+                            <input type="file" id="cd_photoInputCam" accept="image/*" capture="environment" style="display:none;" onchange="cdOnPhotoPicked(event)">
                             <input type="file" id="cd_photoInput" accept="image/*" style="display:none;" onchange="cdOnPhotoPicked(event)">
                         </div>
                         <div id="cd_finalPreview" class="preview-wrap"></div>
