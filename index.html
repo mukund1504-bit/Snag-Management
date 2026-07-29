@@ -51,6 +51,13 @@
                 <button class="nav-btn profile-btn" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i> My Profile</button>
                 <button class="nav-btn logout-btn" onclick="manualLogout()"><i class="fas fa-power-off"></i> Logout</button>
             </nav>
+            <div class="mobile-bar">
+                <button class="mobile-nav-toggle" onclick="toggleNavMenu()"><i class="fas fa-bars"></i> Menu</button>
+                <div class="mobile-actions">
+                    <button class="nav-btn profile-btn" title="My Profile" onclick="openPasswordModal()"><i class="fas fa-user-circle"></i></button>
+                    <button class="nav-btn logout-btn" title="Logout" onclick="manualLogout()"><i class="fas fa-power-off"></i></button>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -660,7 +667,7 @@
         </div>
     </div>
 
-    <script src="Script.js?v=2.9"></script>
-    <script src="enhancements.js?v=2.9"></script>
+    <script src="Script.js?v=3.0"></script>
+    <script src="enhancements.js?v=3.0"></script>
 </body>
 </html>

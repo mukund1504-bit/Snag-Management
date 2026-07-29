@@ -1506,6 +1506,8 @@
     if (id === 'closure') { clPopulateDropdowns(); clRenderTable(); }
     if (id === 'notifications') { renderNotifications(); }
     if (id === 'messages') { renderMessages(); }
+    // Mobile: collapse the hamburger dropdown after picking a page
+    const _nm = document.querySelector('header nav'); if (_nm) _nm.classList.remove('nav-open');
     if (id === 'report') { populateReportMS(); renderReportTable(); }
     if (id === 'dashboard') { populateBiMS(); renderCharts(); }
     if (id === 'setup') { setTimeout(() => { if (typeof renderAdminTables === 'function') renderAdminTables(); if (typeof renderUserSetupCheckboxes === 'function') renderUserSetupCheckboxes(); if (typeof renderUserTable === 'function') renderUserTable(); }, 100); }
@@ -1804,6 +1806,8 @@
     const buf=await wb.xlsx.writeBuffer(); const blob=new Blob([buf],{type:'application/octet-stream'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='CSMS_Messages_Report.xlsx'; a.click();
     csmsToast('Messages Excel report downloaded.','success');
   };
+
+  window.toggleNavMenu = function(){ const n=document.querySelector('header nav'); if(n) n.classList.toggle('nav-open'); };
 
   console.log('[CSMS Enhancements v2] loaded');
 })();
