@@ -1346,15 +1346,20 @@ function renderReportTable(){
         return match;
     });
     
+    const tableHead = document.querySelector("#defectsTable thead");
+    if(tableHead) tableHead.innerHTML = _reportHeaderRow();
     const tableBody = document.querySelector("#defectsTable tbody");
     if(tableBody) {
         if(filteredReportData.length === 0) {
-             tableBody.innerHTML = '<tr><td colspan="20" style="text-align:center;">No records found matching criteria.</td></tr>';
+             tableBody.innerHTML = `<tr><td colspan="${REPORT_HEADER_LABELS.length}" style="text-align:center;">No records found matching criteria.</td></tr>`;
         } else {
              tableBody.innerHTML = generateTableRowsHtml(filteredReportData);
         }
     }
 }
+
+const REPORT_HEADER_LABELS = ["Sl No","Project Scope","Tower","Floor Vector","Flat/Unit","Defect Category","Specification Matrix","Engineering Remarks","Map Location","Created By","Closed By","Assigned To","Risk Spectrum","Status Vector","Logged Date","SLA Due Date","Closed Date","Delay Axis","Initial Photos","Final Photos","Actions"];
+function _reportHeaderRow(){ return "<tr>" + REPORT_HEADER_LABELS.map(h => `<th>${h}</th>`).join("") + "</tr>"; }
 
 function generateTableRowsHtml(dataArray) {
     const canEdit = currentUser && (currentUser.role === "admin" || currentUser.permission === "edit");
@@ -1465,6 +1470,8 @@ function closeImageZoom() { document.getElementById("imageZoomModal").style.disp
 function openDrillModal(title, data) {
     currentDrilldownData = data; document.getElementById("modalTitle").innerHTML = `<i class="fas fa-search-plus text-cyan"></i> Drill-Down: ${title} (${data.length})`;
     let html = generateTableRowsHtml(data); 
+    const drillHead = document.querySelector("#drilldownTable thead");
+    if(drillHead) drillHead.innerHTML = _reportHeaderRow();
     const drillBody = document.querySelector("#drilldownTable tbody");
     if(drillBody) drillBody.innerHTML = html; 
     document.getElementById("drilldownModal").style.display = "flex";
