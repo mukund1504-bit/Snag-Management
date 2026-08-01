@@ -1558,12 +1558,21 @@
       else if (d.mapx && d.mapy && d.mapx !== '0') mapHtml = `X: ${d.mapx}, Y: ${d.mapy}`;
       const resolvedCategory = (typeof resolveCategoryName === 'function' ? resolveCategoryName(d.defectcategory || '-') : d.defectcategory || '-');
       const resolvedSpec = (typeof resolveSpecificationName === 'function' ? resolveSpecificationName(d.specificationmatrix || '-') : d.specificationmatrix || '-');
+      
+      // ADDED: Logic for Assigned To column
+      const assignList = d.assignedto ? String(d.assignedto).split('|').map(s => s.trim()).filter(Boolean) : [];
+      const assignText = assignList.length > 0 ? assignList.join(', ') : '<span style="color:#0284c7; font-weight:600;">All Members</span>';
+
       return `<tr>
           <td>${d.serial || '-'}</td><td><b>${d.project || '-'}</b></td><td>${d.tower || '-'}</td><td>${d.floor || '-'}</td><td>${d.flat || '-'}</td>
           <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
           <td>${resolvedSpec}</td>
           <td>${d.engineeringremarks || '-'}</td>
           <td>${mapHtml}</td><td><b>${d.createdby || '-'}</b></td><td><b>${d.closedby || '-'}</b></td>
+          
+          <!-- YEH COLUMN MISSING THA -->
+          <td>${assignText}</td> 
+          
           <td>${d.riskspectrum || '-'}</td><td><span class="locked-badge">${d.statusvector || '-'}</span></td>
           <td>${d.loggeddate || '-'}</td><td>${d.sladuedate || '-'}</td><td>${d.closeddate || '-'}</td><td>${d.delayaxis || '-'}</td>
           <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
