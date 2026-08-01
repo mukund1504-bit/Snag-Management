@@ -1365,13 +1365,21 @@ function generateTableRowsHtml(dataArray) {
         const initialHtml = `<div class="img-grid-cell">${initPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         const finalHtml = `<div class="img-grid-cell">${finPics.map(p=>`<img src="${p}" onclick="openZoomImage('${p}')"/>`).join('')}</div>`;
         
+        const _assignList = d.assignedto ? String(d.assignedto).split('|').map(s => s.trim()).filter(Boolean) : [];
+        const _isCommon = _assignList.length === 0;
+        const _meEmail = (currentUser && currentUser.id) ? String(currentUser.id).toLowerCase() : "";
+        const _meName = (currentUser && currentUser.firstName && currentUser.lastName) ? (currentUser.firstName + " " + currentUser.lastName).toLowerCase() : "";
+        const _isMine = _assignList.some(a => a.toLowerCase() === _meEmail || a.toLowerCase() === _meName);
+
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
         if(d.statusvector === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
         else if(canEdit) {
-            if(currentUser.role === "admin" || (typeof canCloseDefect === "function" && canCloseDefect(d))) {
-                actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
+            const _clickable = currentUser.role === "admin" || _isCommon || _isMine;
+            if(_clickable) {
+                const _label = _isCommon ? "Common Action" : (_isMine ? "Your Action" : "Action");
+                actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> ${_label}</button>`;
             } else {
-                actionHtml = `<span style="color:#b45309; font-size:11px; font-weight:600;" title="Assigned to another user"><i class="fas fa-user-lock"></i> Assigned</span>`;
+                actionHtml = `<span style="color:#dc2626; font-size:11px; font-weight:700;" title="This task is assigned to another user"><i class="fas fa-ban"></i> Not your Task</span>`;
             }
         }
         
@@ -1391,7 +1399,7 @@ function generateTableRowsHtml(dataArray) {
                 <td>${resolvedSpec}</td>
                 <td>${d.engineeringremarks || "-"}</td>
                 <td>${mapHtml}</td><td><b>${d.createdby || "-"}</b></td><td><b>${d.closedby || "-"}</b></td>
-                <td>${d.assignedto ? d.assignedto.replace(/\|/g, ', ') : '<span style="color:#94a3b8;">Common</span>'}</td>
+                <td>${_isCommon ? '<span style="color:#0284c7; font-weight:600;">All Members</span>' : _assignList.join(', ')}</td>
                 <td>${d.riskspectrum || "-"}</td><td><span class="locked-badge">${d.statusvector || "-"}</span></td>
                 <td>${d.loggeddate || "-"}</td><td>${d.sladuedate || "-"}</td><td>${d.closeddate || "-"}</td><td>${d.delayaxis || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
