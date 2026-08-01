@@ -1,5 +1,5 @@
 /* eslint-disable */
-// ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION C ======
+// ====== SUPABASE SYSTEM PRODUCTION ENDPOINT CONFIGURATION ======
 const SUPABASE_URL = "https://vkvyzzxplzrpgiouopbx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrdnl6enhwbHpycGdpb3VvcGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNzM3ODMsImV4cCI6MjA5Nzg0OTc4M30.n3cBqWQ4SD5LpcdLiu4G5mgF0YzFzCZrik80MLLXBzk";
 
@@ -2180,6 +2180,7 @@ async function exportExcelWithPhotos(dataToExport) {
         { header: 'Flat', key: 'flat', width: 12 }, { header: 'Category', key: 'defectcategory', width: 20 }, 
         { header: 'Specification', key: 'specificationmatrix', width: 25 }, { header: 'Remarks', key: 'engineeringremarks', width: 30 }, 
         { header: 'Created By', key: 'createdby', width: 18 }, { header: 'Closed By', key: 'closedby', width: 18 },
+        { header: 'Assigned To', key: 'assignedto', width: 20 },
         { header: 'Risk', key: 'riskspectrum', width: 12 }, { header: 'Status', key: 'statusvector', width: 12 }, 
         { header: 'Logged Date', key: 'loggeddate', width: 15 }, { header: 'SLA Date', key: 'sladuedate', width: 15 }, 
         { header: 'Closed Date', key: 'closeddate', width: 15 }, { header: 'Delay', key: 'delayaxis', width: 12 },
@@ -2196,7 +2197,7 @@ async function exportExcelWithPhotos(dataToExport) {
     hRow.alignment = { vertical: 'middle', horizontal: 'center' };
     
     dataToExport.forEach((d) => { 
-        const row = sheet.addRow({ ...d, map: "", initial: "", final: "" }); 
+        const row = sheet.addRow({ ...d, assignedto: (d.assignedto ? String(d.assignedto).replace(/\|/g, ', ') : 'All Members'), map: "", initial: "", final: "" }); 
         row.height = 75; 
         
         const addImgGridToCell = (picsArray, colIdx) => {
@@ -2221,11 +2222,11 @@ async function exportExcelWithPhotos(dataToExport) {
         if(d.mapthumbnail) {
             try {
                 const mapId = workbook.addImage({ base64: d.mapthumbnail, extension: 'jpeg' });
-                sheet.addImage(mapId, { tl: { col: 16, row: row.number - 1 }, ext: { width: 70, height: 70 }, editAs: 'oneCell' });
+                sheet.addImage(mapId, { tl: { col: 17, row: row.number - 1 }, ext: { width: 70, height: 70 }, editAs: 'oneCell' });
             } catch(e) {}
         }
-        addImgGridToCell(d.initialPics, 18);
-        addImgGridToCell(d.finalPics, 19);
+        addImgGridToCell(d.initialPics, 19);
+        addImgGridToCell(d.finalPics, 20);
     });
     
     const buf = await workbook.xlsx.writeBuffer(); 
