@@ -1367,7 +1367,13 @@ function generateTableRowsHtml(dataArray) {
         
         let actionHtml = `<span style="color:#94a3b8; font-size:11px;"><i class="fas fa-eye"></i> View</span>`;
         if(d.statusvector === "Closed") actionHtml = `<span style="color:#059669; font-weight:bold; font-size:11.5px; background: #d1fae5; padding: 4px 8px; border-radius: 4px; display:inline-block;"><i class="fas fa-lock"></i> Closed</span>`;
-        else if(canEdit) actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
+        else if(canEdit) {
+            if(currentUser.role === "admin" || (typeof canCloseDefect === "function" && canCloseDefect(d))) {
+                actionHtml = `<button class="btn-capture-tech action-btn" onclick="openEditModal('${d.id}')"><i class="fas fa-bolt"></i> Action</button>`;
+            } else {
+                actionHtml = `<span style="color:#b45309; font-size:11px; font-weight:600;" title="Assigned to another user"><i class="fas fa-user-lock"></i> Assigned</span>`;
+            }
+        }
         
         let mapHtml = "Not Mapped"; 
         if(d.mapthumbnail) {
@@ -1385,6 +1391,7 @@ function generateTableRowsHtml(dataArray) {
                 <td>${resolvedSpec}</td>
                 <td>${d.engineeringremarks || "-"}</td>
                 <td>${mapHtml}</td><td><b>${d.createdby || "-"}</b></td><td><b>${d.closedby || "-"}</b></td>
+                <td>${d.assignedto ? d.assignedto.replace(/\|/g, ', ') : '<span style="color:#94a3b8;">Common</span>'}</td>
                 <td>${d.riskspectrum || "-"}</td><td><span class="locked-badge">${d.statusvector || "-"}</span></td>
                 <td>${d.loggeddate || "-"}</td><td>${d.sladuedate || "-"}</td><td>${d.closeddate || "-"}</td><td>${d.delayaxis || "-"}</td>
                 <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
@@ -1396,6 +1403,10 @@ function openEditModal(id) {
     if(currentUser.role === "user" && currentUser.permission === "view") return;
     const d = defects.find(x => x.id == id); if(!d) return;
     if(d.statusvector === "Closed") return alert("This defect has been closed and locked.");
+    if(currentUser.role !== "admin" && typeof canCloseDefect === "function" && !canCloseDefect(d)) {
+        if(typeof openDefectInfoModal === "function") return openDefectInfoModal(d);
+        return alert("This defect is assigned to another user. You can only view it.");
+    }
 
     document.getElementById("editDefectId").value = id; document.getElementById("editstatusvector").value = "Closed";
     

@@ -228,6 +228,8 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .edit-map { margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 8px; }
 
 .img-zoom-layer { z-index: 99999; }
+/* Close / Edit / Info modals must sit ABOVE the BI drill-down modal (9999) */
+#editModal, #closeDefectModal, #defectInfoModal { z-index: 10001; }
 .img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
 .close-img-btn { position: absolute; top: -40px; right: 0; }
 .zoomed-view-img { max-width: 90vw; max-height: 85vh; border-radius: 8px; border: 4px solid white; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }

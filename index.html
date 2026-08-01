@@ -217,7 +217,7 @@
                             <tr>
                                 <th>Sl No</th><th>Project Scope</th><th>Tower</th><th>Floor Vector</th><th>Flat/Unit</th>
                                 <th>Defect Category</th><th>Specification Matrix</th><th>Engineering Remarks</th><th>Map Location</th>
-                                <th>Created By</th><th>Closed By</th>
+                                <th>Created By</th><th>Closed By</th><th>Assigned To</th>
                                 <th>Risk Spectrum</th><th>Status Vector</th><th>Logged Date</th><th>SLA Due Date</th><th>Closed Date</th>
                                 <th>Delay Axis</th><th>Initial Photos</th><th>Final Photos</th><th>Actions</th>
                             </tr>
@@ -623,7 +623,7 @@
         </div>
     </div>
 
-    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="csms-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
+    <div id="drilldownModal" class="drilldown-modal"><div class="modal-content"><div class="modal-header-pro"><h3 id="modalTitle"><i class="fas fa-search-plus text-cyan"></i> Telemetry Deep-Drill Records</h3><div class="modal-header-actions"><button class="btn-export-tech xls" onclick="exportExcelWithPhotos(currentDrilldownData)"><i class="fas fa-file-excel"></i> Excel</button><button class="btn-export-tech pdf" onclick="exportPDF(currentDrilldownData)"><i class="fas fa-file-pdf"></i> PDF</button><button class="btn-danger-tech" onclick="closeDrillModal()"><i class="fas fa-times"></i> Close</button></div></div><div class="records-table-container"><table id="drilldownTable" class="csms-pro-table"><thead><tr><th>Sl No</th><th>Project</th><th>Tower</th><th>Floor</th><th>Flat</th><th>Category</th><th>Specification</th><th>Remarks</th><th>Map</th><th>Created By</th><th>Closed By</th><th>Assigned To</th><th>Risk</th><th>Status</th><th>Logged</th><th>SLA</th><th>Closed</th><th>Delay</th><th>Initial</th><th>Final</th><th>Action</th></tr></thead><tbody></tbody></table></div></div></div>
 
     <div id="imageZoomModal" class="drilldown-modal img-zoom-layer"><div class="modal-content img-modal-content"><button class="btn-danger-tech close-img-btn" onclick="closeImageZoom()"><i class="fas fa-times"></i> Close</button><img id="zoomedImage" src="" class="zoomed-view-img"></div></div>
 

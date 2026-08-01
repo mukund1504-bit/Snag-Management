@@ -518,7 +518,7 @@
         <td><span class="notif-risk-pill risk-pill-${riskCls}">${d.riskspectrum || '-'}</span></td>
         <td style="${overdue ? 'color:#dc2626;font-weight:700;' : ''}">${d.sladuedate || '-'}${overdue?' ⚠':''}</td>
         <td style="font-size:11.5px;">${d.assignedto || '<i style="color:#94a3b8;">Common</i>'}</td>
-        <td>${closable ? `<button class="close-btn-inline" onclick="openCloseDefectModal(defects.find(x=>x.id=='${d.id}'))"><i class="fas fa-check"></i> Close</button>` : '<span style="color:#94a3b8;font-size:11px;">Not assigned to you</span>'}</td>
+        <td>${closable ? `<button class="close-btn-inline" onclick="openCloseDefectModal(defects.find(x=>x.id=='${d.id}'))"><i class="fas fa-check"></i> Close</button>` : `<button class="view-btn" onclick="_notifView('${d.id}')"><i class="fas fa-eye"></i> View</button>`}</td>
       </tr>`;
     }).join('');
   };
@@ -566,8 +566,7 @@
     tbody.innerHTML=closed.map((d,i)=>`<tr><td><span class="serial-badge-inline" style="background:#10b981;">${i+1}</span></td><td>${d.flat||'-'}</td><td><b>${d.defectcategory||'-'}</b></td><td>${d.specificationmatrix||'-'}</td><td>${d.riskspectrum||'-'}</td><td>${d.closedby||'-'}</td><td>${d.closeddate||'-'}</td><td><button class="view-btn" onclick="_notifView('${d.id}')"><i class='fas fa-eye'></i> View</button></td></tr>`).join('');
   };
   window.exportClosedExcel = function() {
-    const rows=_clClosedDefects(); if(!rows.length) return alert('No closed defects to export.');
-    if(typeof exportExcelWithPhotos==='function') exportExcelWithPhotos(rows); else alert('Export unavailable.');
+    _exportVisibleTableXlsx('closedTable', 'Closed Defects', 'CSMS_Closed_Defects.xlsx');
   };
 
   // =========================================================
@@ -577,6 +576,7 @@
   let _cdFinalPhotos = [];
 
   window.openCloseDefectModal = function(d) {
+    if (d && !canCloseDefect(d)) { if (typeof openDefectInfoModal === 'function') return openDefectInfoModal(d); return alert('You can only view this defect (assigned to another user / view-only access).'); }
     if (!d) return;
     if (!canCloseDefect(d)) { alert('You do not have permission to close this defect.'); return; }
     _cdCurrent = d;
@@ -1165,12 +1165,33 @@
     if (typeof openDrillModal === 'function') openDrillModal(title, data);
   };
 
-  // Download Pending Defects Summary (Closure tab) as Excel
+  // Generic: export EXACTLY what a visible table shows (skips the Action/View column)
+  window._exportVisibleTableXlsx = async function(tableId, sheetName, filename) {
+    const tbl = document.getElementById(tableId);
+    if (!tbl) return alert('Table not found.');
+    const headCells = Array.from(tbl.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const skip = headCells.map(h => /^(action|view)$/i.test(h));
+    const bodyRows = Array.from(tbl.querySelectorAll('tbody tr')).filter(tr => !tr.querySelector('td[colspan]'));
+    if (bodyRows.length === 0) return alert('No rows to export (table is empty).');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(sheetName);
+    const hr = ws.addRow(headCells.filter((h, i) => !skip[i]));
+    hr.font = { bold: true, color: { argb: 'FFFFFF' } };
+    hr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F172A' } };
+    bodyRows.forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll('td'));
+      ws.addRow(cells.map(td => td.textContent.trim().replace(/\s+/g, ' ')).filter((v, i) => !skip[i]));
+    });
+    ws.columns.forEach(c => { c.width = 20; });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+    if (typeof csmsToast === 'function') csmsToast('Excel downloaded (table view).', 'success');
+  };
+
+  // Download Pending Defects Summary (Closure tab) — ONLY what the table shows
   window.exportClosureExcel = function() {
-    const rows = (typeof _clFilteredDefects === 'function') ? _clFilteredDefects() : [];
-    if (!rows || rows.length === 0) return alert('No pending defects to export.');
-    if (typeof exportExcelWithPhotos === 'function') exportExcelWithPhotos(rows);
-    else alert('Export function unavailable.');
+    _exportVisibleTableXlsx('closureTable', 'Pending Defects', 'CSMS_Pending_Defects.xlsx');
   };
 
   // Excel export of analytics table
