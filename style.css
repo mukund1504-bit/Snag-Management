@@ -115,24 +115,26 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   header{flex-direction:column;align-items:stretch;gap:10px;}
   header nav{flex-wrap:wrap;justify-content:flex-start;}
   .form-map-grid{display:block !important;}
-  
-  /* FIXED SETUP MARGINS FOR MOBILE */
   .closure-split,.edit-modal-grid,.setup-split-layout,.dashboard-display-container-tech,.bi-extra-grid{display:block !important;}
   .closure-split > *, .bi-extra-grid > *, .setup-split-layout > *, .edit-modal-grid > * {margin-bottom:16px;}
 }
-
 @media (max-width: 768px){
   .notif-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
   .notif-tabs .notif-tab-btn{flex:0 0 auto;white-space:nowrap;}
   .notif-tabs .btn-export-tech{margin-left:8px !important;flex:0 0 auto;}
   .form-grid,.advanced-filter-grid,.admin-grid-container{grid-template-columns:1fr !important;display:grid !important;}
-  .records-table-container{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  
+  /* --- ADVANCED TOUCH/SCROLL FIX FOR ALL TABLES ON MOBILE --- */
+  .records-table-container {
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      touch-action: pan-x pan-y !important; /* Force explicit swipe allowance */
+      display: block !important; 
+  }
   
   /* FORCE SCROLL ON MOBILE FIX FOR MINI TABLES */
   .records-table-container.mini-table {
       max-height: 350px !important;
-      overflow-y: auto !important;
-      -webkit-overflow-scrolling: touch !important;
   }
 
   .card-header-tech,.report-header-controls-tech{flex-direction:column;align-items:flex-start;}
@@ -142,11 +144,14 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   .chart-container-wrapper{min-height:260px;}
 
   /* === NEW SETUP TAB MOBILE ALIGNMENT FIXES === */
-  .admin-card { padding: 14px !important; }
+  .admin-card { 
+      padding: 14px !important; 
+      height: auto !important; /* Prevents Safari height lock bugs */
+      display: block !important;
+  }
   .setup-form-pro { padding: 12px !important; }
   .setup-split-layout { display: flex !important; flex-direction: column !important; gap: 15px !important; }
   
-  /* Stack inline grids & buttons vertically on mobile for perfect fit */
   .setup-form-pro > div[style*="display:grid"], 
   .setup-form-pro > div[style*="display:flex"] { 
       display: flex !important; 
@@ -189,7 +194,19 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .advanced-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; }
 .actions-group-tech { display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end; }
 
-.records-table-container { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+/* --- CORE TABLE SETTINGS (Advanced Desktop & Mobile Fix) --- */
+.records-table-container { 
+    width: 100%; 
+    overflow: auto !important; 
+    -webkit-overflow-scrolling: touch !important; 
+    touch-action: pan-x pan-y !important;
+    border: 1px solid #e2e8f0; 
+    border-radius: 12px; 
+    background: #ffffff; 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+    display: block; 
+    position: relative; 
+}
 .csms-pro-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; white-space: nowrap; }
 .csms-pro-table th { background: #0f172a; color: #ffffff; padding: 14px 18px; font-weight: 600; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 5; }
 .csms-pro-table td { padding: 12px 18px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
@@ -212,13 +229,19 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 
 .admin-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .admin-span-full { grid-column: 1 / -1; }
-.admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; }
+
+/* Fixed parent height constraint causing scroll locks */
+.admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: auto; }
+
 .setup-split-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
 .setup-form-pro { background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 10px; }
 .setup-form-pro input, .setup-form-pro textarea, .setup-form-pro select { margin-bottom: 0; background: white; }
 .rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
 .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
-.mini-table { max-height: 300px; margin-top: 15px; flex: 1; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+/* Explicit auto overflow added to mini table */
+.mini-table { max-height: 300px !important; margin-top: 15px; flex: 1 1 auto; overflow: auto !important; -webkit-overflow-scrolling: touch !important; }
+
 .action-icon-btn { cursor:pointer; padding:5px 8px; border-radius:4px; margin-right:5px; border:none; font-weight:bold; font-size:11px; }
 .edit-btn { background:#fef08a; color:#854d0e; }
 .del-btn { background:#fee2e2; color:#b91c1c; }
