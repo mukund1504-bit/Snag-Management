@@ -85,26 +85,11 @@ section.active { display: block !important; }
 .thumb .x { position: absolute; top: 2px; right: 2px; background: var(--crimson-fail); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
 
 .map-precision-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: auto; position: sticky; top: 80px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-/* === FIX #3 (v3) / FIX #5 === Mobile pinch-zoom + drag-to-pan scoped to map box.
-   • touch-action: none on both wrapper and canvas => browser stops hijacking
-     touch gestures, so our JS handles: 2-finger pinch (zoom) AND 1-finger
-     drag (pan when zoomed in) AND regular tap (mark defect) at scale 1
-   • overflow: hidden on wrapper so the transform-translated canvas never
-     bleeds outside the map box — corners always stay within the viewport
-   • canvas fits container by default via width:100% / height:auto so the
-     whole map is visible on load, and drag becomes possible only when zoomed
-     (see JS: dragActive only starts when scale > 1) */
-/* === A4 PORTRAIT MAP BOX ===
-   Box locked to A4 proportion (210:297) so an A4 blueprint fills it 100% with
-   no blank gaps. Canvas is absolutely positioned at top-left and fully driven
-   by the JS transform (scale + clamped translate) for smooth zoom/pan in all
-   directions. max-width/max-height:100% => whole map visible on load. */
 .map-viewport-container { position: relative; width: 100%; max-width: 600px; aspect-ratio: 210 / 297; margin: 12px auto; overflow: hidden; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; touch-action: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; -ms-touch-action: none; }
 #blueprint-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; overflow: hidden; touch-action: none; -ms-touch-action: none; }
 canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; transform-origin: top left; display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; touch-action: none; -ms-touch-action: none; will-change: transform; }
 #modalCanvas { position: absolute; left: 0; top: 0; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; }
 
-/* === FIX #4 === Non-blocking toast (used instead of alert for background errors) */
 .csms-toast-container { position: fixed; top: 20px; right: 20px; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .csms-toast { background: #0f172a; color: #f1f5f9; padding: 12px 18px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); font-size: 13px; font-weight: 600; border-left: 4px solid var(--accent-glow); max-width: 340px; opacity: 0; transform: translateX(20px); transition: opacity 0.25s, transform 0.25s; pointer-events: auto; }
 .csms-toast.show { opacity: 1; transform: translateX(0); }
@@ -130,21 +115,48 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   header{flex-direction:column;align-items:stretch;gap:10px;}
   header nav{flex-wrap:wrap;justify-content:flex-start;}
   .form-map-grid{display:block !important;}
+  
+  /* FIXED SETUP MARGINS FOR MOBILE */
   .closure-split,.edit-modal-grid,.setup-split-layout,.dashboard-display-container-tech,.bi-extra-grid{display:block !important;}
-  .closure-split > *,.bi-extra-grid > *{margin-bottom:16px;}
+  .closure-split > *, .bi-extra-grid > *, .setup-split-layout > *, .edit-modal-grid > * {margin-bottom:16px;}
 }
+
 @media (max-width: 768px){
   .notif-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
   .notif-tabs .notif-tab-btn{flex:0 0 auto;white-space:nowrap;}
   .notif-tabs .btn-export-tech{margin-left:8px !important;flex:0 0 auto;}
   .form-grid,.advanced-filter-grid,.admin-grid-container{grid-template-columns:1fr !important;display:grid !important;}
   .records-table-container{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  
+  /* FORCE SCROLL ON MOBILE FIX FOR MINI TABLES */
+  .records-table-container.mini-table {
+      max-height: 350px !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+  }
+
   .card-header-tech,.report-header-controls-tech{flex-direction:column;align-items:flex-start;}
   .actions-group-tech{flex-wrap:wrap;}
   header nav .nav-btn{font-size:12px;padding:8px 10px;}
   .notif-filter-row{flex-direction:column;align-items:stretch;}
   .chart-container-wrapper{min-height:260px;}
+
+  /* === NEW SETUP TAB MOBILE ALIGNMENT FIXES === */
+  .admin-card { padding: 14px !important; }
+  .setup-form-pro { padding: 12px !important; }
+  .setup-split-layout { display: flex !important; flex-direction: column !important; gap: 15px !important; }
+  
+  /* Stack inline grids & buttons vertically on mobile for perfect fit */
+  .setup-form-pro > div[style*="display:grid"], 
+  .setup-form-pro > div[style*="display:flex"] { 
+      display: flex !important; 
+      flex-direction: column !important; 
+      gap: 10px !important; 
+      width: 100% !important; 
+  }
+  .checkbox-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
 }
+
 /* ===== MOBILE NAV: hamburger dropdown; profile+logout always visible ===== */
 .mobile-bar{display:none;}
 @media (max-width: 768px){
@@ -198,7 +210,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .chart-card-tech { background: white; padding: 22px; border-radius: 12px; border: 1px solid var(--border-matrix); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
 .chart-container-wrapper { height: 320px; width: 100%; position: relative; cursor: pointer; margin-top: 15px; }
 
-/* Point D: Changed admin grid to ensure 50-50 space is taken */
 .admin-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .admin-span-full { grid-column: 1 / -1; }
 .admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; }
@@ -207,7 +218,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .setup-form-pro input, .setup-form-pro textarea, .setup-form-pro select { margin-bottom: 0; background: white; }
 .rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
 .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
-.mini-table { max-height: 300px; margin-top: 15px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.mini-table { max-height: 300px; margin-top: 15px; flex: 1; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .action-icon-btn { cursor:pointer; padding:5px 8px; border-radius:4px; margin-right:5px; border:none; font-weight:bold; font-size:11px; }
 .edit-btn { background:#fef08a; color:#854d0e; }
 .del-btn { background:#fee2e2; color:#b91c1c; }
