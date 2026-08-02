@@ -207,12 +207,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .setup-form-pro input, .setup-form-pro textarea, .setup-form-pro select { margin-bottom: 0; background: white; }
 .rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
 .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
-.mini-table { 
-    max-height: 300px; 
-    margin-top: 15px; 
-    flex: 1; 
-    overflow: auto; 
-    -webkit-overflow-scrolling: touch;
+.mini-table { max-height: 300px; margin-top: 15px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .action-icon-btn { cursor:pointer; padding:5px 8px; border-radius:4px; margin-right:5px; border:none; font-weight:bold; font-size:11px; }
 .edit-btn { background:#fef08a; color:#854d0e; }
 .del-btn { background:#fee2e2; color:#b91c1c; }
