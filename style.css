@@ -457,6 +457,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .closure-list-card {
     display: flex;
     flex-direction: column;
+    min-height: 0; /* YE LINE ADD KARNI HAI: Isse table map ko lamba nahi karegi */
 }
 
 .closure-list-card .records-table-container {
