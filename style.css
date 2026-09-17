@@ -445,7 +445,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     display: grid;
     grid-template-columns: 1.5fr 1fr;
     gap: 20px;
-    align-items: start;
+    align-items: stretch;
 }
 .closure-map-card, .closure-list-card {
     background: white;
@@ -453,6 +453,16 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+.closure-list-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.closure-list-card .records-table-container {
+    flex: 1;
+    min-height: 0;
+    max-height: none !important; /* Hardcoded height ko override karne ke liye */
 }
 .closure-map-card .map-viewport-container {
     margin: 12px auto;
