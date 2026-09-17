@@ -457,7 +457,21 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .closure-list-card {
     display: flex;
     flex-direction: column;
-    min-height: 0; /* YE LINE ADD KARNI HAI: Isse table map ko lamba nahi karegi */
+}
+
+/* --- DESKTOP: लिस्ट बॉक्स की हाइट strictly मैप के बराबर रहेगी --- */
+@media screen and (min-width: 1025px) {
+    .closure-list-card {
+        height: 0;
+        min-height: 100%;
+    }
+}
+
+/* --- MOBILE/TABLET: जब मैप ऊपर और टेबल नीचे आ जाये, तब टेबल फिक्स हाइट पर स्क्रॉल हो --- */
+@media screen and (max-width: 1024px) {
+    .closure-list-card {
+        height: 550px;
+    }
 }
 
 .closure-list-card .records-table-container {
