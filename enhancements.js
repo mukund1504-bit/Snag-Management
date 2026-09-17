@@ -288,6 +288,11 @@
     _msBind('cl_cat_ms', clRenderTable);
     _msBind('cl_risk_ms', clRenderTable);
     _msBind('cl_assign_ms', clRenderTable);
+const allUsers = new Set();
+    (USER_MATRIX || []).forEach(u => allUsers.add(getFullName(u)));
+    (defects || []).forEach(d => { if (d.createdby) allUsers.add(d.createdby); });
+    _msSetOptions('cl_user_ms', Array.from(allUsers), {showAll:'All Users'});
+    _msBind('cl_user_ms', clRenderTable);
     const slaSel = document.getElementById('cl_sla');
     if (slaSel) slaSel.onchange = clRenderTable;
   };
@@ -470,6 +475,7 @@
     const risks = _msGetSelected('cl_risk_ms');
     const assigns = _msGetSelected('cl_assign_ms');
     const slaFilter = document.getElementById('cl_sla') ? document.getElementById('cl_sla').value : 'all';
+    const users = _msGetSelected('cl_user_ms');
 
     const today = new Date();
     return (defects || []).filter(d => {
@@ -485,6 +491,7 @@
         const overlaps = assigns.some(x => a.includes(x));
         if (!overlaps) return false;
       }
+if (users.length && !users.includes(d.createdby)) return false;
       if (slaFilter === 'delayed') {
         if (!d.sladuedate || new Date(d.sladuedate) >= today) return false;
       } else if (slaFilter === 'ontime') {
@@ -526,7 +533,7 @@
   // ---------- NEW: Closed Defects map (green dots) + summary ----------
   function _clClosedDefects() {
     const p=document.getElementById('cl_project').value, t=document.getElementById('cl_tower').value, f=document.getElementById('cl_floor').value, flat=document.getElementById('cl_flat').value;
-    const cats=_msGetSelected('cl_cat_ms'), risks=_msGetSelected('cl_risk_ms');
+    const cats=_msGetSelected('cl_cat_ms'), risks=_msGetSelected('cl_risk_ms'), users=_msGetSelected('cl_user_ms');
     return (defects||[]).filter(d=>{
       if(d.statusvector!=='Closed') return false;
       if(p&&d.project!==p) return false;
@@ -535,6 +542,7 @@
       if(flat&&d.flat!==flat) return false;
       if(cats.length&&!cats.includes(d.defectcategory)) return false;
       if(risks.length&&!risks.includes(d.riskspectrum)) return false;
+      if(users.length&&!users.includes(d.createdby)) return false;
       return true;
     });
   }
