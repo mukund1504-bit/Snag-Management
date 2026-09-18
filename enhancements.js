@@ -1045,9 +1045,30 @@ if (users.length && !users.includes(d.createdby)) return false;
       filteredData.forEach(d => { let k = `${d.project}_${d.tower}`; if(!matrixData[k]) matrixData[k]={p:d.project,t:d.tower,o:0,ip:0,c:0,tot:0}; if(d.statusvector==='Open')matrixData[k].o++; if(d.statusvector==='In Progress')matrixData[k].ip++; if(d.statusvector==='Closed')matrixData[k].c++; matrixData[k].tot++; });
       tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.t}</td>${L(m.p+' '+m.t+' Open',{project:m.p,tower:m.t,status:'Open'},m.o)}${L(m.p+' '+m.t+' In Progress',{project:m.p,tower:m.t,status:'In Progress'},m.ip)}${L(m.p+' '+m.t+' Closed',{project:m.p,tower:m.t,status:'Closed'},m.c)}${L(m.p+' '+m.t+' All',{project:m.p,tower:m.t},'<b>'+m.tot+'</b>')}</tr>`).join('');
     } else if (filterAnalytic === 'defect') {
-      tHead.innerHTML = `<th>PROJECT</th><th>CATEGORY</th><th>SPECIFICATION</th><th>TOTAL</th>`;
-      filteredData.forEach(d => { const specs = (d.specificationmatrix||'').split(',').map(s=>s.trim()).filter(Boolean); if (specs.length===0) specs.push('-'); specs.forEach(s => { const k = `${d.project}_${d.defectcategory}_${s}`; if(!matrixData[k]) matrixData[k]={p:d.project,c:d.defectcategory,s:s,tot:0}; matrixData[k].tot++; }); });
-      tBody.innerHTML = Object.values(matrixData).map(m => `<tr><td><b>${m.p}</b></td><td>${m.c}</td><td>${m.s}</td><td><b>${m.tot}</b></td></tr>`).join('');
+      tHead.innerHTML = `<th>PROJECT</th><th>CATEGORY</th><th>SPECIFICATION</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th><th>WEIGHTAGE</th>`;
+      let grandTotal = 0;
+      filteredData.forEach(d => { 
+        const specs = (d.specificationmatrix||'').split(',').map(s=>s.trim()).filter(Boolean); 
+        if (specs.length===0) specs.push('-'); 
+        specs.forEach(s => { 
+          const k = `${d.project}_${d.defectcategory}_${s}`; 
+          if(!matrixData[k]) matrixData[k]={p:d.project,c:d.defectcategory,s:s,l:0,m:0,h:0,tot:0}; 
+          if(d.riskspectrum==='Low') matrixData[k].l++;
+          if(d.riskspectrum==='Medium') matrixData[k].m++;
+          if(d.riskspectrum==='High') matrixData[k].h++;
+          matrixData[k].tot++; 
+          grandTotal++;
+        }); 
+      });
+      tBody.innerHTML = Object.values(matrixData).map(m => {
+        const weightage = grandTotal > 0 ? ((m.tot / grandTotal) * 100).toFixed(2) + '%' : '0%';
+        return `<tr><td><b>${m.p}</b></td><td>${m.c}</td><td>${m.s}</td>
+          ${L(m.p+' '+m.s+' Low',{project:m.p,category:m.c,spec:m.s,risk:'Low'},m.l)}
+          ${L(m.p+' '+m.s+' Medium',{project:m.p,category:m.c,spec:m.s,risk:'Medium'},m.m)}
+          ${L(m.p+' '+m.s+' High',{project:m.p,category:m.c,spec:m.s,risk:'High'},m.h)}
+          ${L(m.p+' '+m.s+' All',{project:m.p,category:m.c,spec:m.s},'<b>'+m.tot+'</b>')}
+          <td><b style="color:#0284c7;">${weightage}</b></td></tr>`;
+      }).join('');
     } else if (filterAnalytic === 'intensity') {
       tHead.innerHTML = `<th>PROJECT</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th>`;
       filteredData.forEach(d => { let k = d.project; if(!matrixData[k]) matrixData[k]={p:d.project,l:0,m:0,h:0,tot:0}; if(d.riskspectrum==='Low')matrixData[k].l++; if(d.riskspectrum==='Medium')matrixData[k].m++; if(d.riskspectrum==='High')matrixData[k].h++; matrixData[k].tot++; });
@@ -1156,6 +1177,11 @@ if (users.length && !users.includes(d.createdby)) return false;
       if (p.status && d.statusvector !== p.status) return false;
       if (p.risk && d.riskspectrum !== p.risk) return false;
       if (p.category && d.defectcategory !== p.category) return false;
+if (p.spec) {
+        const specs = (d.specificationmatrix||'').split(',').map(s=>s.trim()).filter(Boolean);
+        if (p.spec === '-' && specs.length > 0) return false;
+        if (p.spec !== '-' && !specs.includes(p.spec)) return false;
+      }
       if (p.openOnly && d.statusvector === 'Closed') return false;
       if (p.createdby && d.createdby !== p.createdby) return false;
       if (p.closedby && (d.closedby !== p.closedby || d.statusvector !== 'Closed')) return false;
