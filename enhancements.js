@@ -1047,28 +1047,49 @@ if (users.length && !users.includes(d.createdby)) return false;
     } else if (filterAnalytic === 'defect') {
       tHead.innerHTML = `<th>PROJECT</th><th>CATEGORY</th><th>ASSIGNED TO</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th><th>WEIGHTAGE</th>`;
       let grandTotal = 0;
+      
       filteredData.forEach(d => { 
-        // Assignees ko alag-alag karna (agar kisi ko assign nahi hai toh '<Unassigned>' dikhayega)
-        const assignees = d.assignedto ? String(d.assignedto).split('|').map(s=>s.trim()).filter(Boolean) : ['<Unassigned>'];
+        // प्रोजेक्ट और कैटेगरी के हिसाब से यूनीक की (Key) बनाएंगे ताकि कैटेगरी रिपीट न हो
+        const k = `${d.project}_${d.defectcategory}`; 
         
-        assignees.forEach(a => { 
-          const k = `${d.project}_${d.defectcategory}_${a}`; 
-          if(!matrixData[k]) matrixData[k]={p:d.project,c:d.defectcategory,a:a,l:0,m:0,h:0,tot:0}; 
-          if(d.riskspectrum==='Low') matrixData[k].l++;
-          if(d.riskspectrum==='Medium') matrixData[k].m++;
-          if(d.riskspectrum==='High') matrixData[k].h++;
-          matrixData[k].tot++; 
-          grandTotal++;
-        }); 
+        if(!matrixData[k]) {
+          matrixData[k] = {
+            p: d.project,
+            c: d.defectcategory,
+            assigneesSet: new Set(), // नाम रिपीट न हो इसलिए Set का इस्तेमाल किया है
+            l: 0,
+            m: 0,
+            h: 0,
+            tot: 0
+          };
+        } 
+        
+        // इस डिफेक्ट पर जितने भी लोग assign हैं, उन्हें कलेक्ट करना
+        const assignees = d.assignedto ? String(d.assignedto).split('|').map(s=>s.trim()).filter(Boolean) : ['<Unassigned>'];
+        assignees.forEach(a => matrixData[k].assigneesSet.add(a));
+
+        if(d.riskspectrum === 'Low') matrixData[k].l++;
+        if(d.riskspectrum === 'Medium') matrixData[k].m++;
+        if(d.riskspectrum === 'High') matrixData[k].h++;
+        matrixData[k].tot++; 
+        grandTotal++;
       });
+
       tBody.innerHTML = Object.values(matrixData).map(m => {
         const weightage = grandTotal > 0 ? ((m.tot / grandTotal) * 100).toFixed(2) + '%' : '0%';
-        return `<tr><td><b>${m.p}</b></td><td>${m.c}</td><td>${m.a}</td>
-          ${L(m.p+' '+m.a+' Low',{project:m.p,category:m.c,assignee:m.a,risk:'Low'},m.l)}
-          ${L(m.p+' '+m.a+' Medium',{project:m.p,category:m.c,assignee:m.a,risk:'Medium'},m.m)}
-          ${L(m.p+' '+m.a+' High',{project:m.p,category:m.c,assignee:m.a,risk:'High'},m.h)}
-          ${L(m.p+' '+m.a+' All',{project:m.p,category:m.c,assignee:m.a},'<b>'+m.tot+'</b>')}
-          <td><b style="color:#0284c7;">${weightage}</b></td></tr>`;
+        // सारे यूज़र्स के नाम को कॉमा से जोड़ना (Rahul, Mukesh, Pankaj)
+        const assignedNames = Array.from(m.assigneesSet).join(', ');
+        
+        return `<tr>
+          <td><b>${m.p}</b></td>
+          <td>${m.c}</td>
+          <td>${assignedNames}</td>
+          ${L(m.p+' '+m.c+' Low', {project: m.p, category: m.c, risk: 'Low'}, m.l)}
+          ${L(m.p+' '+m.c+' Medium', {project: m.p, category: m.c, risk: 'Medium'}, m.m)}
+          ${L(m.p+' '+m.c+' High', {project: m.p, category: m.c, risk: 'High'}, m.h)}
+          ${L(m.p+' '+m.c+' All', {project: m.p, category: m.c}, '<b>'+m.tot+'</b>')}
+          <td><b style="color:#0284c7;">${weightage}</b></td>
+        </tr>`;
       }).join('');
     } else if (filterAnalytic === 'intensity') {
       tHead.innerHTML = `<th>PROJECT</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th>`;
