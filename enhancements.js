@@ -1048,7 +1048,7 @@ if (users.length && !users.includes(d.createdby)) return false;
       tHead.innerHTML = `<th>PROJECT</th><th>CATEGORY</th><th>ASSIGNED TO</th><th>LOW</th><th>MEDIUM</th><th>HIGH</th><th>TOTAL</th><th>WEIGHTAGE</th>`;
       let grandTotal = 0;
       filteredData.forEach(d => { 
-        // Assignees को अलग-अलग करना (अगर किसी को असाइन नहीं है तो '<Unassigned>' दिखाएगा)
+        // Assignees ko alag-alag karna (agar kisi ko assign nahi hai toh '<Unassigned>' dikhayega)
         const assignees = d.assignedto ? String(d.assignedto).split('|').map(s=>s.trim()).filter(Boolean) : ['<Unassigned>'];
         
         assignees.forEach(a => { 
