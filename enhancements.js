@@ -1370,6 +1370,9 @@ if (users.length && !users.includes(d.createdby)) return false;
     if (!p) { cont.innerHTML = '<span style="color:#94a3b8; font-size:13px; padding:10px;">-- Select Project First --</span>'; return; }
     // Users who have access to this project (or admin)
     const candidates = (USER_MATRIX || []).filter(u => {
+      // Agar user admin nahi hai aur uski permission 'edit' nahi hai, to usko list se hata dein
+      if (u.role !== 'admin' && u.permission !== 'edit') return false;
+
       if (u.role === 'admin' || (u.projects && u.projects.includes('All'))) return true;
       if (!t) return (u.projects || []).some(x => x.startsWith(p + '_'));
       return (u.projects || []).includes(`${p}_${t}`);
@@ -1689,7 +1692,7 @@ if (users.length && !users.includes(d.createdby)) return false;
         const eb = document.getElementById('navEntryBtn'); if (eb) eb.style.display = 'none';
       }
       // Hide Closure tab if not allowed to close
-      if (!(currentUser.permission === 'edit' || currentUser.permission === 'close' || currentUser.permission === 'admin')) {
+      if (!(currentUser.permission === 'edit' || currentUser.permission === 'close' || currentUser.permission === 'view' || currentUser.role === 'admin')) {
         const cb = document.getElementById('navClosureBtn'); if (cb) cb.style.display = 'none';
       }
     }
