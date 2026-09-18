@@ -1444,13 +1444,23 @@ function closeEditModal() { document.getElementById("editModal").style.display =
 async function submitEditDefect() {
     const id = document.getElementById("editDefectId").value;
     const stat = document.getElementById("editstatusvector").value;
+    
+    // वर्तमान डिफेक्ट की जानकारी ढूंढें ताकि पुराना स्टेटस पता चल सके
+    const currentDefect = (defects || []).find(x => String(x.id) === String(id));
+    
+    // अगर यूज़र ने 'Closed' सेलेक्ट किया है, तो तय करें कि क्या लिखना है
+    let mappedStatus = stat;
+    if (stat === "Closed" && currentDefect) {
+        mappedStatus = (currentDefect.statusvector === "In Progress") ? "In Progress Closed" : "Closed";
+    }
+
     if(stat === "Closed" && editTempPhotos.length === 0) return alert("Must add Final Verification Photo to close and lock the defect.");
     
     if(stat === "Closed") { 
         if(!confirm("Warning: Closing this defect will LOCK the record. Proceed?")) return; 
     }
 
-    let payload = { statusvector: stat, finalphotos: editTempPhotos.join("|||"), closeddate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
+    let payload = { statusvector: mappedStatus, finalphotos: editTempPhotos.join("|||"), closeddate: stat === "Closed" ? new Date().toISOString().slice(0,10) : "-" };
     if(stat === "Closed") payload.closedby = getFullName(currentUser);
 
     try {

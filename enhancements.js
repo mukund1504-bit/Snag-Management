@@ -679,8 +679,10 @@ if (users.length && !users.includes(d.createdby)) return false;
       const combined = remarks
         ? `${existingRem}${existingRem ? '\n' : ''}[Closure] ${remarks}`
         : existingRem;
+      const finalStatus = (_cdCurrent && _cdCurrent.statusvector === 'In Progress') ? 'In Progress Closed' : 'Closed';
+
       const payload = {
-        statusvector: 'Closed',
+        statusvector: finalStatus,
         finalphotos: _cdFinalPhotos.join('|||'),
         closeddate: new Date().toISOString().slice(0,10),
         closedby: getFullName(currentUser),
