@@ -267,6 +267,26 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
 .close-img-btn { position: absolute; top: -40px; right: 0; }
 .zoomed-view-img { max-width: 90vw; max-height: 85vh; border-radius: 8px; border: 4px solid white; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+/* =========================================================
+   DRILL-DOWN TABLE: 4 Repeating Light Colors for Rows
+========================================================= */
+#drilldownTable tbody tr:nth-child(4n+1) { 
+    background-color: #f0f9ff !important; /* Light Sky Blue */
+}
+#drilldownTable tbody tr:nth-child(4n+2) { 
+    background-color: #ecfdf5 !important; /* Light Emerald Green */
+}
+#drilldownTable tbody tr:nth-child(4n+3) { 
+    background-color: #fffbeb !important; /* Light Amber Yellow */
+}
+#drilldownTable tbody tr:nth-child(4n+4) { 
+    background-color: #f8fafc !important; /* Light Slate Gray */
+}
+
+#drilldownTable tbody tr:hover { 
+    filter: brightness(0.96); 
+    cursor: pointer;
+}
 
 /* ------ RESPONSIVE GRID SEQUENCING UPGRADES ------ */
 @media screen and (min-width: 1025px) {
