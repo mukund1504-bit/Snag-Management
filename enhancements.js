@@ -330,8 +330,19 @@ const allUsers = new Set();
       structuralHierarchy[p][t][f].forEach(u => flatSel.appendChild(new Option(u, u)));
     }
   };
-// NEW: Auto-select filters and load map when clicking on a flat in the table
+// Memory variable to store the previous filter state
+  let previousFilterState = null;
+
+  // NEW: Auto-select filters and load map when clicking on a flat in the table
   window.selectFlatAndLoadMap = function(project, tower, floor, flat) {
+    // Save current filter state BEFORE changing it
+    previousFilterState = {
+      project: document.getElementById('cl_project') ? document.getElementById('cl_project').value : '',
+      tower: document.getElementById('cl_tower') ? document.getElementById('cl_tower').value : '',
+      floor: document.getElementById('cl_floor') ? document.getElementById('cl_floor').value : '',
+      flat: document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : ''
+    };
+
     const pSel = document.getElementById('cl_project');
     if (pSel) pSel.value = project;
     if (typeof clPopulateTowers === 'function') clPopulateTowers();
@@ -349,12 +360,35 @@ const allUsers = new Set();
 
     if (typeof clLoadMap === 'function') clLoadMap();
   };
-// NEW: Function to clear flat selection and go back to full floor list
+
+  // NEW: Function to restore the previous filter condition and go back
   window.clearFlatSelection = function() {
-    const flatSel = document.getElementById('cl_flat');
-    if (flatSel) flatSel.value = ""; // Flat selection ko clear (All Flats) kar dega
+    if (previousFilterState) {
+      // Restore previous state step-by-step
+      const pSel = document.getElementById('cl_project');
+      if (pSel) pSel.value = previousFilterState.project;
+      if (typeof clPopulateTowers === 'function') clPopulateTowers();
+
+      const tSel = document.getElementById('cl_tower');
+      if (tSel) tSel.value = previousFilterState.tower;
+      if (typeof clPopulateFloors === 'function') clPopulateFloors();
+
+      const fSel = document.getElementById('cl_floor');
+      if (fSel) fSel.value = previousFilterState.floor;
+      if (typeof clPopulateFlats === 'function') clPopulateFlats();
+
+      const flatSel = document.getElementById('cl_flat');
+      if (flatSel) flatSel.value = previousFilterState.flat;
+      
+      // Clear memory after restoring
+      previousFilterState = null;
+    } else {
+      // Fallback condition (agar memory me kuch na ho)
+      const flatSel = document.getElementById('cl_flat');
+      if (flatSel) flatSel.value = "";
+    }
     
-    // Map aur table ko wapas se bina flat filter ke load karega
+    // Map aur table ko restore ki hui condition ke hisaab se load karna
     if (typeof clLoadMap === 'function') clLoadMap();
     if (typeof clRenderTable === 'function') clRenderTable();
   };
