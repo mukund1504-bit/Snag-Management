@@ -349,6 +349,15 @@ const allUsers = new Set();
 
     if (typeof clLoadMap === 'function') clLoadMap();
   };
+// NEW: Function to clear flat selection and go back to full floor list
+  window.clearFlatSelection = function() {
+    const flatSel = document.getElementById('cl_flat');
+    if (flatSel) flatSel.value = ""; // Flat selection ko clear (All Flats) kar dega
+    
+    // Map aur table ko wapas se bina flat filter ke load karega
+    if (typeof clLoadMap === 'function') clLoadMap();
+    if (typeof clRenderTable === 'function') clRenderTable();
+  };
 
   function _resolveMapKey(p, t, f, flat) {
     // Try flat-level first, then floor-level fallback
@@ -521,6 +530,9 @@ if (users.length && !users.includes(d.createdby)) return false;
   }
 
   window.clRenderTable = function() {
+const flatVal = document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : '';
+    const backBtnPending = document.getElementById('cl_back_btn_pending');
+    if (backBtnPending) backBtnPending.style.display = flatVal ? 'inline-flex' : 'none';
     const tbody = document.querySelector('#closureTable tbody');
     if (!tbody) return;
     const pending = _clFilteredDefects();
@@ -587,6 +599,9 @@ if (users.length && !users.includes(d.createdby)) return false;
     requestAnimationFrame(() => { if (typeof _applyCanvasTransform === 'function') _applyCanvasTransform('closed'); });
   }
   window.clRenderClosedTable = function() {
+const flatVal = document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : '';
+    const backBtnClosed = document.getElementById('cl_back_btn_closed');
+    if (backBtnClosed) backBtnClosed.style.display = flatVal ? 'inline-flex' : 'none';
     const tbody=document.querySelector('#closedTable tbody'); if(!tbody) return;
     const closed=_clClosedDefects();
     if(!closed.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#64748b;">No closed defects for this selection.</td></tr>'; return; }
