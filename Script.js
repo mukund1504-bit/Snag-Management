@@ -1767,8 +1767,18 @@ function resetCategoryForm() { document.getElementById("categoryForm").reset(); 
 // === FIX #1/#4 === loadMapsFromCloud — now SAFE-MERGES with local cache
 // so an empty/errored cloud response never wipes locally cached maps.
 async function loadMapsFromCloud() {
-    if(!navigator.onLine) return false;
+    // OFFLINE-SAFE FIX: Net na hone par local cached map uthayega
+    if (!navigator.onLine) {
+        const cachedMaps = getSafeStorage("qa_floorMaps", {});
+        if(cachedMaps && Object.keys(cachedMaps).length > 0) {
+            Object.assign(floorMaps, cachedMaps);
+        }
+        return true;
+    }
+
     try {
+        const { data, error } = await supabaseClient.from('snag_maps').select('*');
+    //... (baaki ka code waise hi rahega)
         const { data, error } = await supabaseClient.from('snag_maps').select('*');
         if(error) {
             console.warn("Map cloud sync error:", error.message);
@@ -1846,8 +1856,16 @@ async function migrateLegacyMapsToStorage(legacyRows) {
 //  - Skips reload while a local save is in progress (guard in caller).
 //  - Persists merged result to localStorage as durable fallback.
 async function loadHierarchyFromCloud() {
-    if(!navigator.onLine) return false;
-    if(_hierarchyLoadInProgress) return false;                     // debounce
+    // OFFLINE-SAFE FIX: Net na hone par error nahi aayega, local data use hoga
+    if (!navigator.onLine) {
+        structuralHierarchy = getSafeStorage("qa_strict_hierarchy", structuralHierarchy);
+        return true;
+    }
+    
+    if(_hierarchyLoadInProgress) return false; 
+    if(_hierarchySaveInProgress) { console.log("[Hierarchy] load skipped: save in progress"); return false; }
+    _hierarchyLoadInProgress = true; 
+    //... (baaki ka code waise hi rahega)                     // debounce
     if(_hierarchySaveInProgress) { console.log("[Hierarchy] load skipped: save in progress"); return false; }
     _hierarchyLoadInProgress = true;
     try {
@@ -1933,8 +1951,16 @@ async function loadHierarchyFromCloud() {
 // === FIX #1/#4 === Load Defect Categories & Specs with SAFE MERGE (same
 // contract as loadHierarchyFromCloud — never wipe local on empty/error).
 async function loadCategoriesFromCloud() {
-    if(!navigator.onLine) return false;
+    // OFFLINE-SAFE FIX:
+    if (!navigator.onLine) {
+        defectMatrix = getSafeStorage("qa_defectMatrix", defectMatrix);
+        return true;
+    }
+
     if(_categoryLoadInProgress) return false;
+    if(_categorySaveInProgress) { console.log("[Categories] load skipped: save in progress"); return false; }
+    _categoryLoadInProgress = true;
+    //... (baaki ka code waise hi rahega)
     if(_categorySaveInProgress) { console.log("[Categories] load skipped: save in progress"); return false; }
     _categoryLoadInProgress = true;
     try {
