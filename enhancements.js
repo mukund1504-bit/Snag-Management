@@ -330,6 +330,68 @@ const allUsers = new Set();
       structuralHierarchy[p][t][f].forEach(u => flatSel.appendChild(new Option(u, u)));
     }
   };
+// Memory variable to store the previous filter state
+  let previousFilterState = null;
+
+  // NEW: Auto-select filters and load map when clicking on a flat in the table
+  window.selectFlatAndLoadMap = function(project, tower, floor, flat) {
+    // Save current filter state BEFORE changing it
+    previousFilterState = {
+      project: document.getElementById('cl_project') ? document.getElementById('cl_project').value : '',
+      tower: document.getElementById('cl_tower') ? document.getElementById('cl_tower').value : '',
+      floor: document.getElementById('cl_floor') ? document.getElementById('cl_floor').value : '',
+      flat: document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : ''
+    };
+
+    const pSel = document.getElementById('cl_project');
+    if (pSel) pSel.value = project;
+    if (typeof clPopulateTowers === 'function') clPopulateTowers();
+
+    const tSel = document.getElementById('cl_tower');
+    if (tSel) tSel.value = tower;
+    if (typeof clPopulateFloors === 'function') clPopulateFloors();
+
+    const fSel = document.getElementById('cl_floor');
+    if (fSel) fSel.value = floor;
+    if (typeof clPopulateFlats === 'function') clPopulateFlats();
+
+    const flatSel = document.getElementById('cl_flat');
+    if (flatSel) flatSel.value = flat;
+
+    if (typeof clLoadMap === 'function') clLoadMap();
+  };
+
+  // NEW: Function to restore the previous filter condition and go back
+  window.clearFlatSelection = function() {
+    if (previousFilterState) {
+      // Restore previous state step-by-step
+      const pSel = document.getElementById('cl_project');
+      if (pSel) pSel.value = previousFilterState.project;
+      if (typeof clPopulateTowers === 'function') clPopulateTowers();
+
+      const tSel = document.getElementById('cl_tower');
+      if (tSel) tSel.value = previousFilterState.tower;
+      if (typeof clPopulateFloors === 'function') clPopulateFloors();
+
+      const fSel = document.getElementById('cl_floor');
+      if (fSel) fSel.value = previousFilterState.floor;
+      if (typeof clPopulateFlats === 'function') clPopulateFlats();
+
+      const flatSel = document.getElementById('cl_flat');
+      if (flatSel) flatSel.value = previousFilterState.flat;
+      
+      // Clear memory after restoring
+      previousFilterState = null;
+    } else {
+      // Fallback condition (agar memory me kuch na ho)
+      const flatSel = document.getElementById('cl_flat');
+      if (flatSel) flatSel.value = "";
+    }
+    
+    // Map aur table ko restore ki hui condition ke hisaab se load karna
+    if (typeof clLoadMap === 'function') clLoadMap();
+    if (typeof clRenderTable === 'function') clRenderTable();
+  };
 
   function _resolveMapKey(p, t, f, flat) {
     // Try flat-level first, then floor-level fallback
@@ -502,6 +564,9 @@ if (users.length && !users.includes(d.createdby)) return false;
   }
 
   window.clRenderTable = function() {
+const flatVal = document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : '';
+    const backBtnPending = document.getElementById('cl_back_btn_pending');
+    if (backBtnPending) backBtnPending.style.display = flatVal ? 'inline-flex' : 'none';
     const tbody = document.querySelector('#closureTable tbody');
     if (!tbody) return;
     const pending = _clFilteredDefects();
@@ -519,7 +584,7 @@ if (users.length && !users.includes(d.createdby)) return false;
       const closable = canCloseDefect(d);
       return `<tr>
         <td><span class="serial-badge-inline">${i+1}</span></td>
-        <td>${d.flat || '-'}</td>
+        <td>${d.flat ? `<a href="javascript:void(0)" onclick="selectFlatAndLoadMap('${d.project}', '${d.tower}', '${d.floor}', '${d.flat}')" style="color:#0284c7; font-weight:bold; text-decoration:underline; cursor:pointer;" title="Load Map for this Flat">${d.flat}</a>` : '-'}</td>
         <td><b>${d.defectcategory || '-'}</b></td>
         <td>${d.specificationmatrix || '-'}</td>
         <td><span class="notif-risk-pill risk-pill-${riskCls}">${d.riskspectrum || '-'}</span></td>
@@ -568,10 +633,13 @@ if (users.length && !users.includes(d.createdby)) return false;
     requestAnimationFrame(() => { if (typeof _applyCanvasTransform === 'function') _applyCanvasTransform('closed'); });
   }
   window.clRenderClosedTable = function() {
+const flatVal = document.getElementById('cl_flat') ? document.getElementById('cl_flat').value : '';
+    const backBtnClosed = document.getElementById('cl_back_btn_closed');
+    if (backBtnClosed) backBtnClosed.style.display = flatVal ? 'inline-flex' : 'none';
     const tbody=document.querySelector('#closedTable tbody'); if(!tbody) return;
     const closed=_clClosedDefects();
     if(!closed.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#64748b;">No closed defects for this selection.</td></tr>'; return; }
-    tbody.innerHTML=closed.map((d,i)=>`<tr><td><span class="serial-badge-inline" style="background:#10b981;">${i+1}</span></td><td>${d.flat||'-'}</td><td><b>${d.defectcategory||'-'}</b></td><td>${d.specificationmatrix||'-'}</td><td>${d.riskspectrum||'-'}</td><td>${d.closedby||'-'}</td><td>${d.closeddate||'-'}</td><td><button class="view-btn" onclick="_notifView('${d.id}')"><i class='fas fa-eye'></i> View</button></td></tr>`).join('');
+    tbody.innerHTML=closed.map((d,i)=>`<tr><td><span class="serial-badge-inline" style="background:#10b981;">${i+1}</span></td><td>${d.flat ? `<a href="javascript:void(0)" onclick="selectFlatAndLoadMap('${d.project}', '${d.tower}', '${d.floor}', '${d.flat}')" style="color:#0284c7; font-weight:bold; text-decoration:underline; cursor:pointer;" title="Load Map for this Flat">${d.flat}</a>` : '-'}</td><td><b>${d.defectcategory||'-'}</b></td><td>${d.specificationmatrix||'-'}</td><td>${d.riskspectrum||'-'}</td><td>${d.closedby||'-'}</td><td>${d.closeddate||'-'}</td><td><button class="view-btn" onclick="_notifView('${d.id}')"><i class='fas fa-eye'></i> View</button></td></tr>`).join('');
   };
   window.exportClosedExcel = function() {
     _exportVisibleTableXlsx('closedTable', 'Closed Defects', 'CSMS_Closed_Defects.xlsx');

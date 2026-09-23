@@ -7,7 +7,7 @@ const urlsToCache = [
   './style.css',
   './Script.js?v=4.2',          
   './enhancements.js?v=4.2',    
-  // External Libraries ko bhi cache karein
+  // External Libraries
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
@@ -16,9 +16,6 @@ const urlsToCache = [
 
 // Install Event: App open hote hi in files ko cache me save karega
 self.addEventListener('install', event => {
-  // Service worker ko turant activate karne ke liye
-  self.skipWaiting();
-  
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(urlsToCache);
@@ -30,21 +27,11 @@ self.addEventListener('install', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return; // Sirf GET requests handle karein
 
-  // FIX: Supabase API calls aur Storage ko seedha internet se aane do (Cache mat karo)
-  // Isse aapka login aur live database sync kabhi break nahi hoga
+  // FIX: Supabase API calls ko bypass karein taaki hamesha FRESH live data aaye
   if (event.request.url.includes('supabase.co')) {
-    event.respondWith(
-      fetch(event.request).catch((err) => {
-        console.log('Offline: Supabase request failed', err);
-        // Agar offline hain aur Supabase request fail hoti hai, to throw error taaki
-        // Script.js ka catch block chal jaye aur local storage se data load ho.
-        throw err; 
-      })
-    );
-    return;
+    return; // Browser ko direct internet se laane do, cache mat karo
   }
 
-  // Baaki sabhi files (HTML, CSS, JS, etc.) ke liye Cache-First strategy
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       // Agar file cache me mil gayi toh wahi return kar do (Offline load ho jayega)
@@ -74,9 +61,6 @@ self.addEventListener('fetch', event => {
 
 // Activate Event: Purane caches ko clean karne ke liye
 self.addEventListener('activate', event => {
-  // Naye service worker ko sabhi clients par turant control lene ko kaho
-  event.waitUntil(self.clients.claim());
-  
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(

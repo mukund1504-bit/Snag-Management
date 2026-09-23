@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     
     <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
 </head>
 <body>
 
@@ -364,7 +365,13 @@
                     </div>
                     <div class="closure-list-card">
                         <div class="card-header-pro">
-                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#0f172a; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span><i class="fas fa-list-ul"></i> Pending Defects Summary</span><button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosureExcel()"><i class="fas fa-file-excel"></i> Download Excel</button></h4>
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#0f172a; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <span><i class="fas fa-list-ul"></i> Pending Defects Summary</span>
+    <div style="display:flex; gap:10px;">
+        <button type="button" id="cl_back_btn_pending" class="btn-danger-tech" style="margin:0; display:none;" onclick="clearFlatSelection()"><i class="fas fa-arrow-left"></i> Back</button>
+        <button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosureExcel()"><i class="fas fa-file-excel"></i> Download Excel</button>
+    </div>
+</h4>
                         </div>
                         <div class="records-table-container" style="flex: 1; overflow-y:auto;">
                             <table id="closureTable" class="csms-pro-table">
@@ -394,7 +401,13 @@
                     </div>
                     <div class="closure-list-card">
                         <div class="card-header-pro">
-                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#065f46; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span><i class="fas fa-clipboard-check"></i> Closed Defects Summary</span><button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosedExcel()"><i class="fas fa-file-excel"></i> Download Excel</button></h4>
+                            <h4 class="card-title-tech" style="margin:0; border:none; padding:15px; background:#065f46; color:white; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <span><i class="fas fa-clipboard-check"></i> Closed Defects Summary</span>
+    <div style="display:flex; gap:10px;">
+        <button type="button" id="cl_back_btn_closed" class="btn-danger-tech" style="margin:0; display:none;" onclick="clearFlatSelection()"><i class="fas fa-arrow-left"></i> Back</button>
+        <button type="button" class="btn-export-tech xls" style="margin:0;" onclick="exportClosedExcel()"><i class="fas fa-file-excel"></i> Download Excel</button>
+    </div>
+</h4>
                         </div>
                         <div class="records-table-container" style="flex: 1; overflow-y:auto;">
                             <table id="closedTable" class="csms-pro-table">
@@ -678,5 +691,19 @@
 
     <script src="Script.js?v=4.2"></script>
     <script src="enhancements.js?v=4.2"></script>
+<script>
+      // Service Worker Registration
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+              console.log('ServiceWorker registered with scope:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('ServiceWorker registration failed:', error);
+            });
+        });
+      }
+    </script>
 </body>
 </html>
