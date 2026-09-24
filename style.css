@@ -122,13 +122,12 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   .notif-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
   .notif-tabs .notif-tab-btn{flex:0 0 auto;white-space:nowrap;}
   .notif-tabs .btn-export-tech{margin-left:8px !important;flex:0 0 auto;}
-  .form-grid,.advanced-filter-grid,.admin-grid-container{grid-template-columns:1fr !important;display:grid !important;}
   
   /* --- ADVANCED TOUCH/SCROLL FIX FOR ALL TABLES ON MOBILE --- */
   .records-table-container {
       overflow: auto !important;
       -webkit-overflow-scrolling: touch !important;
-      touch-action: pan-x pan-y !important; /* Force explicit swipe allowance */
+      touch-action: pan-x pan-y !important; 
       display: block !important; 
   }
   
@@ -146,7 +145,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   /* === NEW SETUP TAB MOBILE ALIGNMENT FIXES === */
   .admin-card { 
       padding: 14px !important; 
-      height: auto !important; /* Prevents Safari height lock bugs */
+      height: auto !important; 
       display: block !important;
   }
   .setup-form-pro { padding: 12px !important; }
@@ -173,7 +172,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   header nav{position:absolute;top:100%;left:8px;right:8px;margin-top:4px;background:#fff;flex-direction:column;align-items:stretch;box-shadow:0 12px 28px rgba(0,0,0,.20);border:1px solid #e2e8f0;border-radius:12px;padding:8px;z-index:1200;display:none;}
   header nav.nav-open{display:flex;}
   header nav .nav-btn{width:100%;justify-content:flex-start;text-align:left;margin:2px 0;}
-  header nav .profile-btn, header nav .logout-btn{display:none;} /* use the always-visible mobile-actions ones */
+  header nav .profile-btn, header nav .logout-btn{display:none;} 
 }
 
 /* NEW: BI extra summary tables — responsive (laptop: multi-column, mobile: stacked) */
@@ -188,8 +187,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   .dashboard-display-container-tech { grid-template-columns:1fr !important; display:grid !important; }
   .chart-container-wrapper { min-height:260px; }
 }
-.map-instructions { text-align: center; font-size: 11px; color: #64748b; padding: 5px 10px 15px 10px; font-weight: 600; }
-
 .report-header-controls-tech { display: flex; flex-direction: column; gap:15px; margin-bottom: 24px; background: white; padding: 18px; border-radius: 8px; border: 1px solid var(--border-matrix); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .advanced-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; }
 .actions-group-tech { display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end; }
@@ -328,8 +325,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 
 @media screen and (max-width: 768px) {
     main { padding: 12px 10px; }
-    .form-grid { grid-template-columns: 1fr; }
-    .advanced-filter-grid { grid-template-columns: 1fr 1fr; }
     .csms-pro-table th, .csms-pro-table td { padding: 10px 12px; font-size: 12px; }
     .actions-group-tech { justify-content: stretch; }
     .actions-group-tech button { flex: 1; text-align: center; justify-content: center; }
@@ -435,317 +430,58 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     cursor: pointer; 
 }
 
-/* ====== v2 ENHANCEMENTS: Closure Tab, Notifications, Multi-Select, Responsive Tweaks ====== */
-
-/* Notification badge on nav */
-.notif-badge {
-    background: var(--crimson-fail);
-    color: white;
-    font-size: 10px;
-    font-weight: 800;
-    padding: 1px 6px;
-    border-radius: 10px;
-    margin-left: 6px;
-    min-width: 18px;
-    display: inline-block;
-    text-align: center;
-    line-height: 14px;
-}
-
-/* Closure tab layout */
-.closure-controls-tech {
-    background: white;
-    padding: 18px;
-    border-radius: 8px;
-    border: 1px solid var(--border-matrix);
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-.closure-split {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 20px;
-    align-items: stretch;
-}
-.closure-map-card, .closure-list-card {
-    background: white;
-    border: 1px solid var(--border-matrix);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-}
-.closure-list-card {
-    display: flex;
-    flex-direction: column;
-}
-
-/* --- DESKTOP: लिस्ट बॉक्स की हाइट strictly मैप के बराबर रहेगी --- */
-@media screen and (min-width: 1025px) {
-    .closure-list-card {
-        height: 0;
-        min-height: 100%;
-    }
-}
-
-/* --- MOBILE/TABLET: जब मैप ऊपर और टेबल नीचे आ जाये, तब टेबल फिक्स हाइट पर स्क्रॉल हो --- */
-@media screen and (max-width: 1024px) {
-    .closure-list-card {
-        height: 550px;
-    }
-}
-
-.closure-list-card .records-table-container {
-    flex: 1;
-    min-height: 0;
-    max-height: none !important; /* Hardcoded height ko override karne ke liye */
-}
-.closure-map-card .map-viewport-container {
-    margin: 12px auto;
-}
-#closureCanvas, #cdCanvas, #closedCanvas, #entryCanvas { position: absolute; left: 0; top: 0; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; }
-
-.close-btn-inline {
-    background: linear-gradient(135deg,#059669,#047857);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 10px;
-    font-weight: 700;
-    font-size: 11.5px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-.close-btn-inline:hover { filter: brightness(1.1); }
-
-.serial-badge-inline {
-    display: inline-block;
-    background: #0f172a;
-    color: white;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    line-height: 22px;
-    font-weight: 800;
-    font-size: 11px;
-    text-align: center;
-}
-
-/* Notifications */
-.notif-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-    border-bottom: 2px solid #cbd5e1;
-    padding-bottom: 8px;
-}
-.notif-tab-btn {
-    background: white;
-    border: 1px solid #cbd5e1;
-    padding: 10px 16px;
-    border-radius: 8px 8px 0 0;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    color: #475569;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-.notif-tab-btn:hover { background: #f1f5f9; color: var(--primary-slate); }
-.notif-tab-btn.active {
-    background: linear-gradient(135deg, var(--secondary-tech), #0369a1);
-    color: white;
-    border-color: var(--accent-glow);
-}
-.notif-count {
-    background: rgba(239,68,68,0.15);
-    color: var(--crimson-fail);
-    padding: 1px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 800;
-}
-.notif-tab-btn.active .notif-count { background: rgba(255,255,255,0.25); color: white; }
-
-.notif-filter-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-    background: white;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-matrix);
-}
-.notif-filter-row input[type=text] {
-    flex: 1;
-    min-width: 220px;
-    padding: 8px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 13px;
-}
-.notif-filter-row select {
-    padding: 8px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 13px;
-    background: #f8fafc;
-}
-
-.notif-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 15px;
-}
-.notif-card {
-    background: white;
-    border: 1px solid var(--border-matrix);
-    border-left: 5px solid var(--secondary-tech);
-    border-radius: 8px;
-    padding: 16px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-.notif-card:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.08); }
-.notif-card.high-risk { border-left-color: var(--crimson-fail); }
-.notif-card.medium-risk { border-left-color: var(--amber-safety); }
-.notif-card.low-risk { border-left-color: var(--emerald-pass); }
-.notif-card.closed { border-left-color: #6b7280; opacity: 0.85; background: #f9fafb; }
-.notif-card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
-.notif-cat-pill {
-    background: rgba(14,165,233,0.1);
-    color: var(--secondary-tech);
-    padding: 3px 10px;
-    border-radius: 14px;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-.notif-risk-pill {
-    padding: 3px 10px;
-    border-radius: 14px;
-    font-size: 11px;
-    font-weight: 700;
-}
-.risk-pill-high { background: rgba(239,68,68,0.15); color: var(--crimson-fail); }
-.risk-pill-medium { background: rgba(245,158,11,0.15); color: #b45309; }
-.risk-pill-low { background: rgba(16,185,129,0.15); color: #059669; }
-.notif-loc { font-size: 12.5px; color: #475569; margin-bottom: 6px; }
-.notif-loc b { color: var(--primary-slate); }
-.notif-desc { font-size: 13px; color: #334155; margin: 6px 0 10px 0; }
-.notif-meta-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11.5px;
-    color: #64748b;
-    border-top: 1px dashed #e2e8f0;
-    padding-top: 8px;
-    margin-top: 8px;
-}
-.notif-sla-badge { font-weight: 700; }
-.notif-sla-badge.overdue { color: var(--crimson-fail); }
-.notif-sla-badge.ontime { color: var(--emerald-pass); }
-.notif-actions {
-    margin-top: 8px;
-    display: flex;
-    gap: 8px;
-}
-.notif-actions button {
-    flex: 1;
-    padding: 6px 10px;
-    border: none;
-    border-radius: 5px;
-    font-weight: 700;
-    font-size: 11.5px;
-    cursor: pointer;
-}
-.notif-actions .view-btn { background: #e0f2fe; color: #075985; }
-.notif-actions .close-btn { background: linear-gradient(135deg,#059669,#047857); color: white; }
-
-/* Multi-select dropdown open toggling */
-.custom-multi-select.open .dropdown-list-checkboxes { display: flex; }
-
-/* Rights container labels reload safety */
-.rights-label { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.4px; }
-
-/* Responsive: closure tab stacks on tablet/mobile */
-@media screen and (max-width: 1024px) {
-    .closure-split { grid-template-columns: 1fr; }
-}
+/* --- MOBILE VIEW OPTIMIZATIONS (FORCE 2 COLUMNS & A4 MAP) --- */
 @media screen and (max-width: 768px) {
-    .notif-list { grid-template-columns: 1fr; }
-    .notif-tabs { gap: 4px; }
-    .notif-tab-btn { padding: 8px 10px; font-size: 12px; }
-    .closure-map-card .map-viewport-container { margin: 12px auto; }
-    /* Phone: shrink map box to 60% of full width (user request) */
-    .map-viewport-container { max-width: 60%; }
-}
-
-/* PDF: 2 defects per A4 page */
-@media print {
-    @page { size: A4; margin: 10mm; }
-    .defect-card-half {
-        width: 100%;
-        height: 138mm;
-        page-break-inside: avoid;
-        margin-bottom: 8mm;
-        overflow: hidden;
-    }
-    .defect-card-half:nth-child(2n) { page-break-after: always; }
-}
-/* --- MOBILE VIEW OPTIMIZATIONS (DROPDOWNS & MAP A4 RATIO) --- */
-@media (max-width: 768px) {
   
-  /* Dropdowns ko 2 column me set karega */
-  .form-grid {
+  /* 1. Force 2 columns for dropdowns in mobile */
+  body main .form-grid {
       grid-template-columns: 1fr 1fr !important;
-      gap: 12px !important;
+      gap: 10px !important;
+  }
+
+  /* Assign Task jaisi full-width chize dono column occupy karengi */
+  body main .form-grid .full-width {
+      grid-column: 1 / -1 !important;
   }
 
   /* Baki badi grids 1 column hi rahengi */
-  .advanced-filter-grid, .admin-grid-container {
+  body main .advanced-filter-grid, 
+  body main .admin-grid-container {
       grid-template-columns: 1fr !important;
       display: grid !important;
   }
 
-  /* Assign Task jaisi full-width chize puri row lengi */
-  .form-grid .full-width {
-      grid-column: 1 / -1 !important;
+  /* 2. Dropdown aur Input boxes ki size choti karein taaki 2 easily fit ho jayein */
+  body main .field-box-tech select, 
+  body main .field-box-tech input, 
+  body main .select-box {
+      padding: 8px 6px !important;
+      font-size: 11.5px !important;
+  }
+  
+  body main .field-box-tech label {
+      font-size: 11px !important;
   }
 
-  /* Map card size ko A4 ratio me lock karega */
-  .map-viewport-container {
+  /* 3. Map card ko exactly A4 ratio (210/297) me lock karein */
+  body main .map-viewport-container {
       width: 100% !important;
-      max-width: 280px !important; 
+      max-width: 280px !important;
       margin: 12px auto !important;
       aspect-ratio: 210 / 297 !important; 
+      height: auto !important; 
   }
 
-  /* Map ke niche ka text ek single patli row me set karega */
-  .map-instructions {
-      font-size: 8.5px !important; 
+  /* 4. Map ke niche ka text single patli row me set karein */
+  body main .map-instructions {
+      font-size: 9px !important; 
       white-space: nowrap !important; 
       overflow: hidden !important; 
       text-overflow: ellipsis !important; 
-      padding: 5px 8px !important;
+      padding: 4px 6px !important;
   }
   
-  /* Text ko next line me break hone se rokega */
-  .map-instructions br {
+  body main .map-instructions br {
       display: none !important;
   }
 }
-
-
-
-
