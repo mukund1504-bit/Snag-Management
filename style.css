@@ -703,3 +703,49 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     }
     .defect-card-half:nth-child(2n) { page-break-after: always; }
 }
+/* --- MOBILE VIEW OPTIMIZATIONS (DROPDOWNS & MAP A4 RATIO) --- */
+@media (max-width: 768px) {
+  
+  /* Dropdowns ko 2 column me set karega */
+  .form-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 12px !important;
+  }
+
+  /* Baki badi grids 1 column hi rahengi */
+  .advanced-filter-grid, .admin-grid-container {
+      grid-template-columns: 1fr !important;
+      display: grid !important;
+  }
+
+  /* Assign Task jaisi full-width chize puri row lengi */
+  .form-grid .full-width {
+      grid-column: 1 / -1 !important;
+  }
+
+  /* Map card size ko A4 ratio me lock karega */
+  .map-viewport-container {
+      width: 100% !important;
+      max-width: 280px !important; 
+      margin: 12px auto !important;
+      aspect-ratio: 210 / 297 !important; 
+  }
+
+  /* Map ke niche ka text ek single patli row me set karega */
+  .map-instructions {
+      font-size: 8.5px !important; 
+      white-space: nowrap !important; 
+      overflow: hidden !important; 
+      text-overflow: ellipsis !important; 
+      padding: 5px 8px !important;
+  }
+  
+  /* Text ko next line me break hone se rokega */
+  .map-instructions br {
+      display: none !important;
+  }
+}
+
+
+
+
