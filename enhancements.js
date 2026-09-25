@@ -1507,8 +1507,9 @@ if (p.spec) {
     });
   });
 
-  // Override saveDefect to include assignedto
   // Override saveDefect to include assignedto and retain location
+  // Override saveDefect to include assignedto and smartly retain location/map
+  // Override saveDefect to include assignedto and smartly retain location/map
   const _origSaveDefect = window.saveDefect;
   window.saveDefect = async function() {
     // Permission gate
@@ -1550,27 +1551,47 @@ if (p.spec) {
       assignedto: assignees || null
     };
 
-    // NAYA CODE: Submit hone se pehle location data save kar lo
-    const prevP = p;
-    const prevT = t;
-    const prevF = document.getElementById('floor').value;
-    const prevFlat = document.getElementById('flatNo').value;
+    // SMART RESET FUNCTION: Ye sirf defect data aur blue marker hatayega, location aur map zinda rahenge
+    const smartReset = () => {
+      document.getElementById('defectcategory').value = '';
+      if(typeof populateDefectList === 'function') populateDefectList();
+      
+      document.querySelectorAll('.spec-chk').forEach(cb => cb.checked = false);
+      if(typeof updateSpecSelectText === 'function') updateSpecSelectText();
+      
+      document.getElementById('engineeringremarks').value = '';
+      document.getElementById('riskspectrum').value = 'Medium';
+      document.getElementById('statusvector').value = 'Open';
+      document.getElementById('sladuedate').value = '';
+      
+      document.querySelectorAll('.assign-chk').forEach(cb => cb.checked = false);
+      if(typeof updateAssignSelectText === 'function') updateAssignSelectText();
+
+      document.getElementById('entryCoordX').value = '';
+      document.getElementById('entryCoordY').value = '';
+      
+      clearTempPhotos();
+      
+      // Sirf naya (blue) marker hatayega, map ko hide ya delete nahi karega
+      canvasConfig.entry.marker = null;
+      if(typeof drawCanvas === 'function') drawCanvas('entry');
+      
+      // Is current state ko memory me save kar lega taaki page refresh hone par bhi location wahi rahe
+      if(typeof saveDraftState === 'function') saveDraftState();
+    };
 
     if (!navigator.onLine) {
       let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || [];
-      queue.push(payload); localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
-      alert('Offline: saved locally.'); 
+      queue.push(payload); 
+      localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
       
-      document.getElementById('defectForm').reset(); 
-      clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem('csms_draft_form'); 
-      
-      // NAYA CODE: Form reset hone ke baad wapas location values daal do aur map load karo
-      document.getElementById('project').value = prevP;
-      document.getElementById('tower').value = prevT;
-      document.getElementById('floor').value = prevF;
-      document.getElementById('flatNo').value = prevFlat;
-      setTimeout(() => { ensureMapLoaded(); }, 150);
-      
+      // Offline mode mein local 'defects' array mein turant push karna zaruri hai 
+      // taaki red dot instantly map pe dikhe bina cloud load ke
+      const offlineId = "off_" + Date.now();
+      defects.push({ ...payload, id: offlineId });
+
+      csmsToast('Offline: Entry saved locally.', 'success'); 
+      smartReset();
       return;
     }
     
@@ -1578,7 +1599,6 @@ if (p.spec) {
       const btn = document.getElementById('mainSubmitBtn'); if (btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
       let { error } = await supabaseClient.from('snagmanagement').insert([payload]);
       if (error && String(error.message||'').toLowerCase().includes('assignedto')) {
-        // Column missing — retry without assignedto and warn
         console.warn('assignedto column missing — inserting without it.');
         delete payload.assignedto;
         const retry = await supabaseClient.from('snagmanagement').insert([payload]);
@@ -1586,23 +1606,12 @@ if (p.spec) {
         if (!error) csmsToast('Saved (add `assignedto` TEXT column to snagmanagement for assignment feature).', 'error');
       }
       if (!error) {
-        alert('Record Logged Successfully!');
-        document.getElementById('defectForm').reset();
-        clearTempPhotos(); clearMapCanvas();
-        document.getElementById('specSelectText').innerText = '-- Select Specification --';
-        document.querySelectorAll('.assign-chk').forEach(cb => cb.checked = false);
-        updateAssignSelectText();
-        sessionStorage.removeItem('csms_draft_form');
+        csmsToast('Record Logged Successfully!', 'success');
+        smartReset();
         
-        // NAYA CODE: Form reset hone ke baad wapas location values daal do aur map load karo
-        document.getElementById('project').value = prevP;
-        document.getElementById('tower').value = prevT;
-        document.getElementById('floor').value = prevF;
-        document.getElementById('flatNo').value = prevFlat;
-        setTimeout(() => { ensureMapLoaded(); }, 150);
-
+        // Background me naya red dot laane ke liye data refresh karta hai
         await loadDefectsFromCloud(true);
-        renderNotifications();
+        if(typeof renderNotifications === 'function') renderNotifications();
       } else throw error;
     } catch(err) { alert('Error: ' + JSON.stringify(err.message || err)); }
     finally { const btn = document.getElementById('mainSubmitBtn'); if (btn) { btn.disabled = false; btn.innerHTML = "<i class='fas fa-save'></i> SUBMIT ENTRY"; } }
