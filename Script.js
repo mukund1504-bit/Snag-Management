@@ -1129,7 +1129,8 @@ async function loadDefectsFromCloud(isBackground = false) {
         
         if (error) {
             console.error("Supabase API Error:", error.message);
-            alert("Database Error: Cannot fetch records. Please check Supabase RLS Policies."); 
+            // Alert hata diya gaya hai. Ab sirf chhota popup aayega jo disturb nahi karega.
+            csmsToast("Database sync delayed (RLS block). Using local data.", "error"); 
             return;
         }
         
