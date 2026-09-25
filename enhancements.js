@@ -1508,6 +1508,7 @@ if (p.spec) {
   });
 
   // Override saveDefect to include assignedto
+  // Override saveDefect to include assignedto and retain location
   const _origSaveDefect = window.saveDefect;
   window.saveDefect = async function() {
     // Permission gate
@@ -1549,11 +1550,30 @@ if (p.spec) {
       assignedto: assignees || null
     };
 
+    // NAYA CODE: Submit hone se pehle location data save kar lo
+    const prevP = p;
+    const prevT = t;
+    const prevF = document.getElementById('floor').value;
+    const prevFlat = document.getElementById('flatNo').value;
+
     if (!navigator.onLine) {
       let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || [];
       queue.push(payload); localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
-      alert('Offline: saved locally.'); document.getElementById('defectForm').reset(); clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem('csms_draft_form'); return;
+      alert('Offline: saved locally.'); 
+      
+      document.getElementById('defectForm').reset(); 
+      clearTempPhotos(); clearMapCanvas(); sessionStorage.removeItem('csms_draft_form'); 
+      
+      // NAYA CODE: Form reset hone ke baad wapas location values daal do aur map load karo
+      document.getElementById('project').value = prevP;
+      document.getElementById('tower').value = prevT;
+      document.getElementById('floor').value = prevF;
+      document.getElementById('flatNo').value = prevFlat;
+      setTimeout(() => { ensureMapLoaded(); }, 150);
+      
+      return;
     }
+    
     try {
       const btn = document.getElementById('mainSubmitBtn'); if (btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
       let { error } = await supabaseClient.from('snagmanagement').insert([payload]);
@@ -1573,6 +1593,14 @@ if (p.spec) {
         document.querySelectorAll('.assign-chk').forEach(cb => cb.checked = false);
         updateAssignSelectText();
         sessionStorage.removeItem('csms_draft_form');
+        
+        // NAYA CODE: Form reset hone ke baad wapas location values daal do aur map load karo
+        document.getElementById('project').value = prevP;
+        document.getElementById('tower').value = prevT;
+        document.getElementById('floor').value = prevF;
+        document.getElementById('flatNo').value = prevFlat;
+        setTimeout(() => { ensureMapLoaded(); }, 150);
+
         await loadDefectsFromCloud(true);
         renderNotifications();
       } else throw error;
