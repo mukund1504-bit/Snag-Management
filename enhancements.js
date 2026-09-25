@@ -1765,13 +1765,13 @@ if (p.spec) {
     <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
     
     <!-- Yahan Specification aur Remarks ki width theek ki gayi hai -->
-    <td style="white-space: normal; min-width: 150px; max-width: 250px; word-wrap: break-word;">${resolvedSpec}</td>
-    <td style="white-space: normal; min-width: 150px; max-width: 250px; word-wrap: break-word;">${d.engineeringremarks || '-'}</td>
+    <td style="white-space: normal; min-width: 150px; max-width: 300px; word-wrap: break-word;">${resolvedSpec}</td>
+    <td style="white-space: normal; min-width: 150px; max-width: 350px; word-wrap: break-word;">${d.engineeringremarks || '-'}</td>
     
     <td>${mapHtml}</td><td><b>${d.createdby || '-'}</b></td><td><b>${d.closedby || '-'}</b></td>
     
-    <!-- YEH COLUMN MISSING THA -->
-    <td>${assignText}</td> 
+    <!-- Assigned To column fix -->
+<td style="white-space: normal; min-width: 150px; max-width: 200px; word-wrap: break-word;">${assignText}</td> 
     
     <td>${d.riskspectrum || '-'}</td><td><span class="locked-badge">${d.statusvector || '-'}</span></td>
     <td>${d.loggeddate || '-'}</td><td>${d.sladuedate || '-'}</td><td>${d.closeddate || '-'}</td><td>${d.delayaxis || '-'}</td>
