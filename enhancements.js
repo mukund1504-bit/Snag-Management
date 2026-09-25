@@ -1507,19 +1507,24 @@ if (p.spec) {
     });
   });
 
-  // Override saveDefect to include assignedto and retain location
-  // Override saveDefect to include assignedto and smartly retain location/map
-  // Override saveDefect to include assignedto and smartly retain location/map
+ // Override saveDefect to include assignedto and smartly retain location/map
   const _origSaveDefect = window.saveDefect;
   window.saveDefect = async function() {
     // Permission gate
     if (!canCreateDefect()) return alert('You do not have Create Defect permission.');
+    
     // Basic validations mirror original
-    const p = document.getElementById('project').value; const t = document.getElementById('tower').value;
+    const p = document.getElementById('project').value; 
+    const t = document.getElementById('tower').value;
+    const f = document.getElementById('floor').value;
+    const flat = document.getElementById('flatNo').value;
+    
     if (!p || !t) return alert('Select valid Project and Tower.');
     if (tempPhotos.length < 2) return alert('Please add at least 2 Initial Photos.');
-    const x = document.getElementById('entryCoordX').value; const y = document.getElementById('entryCoordY').value;
+    const x = document.getElementById('entryCoordX').value; 
+    const y = document.getElementById('entryCoordY').value;
     if (canvasConfig.entry.active && (!x || !y)) return alert('Please pinpoint the defect location on the map.');
+    
     const selectedSpecs = Array.from(document.querySelectorAll('.spec-chk:checked')).map(cb => cb.value).join(', ');
     if (!selectedSpecs) return alert('Please select at least one Specification.');
     const assignees = Array.from(document.querySelectorAll('.assign-chk:checked')).map(cb => cb.value).join('|');
@@ -1532,8 +1537,8 @@ if (p.spec) {
 
     const payload = {
       project: p, tower: t,
-      floor: document.getElementById('floor').value,
-      flat: document.getElementById('flatNo').value,
+      floor: f,
+      flat: flat,
       defectcategory: document.getElementById('defectcategory').value,
       specificationmatrix: selectedSpecs,
       engineeringremarks: document.getElementById('engineeringremarks').value,
@@ -1551,8 +1556,9 @@ if (p.spec) {
       assignedto: assignees || null
     };
 
-    // SMART RESET FUNCTION: Ye sirf defect data aur blue marker hatayega, location aur map zinda rahenge
+    // SMART RESET FUNCTION: Form data clear karega aur Event Trigger ke sath location/map retain karega
     const smartReset = () => {
+      // 1. Clear Defect details & selections
       document.getElementById('defectcategory').value = '';
       if(typeof populateDefectList === 'function') populateDefectList();
       
@@ -1567,26 +1573,44 @@ if (p.spec) {
       document.querySelectorAll('.assign-chk').forEach(cb => cb.checked = false);
       if(typeof updateAssignSelectText === 'function') updateAssignSelectText();
 
+      // 2. Clear Map Marker Coordinates and Photos
       document.getElementById('entryCoordX').value = '';
       document.getElementById('entryCoordY').value = '';
-      
       clearTempPhotos();
       
-      // Sirf naya (blue) marker hatayega, map ko hide ya delete nahi karega
-      canvasConfig.entry.marker = null;
-      if(typeof drawCanvas === 'function') drawCanvas('entry');
+      // 3. SELECTION RETENTION WITH EVENT DISPATCHING (Crucial Fix)
+      const projEl = document.getElementById('project');
+      const towerEl = document.getElementById('tower');
+      const floorEl = document.getElementById('floor');
+      const flatEl = document.getElementById('flatNo');
+
+      if (projEl) { projEl.value = p; projEl.dispatchEvent(new Event('change')); }
+      setTimeout(() => {
+        if (towerEl) { towerEl.value = t; towerEl.dispatchEvent(new Event('change')); }
+      }, 50);
+      setTimeout(() => {
+        if (floorEl) { floorEl.value = f; floorEl.dispatchEvent(new Event('change')); }
+      }, 100);
+      setTimeout(() => {
+        if (flatEl) { flatEl.value = flat; flatEl.dispatchEvent(new Event('change')); }
+      }, 150);
       
-      // Is current state ko memory me save kar lega taaki page refresh hone par bhi location wahi rahe
+      // 4. Update Map State
+      canvasConfig.entry.marker = null; // Sirf naya (blue) marker hatayega
+      if(typeof ensureMapLoaded === 'function') {
+         setTimeout(() => { ensureMapLoaded(); }, 250); // Map ko force reload karega
+      }
+      
+      // 5. Session me update karna
       if(typeof saveDraftState === 'function') saveDraftState();
     };
 
+    // OFFLINE MODE
     if (!navigator.onLine) {
       let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || [];
       queue.push(payload); 
       localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
       
-      // Offline mode mein local 'defects' array mein turant push karna zaruri hai 
-      // taaki red dot instantly map pe dikhe bina cloud load ke
       const offlineId = "off_" + Date.now();
       defects.push({ ...payload, id: offlineId });
 
@@ -1595,6 +1619,7 @@ if (p.spec) {
       return;
     }
     
+    // ONLINE MODE
     try {
       const btn = document.getElementById('mainSubmitBtn'); if (btn) { btn.disabled = true; btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Submitting..."; }
       let { error } = await supabaseClient.from('snagmanagement').insert([payload]);
