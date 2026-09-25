@@ -115,20 +115,19 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   header{flex-direction:column;align-items:stretch;gap:10px;}
   header nav{flex-wrap:wrap;justify-content:flex-start;}
   .form-map-grid{display:block !important;}
-  .closure-split,.edit-modal-grid,.setup-split-layout,.dashboard-display-container-tech,.bi-extra-grid{display:block !important;}
-  .closure-split > *, .bi-extra-grid > *, .setup-split-layout > *, .edit-modal-grid > * {margin-bottom:16px;}
+  .edit-modal-grid,.setup-split-layout,.dashboard-display-container-tech,.bi-extra-grid{display:block !important;}
+  .bi-extra-grid > *, .setup-split-layout > *, .edit-modal-grid > * {margin-bottom:16px;}
 }
 @media (max-width: 768px){
   .notif-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;}
   .notif-tabs .notif-tab-btn{flex:0 0 auto;white-space:nowrap;}
   .notif-tabs .btn-export-tech{margin-left:8px !important;flex:0 0 auto;}
-  .form-grid,.advanced-filter-grid,.admin-grid-container{grid-template-columns:1fr !important;display:grid !important;}
   
   /* --- ADVANCED TOUCH/SCROLL FIX FOR ALL TABLES ON MOBILE --- */
   .records-table-container {
       overflow: auto !important;
       -webkit-overflow-scrolling: touch !important;
-      touch-action: pan-x pan-y !important; /* Force explicit swipe allowance */
+      touch-action: pan-x pan-y !important; 
       display: block !important; 
   }
   
@@ -146,7 +145,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   /* === NEW SETUP TAB MOBILE ALIGNMENT FIXES === */
   .admin-card { 
       padding: 14px !important; 
-      height: auto !important; /* Prevents Safari height lock bugs */
+      height: auto !important; 
       display: block !important;
   }
   .setup-form-pro { padding: 12px !important; }
@@ -173,7 +172,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   header nav{position:absolute;top:100%;left:8px;right:8px;margin-top:4px;background:#fff;flex-direction:column;align-items:stretch;box-shadow:0 12px 28px rgba(0,0,0,.20);border:1px solid #e2e8f0;border-radius:12px;padding:8px;z-index:1200;display:none;}
   header nav.nav-open{display:flex;}
   header nav .nav-btn{width:100%;justify-content:flex-start;text-align:left;margin:2px 0;}
-  header nav .profile-btn, header nav .logout-btn{display:none;} /* use the always-visible mobile-actions ones */
+  header nav .profile-btn, header nav .logout-btn{display:none;} 
 }
 
 /* NEW: BI extra summary tables — responsive (laptop: multi-column, mobile: stacked) */
@@ -188,8 +187,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
   .dashboard-display-container-tech { grid-template-columns:1fr !important; display:grid !important; }
   .chart-container-wrapper { min-height:260px; }
 }
-.map-instructions { text-align: center; font-size: 11px; color: #64748b; padding: 5px 10px 15px 10px; font-weight: 600; }
-
 .report-header-controls-tech { display: flex; flex-direction: column; gap:15px; margin-bottom: 24px; background: white; padding: 18px; border-radius: 8px; border: 1px solid var(--border-matrix); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .advanced-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; width: 100%; }
 .actions-group-tech { display:flex; gap:10px; flex-wrap:wrap; justify-content: flex-end; }
@@ -230,7 +227,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .admin-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .admin-span-full { grid-column: 1 / -1; }
 
-/* Fixed parent height constraint causing scroll locks */
 .admin-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: auto; }
 
 .setup-split-layout { display: grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start; }
@@ -239,7 +235,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .rights-container { background: #ffffff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 10px; }
 .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
 
-/* Explicit auto overflow added to mini table */
 .mini-table { max-height: 300px !important; margin-top: 15px; flex: 1 1 auto; overflow: auto !important; -webkit-overflow-scrolling: touch !important; }
 
 .action-icon-btn { cursor:pointer; padding:5px 8px; border-radius:4px; margin-right:5px; border:none; font-weight:bold; font-size:11px; }
@@ -262,31 +257,16 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .edit-map { margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 8px; }
 
 .img-zoom-layer { z-index: 99999; }
-/* Close / Edit / Info modals must sit ABOVE the BI drill-down modal (9999) */
 #editModal, #closeDefectModal, #defectInfoModal { z-index: 10001; }
 .img-modal-content { background: transparent; box-shadow: none; align-items: center; border: none; text-align: center; overflow: visible; display: flex; flex-direction: column; }
 .close-img-btn { position: absolute; top: -40px; right: 0; }
 .zoomed-view-img { max-width: 90vw; max-height: 85vh; border-radius: 8px; border: 4px solid white; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-/* =========================================================
-   DRILL-DOWN TABLE: 4 Repeating Light Colors for Rows
-========================================================= */
-#drilldownTable tbody tr:nth-child(4n+1) { 
-    background-color: #f0f9ff !important; /* Light Sky Blue */
-}
-#drilldownTable tbody tr:nth-child(4n+2) { 
-    background-color: #ecfdf5 !important; /* Light Emerald Green */
-}
-#drilldownTable tbody tr:nth-child(4n+3) { 
-    background-color: #fffbeb !important; /* Light Amber Yellow */
-}
-#drilldownTable tbody tr:nth-child(4n+4) { 
-    background-color: #f8fafc !important; /* Light Slate Gray */
-}
 
-#drilldownTable tbody tr:hover { 
-    filter: brightness(0.96); 
-    cursor: pointer;
-}
+#drilldownTable tbody tr:nth-child(4n+1) { background-color: #f0f9ff !important; }
+#drilldownTable tbody tr:nth-child(4n+2) { background-color: #ecfdf5 !important; }
+#drilldownTable tbody tr:nth-child(4n+3) { background-color: #fffbeb !important; }
+#drilldownTable tbody tr:nth-child(4n+4) { background-color: #f8fafc !important; }
+#drilldownTable tbody tr:hover { filter: brightness(0.96); cursor: pointer; }
 
 /* ------ RESPONSIVE GRID SEQUENCING UPGRADES ------ */
 @media screen and (min-width: 1025px) {
@@ -328,14 +308,13 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 
 @media screen and (max-width: 768px) {
     main { padding: 12px 10px; }
-    .form-grid { grid-template-columns: 1fr; }
-    .advanced-filter-grid { grid-template-columns: 1fr 1fr; }
     .csms-pro-table th, .csms-pro-table td { padding: 10px 12px; font-size: 12px; }
     .actions-group-tech { justify-content: stretch; }
     .actions-group-tech button { flex: 1; text-align: center; justify-content: center; }
     .dashboard-display-container-tech { grid-template-columns: 1fr; }
     .chart-container-wrapper { height: 250px; }
 }
+
 /* --- MULTI-SELECT CHECKBOX CONTAINER STYLES --- */
 .checkbox-dropdown-container {
     background: #f8fafc;
@@ -367,20 +346,11 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     padding: 4px;
     border-radius: 4px;
 }
-.spec-cb-label:hover {
-    background-color: #e0f2fe;
-}
-.spec-cb-label input {
-    width: auto !important;
-    margin: 0 !important;
-    cursor: pointer;
-}
+.spec-cb-label:hover { background-color: #e0f2fe; }
+.spec-cb-label input { width: auto !important; margin: 0 !important; cursor: pointer; }
+
 /* --- CUSTOM MULTI-SELECT DROPDOWN STYLES --- */
-.custom-multi-select { 
-    position: relative; 
-    width: 100%; 
-    outline: none; 
-}
+.custom-multi-select { position: relative; width: 100%; outline: none; }
 .select-box { 
     padding: 10px 12px; 
     border: 1px solid #cbd5e1; 
@@ -393,9 +363,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     align-items: center; 
     transition: all 0.2s; 
 }
-.select-box:hover { 
-    border-color: var(--accent-glow); 
-}
+.select-box:hover { border-color: var(--accent-glow); }
 .dropdown-list-checkboxes { 
     position: absolute; 
     top: 100%; 
@@ -408,36 +376,14 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     z-index: 100; 
     max-height: 220px; 
     overflow-y: auto; 
-    display: none; /* Initially hidden */
+    display: none; 
     box-shadow: 0 10px 25px rgba(0,0,0,0.15); 
     flex-direction: column; 
 }
-.custom-multi-select.open .dropdown-list-checkboxes { 
-    display: flex; /* Shown when 'open' class is applied */
-}
-.spec-cb-label { 
-    padding: 8px 12px; 
-    display: flex; 
-    align-items: center; 
-    gap: 8px; 
-    cursor: pointer; 
-    border-bottom: 1px solid #f1f5f9; 
-    font-size: 13px; 
-    font-weight: 500; 
-    color: #334155; 
-}
-.spec-cb-label:hover { 
-    background: #f1f5f9; 
-}
-.spec-cb-label input { 
-    width: auto !important; 
-    margin: 0 !important; 
-    cursor: pointer; 
-}
+.custom-multi-select.open .dropdown-list-checkboxes { display: flex; }
 
 /* ====== v2 ENHANCEMENTS: Closure Tab, Notifications, Multi-Select, Responsive Tweaks ====== */
 
-/* Notification badge on nav */
 .notif-badge {
     background: var(--crimson-fail);
     color: white;
@@ -452,7 +398,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     line-height: 14px;
 }
 
-/* Closure tab layout */
 .closure-controls-tech {
     background: white;
     padding: 18px;
@@ -474,34 +419,18 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
 }
-.closure-list-card {
-    display: flex;
-    flex-direction: column;
-}
+.closure-list-card { display: flex; flex-direction: column; }
 
-/* --- DESKTOP: लिस्ट बॉक्स की हाइट strictly मैप के बराबर रहेगी --- */
 @media screen and (min-width: 1025px) {
-    .closure-list-card {
-        height: 0;
-        min-height: 100%;
-    }
+    .closure-list-card { height: 0; min-height: 100%; }
 }
-
-/* --- MOBILE/TABLET: जब मैप ऊपर और टेबल नीचे आ जाये, तब टेबल फिक्स हाइट पर स्क्रॉल हो --- */
 @media screen and (max-width: 1024px) {
-    .closure-list-card {
-        height: 550px;
-    }
+    .closure-split { grid-template-columns: 1fr; }
+    .closure-list-card { height: 550px; }
 }
 
-.closure-list-card .records-table-container {
-    flex: 1;
-    min-height: 0;
-    max-height: none !important; /* Hardcoded height ko override karne ke liye */
-}
-.closure-map-card .map-viewport-container {
-    margin: 12px auto;
-}
+.closure-list-card .records-table-container { flex: 1; min-height: 0; max-height: none !important; }
+.closure-map-card .map-viewport-container { margin: 12px auto; }
 #closureCanvas, #cdCanvas, #closedCanvas, #entryCanvas { position: absolute; left: 0; top: 0; width: auto; height: auto; max-width: 100%; max-height: 100%; margin: 0; }
 
 .close-btn-inline {
@@ -532,7 +461,6 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     text-align: center;
 }
 
-/* Notifications */
 .notif-tabs {
     display: flex;
     gap: 8px;
@@ -616,12 +544,7 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
 .notif-card.medium-risk { border-left-color: var(--amber-safety); }
 .notif-card.low-risk { border-left-color: var(--emerald-pass); }
 .notif-card.closed { border-left-color: #6b7280; opacity: 0.85; background: #f9fafb; }
-.notif-card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-}
+.notif-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .notif-cat-pill {
     background: rgba(14,165,233,0.1);
     color: var(--secondary-tech);
@@ -631,75 +554,81 @@ canvas { position: absolute; left: 0; top: 0; transition: transform 0.12s ease; 
     font-weight: 700;
     text-transform: uppercase;
 }
-.notif-risk-pill {
-    padding: 3px 10px;
-    border-radius: 14px;
-    font-size: 11px;
-    font-weight: 700;
-}
+.notif-risk-pill { padding: 3px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; }
 .risk-pill-high { background: rgba(239,68,68,0.15); color: var(--crimson-fail); }
 .risk-pill-medium { background: rgba(245,158,11,0.15); color: #b45309; }
 .risk-pill-low { background: rgba(16,185,129,0.15); color: #059669; }
 .notif-loc { font-size: 12.5px; color: #475569; margin-bottom: 6px; }
 .notif-loc b { color: var(--primary-slate); }
 .notif-desc { font-size: 13px; color: #334155; margin: 6px 0 10px 0; }
-.notif-meta-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11.5px;
-    color: #64748b;
-    border-top: 1px dashed #e2e8f0;
-    padding-top: 8px;
-    margin-top: 8px;
-}
+.notif-meta-row { display: flex; justify-content: space-between; font-size: 11.5px; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 8px; margin-top: 8px; }
 .notif-sla-badge { font-weight: 700; }
 .notif-sla-badge.overdue { color: var(--crimson-fail); }
 .notif-sla-badge.ontime { color: var(--emerald-pass); }
-.notif-actions {
-    margin-top: 8px;
-    display: flex;
-    gap: 8px;
-}
-.notif-actions button {
-    flex: 1;
-    padding: 6px 10px;
-    border: none;
-    border-radius: 5px;
-    font-weight: 700;
-    font-size: 11.5px;
-    cursor: pointer;
-}
+.notif-actions { margin-top: 8px; display: flex; gap: 8px; }
+.notif-actions button { flex: 1; padding: 6px 10px; border: none; border-radius: 5px; font-weight: 700; font-size: 11.5px; cursor: pointer; }
 .notif-actions .view-btn { background: #e0f2fe; color: #075985; }
 .notif-actions .close-btn { background: linear-gradient(135deg,#059669,#047857); color: white; }
 
-/* Multi-select dropdown open toggling */
-.custom-multi-select.open .dropdown-list-checkboxes { display: flex; }
-
-/* Rights container labels reload safety */
 .rights-label { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.4px; }
 
-/* Responsive: closure tab stacks on tablet/mobile */
-@media screen and (max-width: 1024px) {
-    .closure-split { grid-template-columns: 1fr; }
-}
-@media screen and (max-width: 768px) {
-    .notif-list { grid-template-columns: 1fr; }
-    .notif-tabs { gap: 4px; }
-    .notif-tab-btn { padding: 8px 10px; font-size: 12px; }
-    .closure-map-card .map-viewport-container { margin: 12px auto; }
-    /* Phone: shrink map box to 60% of full width (user request) */
-    .map-viewport-container { max-width: 60%; }
-}
-
-/* PDF: 2 defects per A4 page */
 @media print {
     @page { size: A4; margin: 10mm; }
-    .defect-card-half {
-        width: 100%;
-        height: 138mm;
-        page-break-inside: avoid;
-        margin-bottom: 8mm;
-        overflow: hidden;
-    }
+    .defect-card-half { width: 100%; height: 138mm; page-break-inside: avoid; margin-bottom: 8mm; overflow: hidden; }
     .defect-card-half:nth-child(2n) { page-break-after: always; }
+}
+
+/* --- MOBILE VIEW OPTIMIZATIONS (FORCE 2 COLUMNS & A4 MAP) --- */
+@media screen and (max-width: 768px) {
+  
+  body main .form-grid {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 10px !important;
+  }
+
+  body main .form-grid .full-width {
+      grid-column: 1 / -1 !important;
+  }
+
+  body main .advanced-filter-grid, 
+  body main .admin-grid-container {
+      grid-template-columns: 1fr !important;
+      display: grid !important;
+  }
+
+  body main .field-box-tech select, 
+  body main .field-box-tech input, 
+  body main .select-box {
+      padding: 8px 6px !important;
+      font-size: 11.5px !important;
+  }
+  
+  body main .field-box-tech label {
+      font-size: 11px !important;
+  }
+
+  body main .map-viewport-container {
+      width: 100% !important;
+      max-width: 280px !important;
+      margin: 12px auto !important;
+      aspect-ratio: 210 / 297 !important; 
+      height: auto !important; 
+  }
+
+  body main .map-instructions {
+      font-size: 9px !important; 
+      white-space: nowrap !important; 
+      overflow: hidden !important; 
+      text-overflow: ellipsis !important; 
+      padding: 4px 6px !important;
+  }
+  
+  body main .map-instructions br {
+      display: none !important;
+  }
+  
+  .notif-list { grid-template-columns: 1fr; }
+  .notif-tabs { gap: 4px; }
+  .notif-tab-btn { padding: 8px 10px; font-size: 12px; }
+  .closure-map-card .map-viewport-container { margin: 12px auto; }
 }
