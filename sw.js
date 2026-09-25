@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csms-offline-cache-v5'; // Version upgrade kar diya hai
+const CACHE_NAME = 'csms-offline-cache-v6'; // Version upgrade kar diya hai
 
 const urlsToCache = [
   './',
