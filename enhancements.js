@@ -1761,19 +1761,22 @@ if (p.spec) {
       const assignText = assignList.length > 0 ? assignList.join(', ') : '<span style="color:#0284c7; font-weight:600;">All Members</span>';
 
       return `<tr>
-          <td>${d.serial || '-'}</td><td><b>${d.project || '-'}</b></td><td>${d.tower || '-'}</td><td>${d.floor || '-'}</td><td>${d.flat || '-'}</td>
-          <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
-          <td>${resolvedSpec}</td>
-          <td>${d.engineeringremarks || '-'}</td>
-          <td>${mapHtml}</td><td><b>${d.createdby || '-'}</b></td><td><b>${d.closedby || '-'}</b></td>
-          
-          <!-- YEH COLUMN MISSING THA -->
-          <td>${assignText}</td> 
-          
-          <td>${d.riskspectrum || '-'}</td><td><span class="locked-badge">${d.statusvector || '-'}</span></td>
-          <td>${d.loggeddate || '-'}</td><td>${d.sladuedate || '-'}</td><td>${d.closeddate || '-'}</td><td>${d.delayaxis || '-'}</td>
-          <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
-        </tr>`;
+    <td>${d.serial || '-'}</td><td><b>${d.project || '-'}</b></td><td>${d.tower || '-'}</td><td>${d.floor || '-'}</td><td>${d.flat || '-'}</td>
+    <td style="color:#0284c7;"><b>${resolvedCategory}</b></td>
+    
+    <!-- Yahan Specification aur Remarks ki width theek ki gayi hai -->
+    <td style="white-space: normal; min-width: 150px; max-width: 250px; word-wrap: break-word;">${resolvedSpec}</td>
+    <td style="white-space: normal; min-width: 150px; max-width: 250px; word-wrap: break-word;">${d.engineeringremarks || '-'}</td>
+    
+    <td>${mapHtml}</td><td><b>${d.createdby || '-'}</b></td><td><b>${d.closedby || '-'}</b></td>
+    
+    <!-- YEH COLUMN MISSING THA -->
+    <td>${assignText}</td> 
+    
+    <td>${d.riskspectrum || '-'}</td><td><span class="locked-badge">${d.statusvector || '-'}</span></td>
+    <td>${d.loggeddate || '-'}</td><td>${d.sladuedate || '-'}</td><td>${d.closeddate || '-'}</td><td>${d.delayaxis || '-'}</td>
+    <td>${initialHtml}</td><td>${finalHtml}</td><td class="action-cell">${actionHtml}</td>
+  </tr>`;
     }).join('');
   };
 
