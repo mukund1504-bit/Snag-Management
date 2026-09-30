@@ -1,19 +1,21 @@
-const CACHE_NAME = 'csms-offline-cache-v6'; // Version upgrade kar diya hai
+const CACHE_NAME = 'csms-offline-cache-v7'; 
 
 const urlsToCache = [
   './',
   './index.html',
   './style.css',
-  './Script.js?v=5.0',          // Naya version
-  './enhancements.js?v=5.0',    // Naya version
+  './Script.js?v=5.0',
+  './enhancements.js?v=5.0',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js'
 ];
-
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Naye service worker ko turant install hone dega
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(urlsToCache);
@@ -21,22 +23,43 @@ self.addEventListener('install', event => {
   );
 });
 
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Supabase API hamesha internet se aayegi, cache nahi hogi
+  // Supabase API calls ko bypass karein
   if (event.request.url.includes('supabase.co')) {
+    event.respondWith(fetch(event.request).catch(err => { throw err; }));
+    return;
+  }
+
+  // HTML page refresh fallback (Navigation request)
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch((err) => {
-        console.log('Offline: Supabase request failed', err);
-        throw err; 
+      fetch(event.request).catch(() => {
+        return caches.match('./index.html');
       })
     );
     return;
   }
 
+  // Baki files ke liye Stale-While-Revalidate ya Cache-First approach
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
       if (cachedResponse) {
         return cachedResponse;
       }
@@ -52,22 +75,6 @@ self.addEventListener('fetch', event => {
       }).catch(() => {
         console.log('Offline: File not found in cache - ', event.request.url);
       });
-    })
-  );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim()); // Naye worker ko turant active karega
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          // Ye purani kharab files wale cache ko delete kar dega
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
     })
   );
 });

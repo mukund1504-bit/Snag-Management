@@ -1607,14 +1607,14 @@ if (p.spec) {
 
     // OFFLINE MODE
     if (!navigator.onLine) {
-      let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || [];
+      let queue = await localforage.getItem('qa_offline_queue') || [];
       queue.push(payload); 
-      localStorage.setItem('qa_offline_queue', JSON.stringify(queue));
+      await localforage.setItem('qa_offline_queue', queue);
       
       const offlineId = "off_" + Date.now();
       defects.push({ ...payload, id: offlineId });
 
-      csmsToast('Offline: Entry saved locally.', 'success'); 
+      csmsToast('Offline: Entry saved locally with high capacity.', 'success'); 
       smartReset();
       return;
     }

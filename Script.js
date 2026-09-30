@@ -1086,7 +1086,9 @@ async function saveDefect(){
 }
 
 async function syncOfflineData() {
-    let queue = JSON.parse(localStorage.getItem('qa_offline_queue')) || []; if(queue.length === 0) return;
+    let queue = await localforage.getItem('qa_offline_queue') || []; 
+    if(queue.length === 0) return;
+    
     let successCount = 0;
     for(let payload of queue) {
         try { 
@@ -1094,9 +1096,13 @@ async function syncOfflineData() {
             if(!error) successCount++; 
         } catch(e) {}
     }
-    localStorage.removeItem('qa_offline_queue'); if(successCount > 0) { alert(`Synced ${successCount} offline records!`); loadDefectsFromCloud(false); }
+    
+    await localforage.removeItem('qa_offline_queue'); 
+    if(successCount > 0) { 
+        alert(`Synced ${successCount} offline records!`); 
+        loadDefectsFromCloud(false); 
+    }
 }
-
 function startAutoRefresh() { 
     autoSyncInterval = setInterval(() => { 
         if(!navigator.onLine) return;
@@ -1496,9 +1502,9 @@ async function saveHierarchy() {
         }
     } catch(err) {
         console.warn("Hierarchy cloud upsert failed:", err);
-        let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+        let queue = await localforage.getItem('qa_hierarchy_queue') || [];
         queue.push(row);
-        localStorage.setItem('qa_hierarchy_queue', JSON.stringify(queue));
+        await localforage.setItem('qa_hierarchy_queue', queue);
         csmsToast("Saved locally, cloud sync will retry.", "error");
     }
 
@@ -1513,9 +1519,9 @@ async function saveHierarchy() {
     if(cloudOk) {
         csmsToast("Floor mapping saved & synced.", "success");
     } else if(!navigator.onLine) {
-        let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+        let queue = await localforage.getItem('qa_hierarchy_queue') || [];
         queue.push(row);
-        localStorage.setItem('qa_hierarchy_queue', JSON.stringify(queue));
+        await localforage.setItem('qa_hierarchy_queue', queue);
         csmsToast("Offline: Floor mapping queued, will auto-sync.", "error");
     }
 
@@ -1571,9 +1577,9 @@ async function saveCategory() {
         }
     } catch(err) {
         console.warn("Category cloud upsert failed:", err);
-        let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+        let queue = await localforage.getItem('qa_category_queue') || [];
         queue.push(row);
-        localStorage.setItem('qa_category_queue', JSON.stringify(queue));
+        await localforage.setItem('qa_category_queue', queue);
         csmsToast("Saved locally, cloud sync will retry.", "error");
     }
 
@@ -1608,9 +1614,9 @@ async function saveCategory() {
 
     if(cloudOk) csmsToast("Specification saved & synced.", "success");
     else if(!navigator.onLine) {
-        let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+        let queue = await localforage.getItem('qa_category_queue') || [];
         queue.push(row);
-        localStorage.setItem('qa_category_queue', JSON.stringify(queue));
+        await localforage.setItem('qa_category_queue', queue);
         csmsToast("Offline: Spec queued, will auto-sync.", "error");
     }
 
@@ -1855,23 +1861,23 @@ async function loadCategoriesFromCloud() {
 
 async function flushHierarchyQueue() {
     if(!navigator.onLine) return;
-    let queue = JSON.parse(localStorage.getItem('qa_hierarchy_queue')) || [];
+    let queue = await localforage.getItem('qa_hierarchy_queue') || [];
     if(queue.length === 0) return;
     try {
         const { error } = await supabaseClient.from('snag_hierarchy').upsert(queue, { onConflict: 'project,tower,floor' });
-        if(!error) localStorage.removeItem('qa_hierarchy_queue');
+        if(!error) await localforage.removeItem('qa_hierarchy_queue');
     } catch(e) { console.warn("Flush hierarchy queue failed:", e); }
 }
+
 async function flushCategoryQueue() {
     if(!navigator.onLine) return;
-    let queue = JSON.parse(localStorage.getItem('qa_category_queue')) || [];
+    let queue = await localforage.getItem('qa_category_queue') || [];
     if(queue.length === 0) return;
     try {
         const { error } = await supabaseClient.from('snag_categories').upsert(queue, { onConflict: 'category,spec' });
-        if(!error) localStorage.removeItem('qa_category_queue');
+        if(!error) await localforage.removeItem('qa_category_queue');
     } catch(e) { console.warn("Flush category queue failed:", e); }
 }
-
 function populateMapSetupTowers() { const p = document.getElementById("mapSetupProject").value; const tSel = document.getElementById("mapSetupTower"); tSel.innerHTML = '<option value="">Tower</option>'; if(p && structuralHierarchy[p]) Object.keys(structuralHierarchy[p]).forEach(t => tSel.appendChild(new Option(t, t))); }
 function populateMapSetupFloors() { const p = document.getElementById("mapSetupProject").value; const t = document.getElementById("mapSetupTower").value; const fSel = document.getElementById("mapSetupFloor"); fSel.innerHTML = '<option value="">Floor</option>'; if(p && t && structuralHierarchy[p][t]) Object.keys(structuralHierarchy[p][t]).forEach(f => fSel.appendChild(new Option(f, f))); }
 
