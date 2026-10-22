@@ -1821,12 +1821,52 @@ if (p.spec) {
   };
 
   // =========================================================
+ // =========================================================
   // 11. Notifications realtime + auto-refresh
   const _origLoadDefects = window.loadDefectsFromCloud;
   let _lastKnownDefectIds = new Set();
   window.loadDefectsFromCloud = async function(isBg) {
     const r = _origLoadDefects ? await _origLoadDefects(isBg) : null;
     try {
+      // --- ACCURATE DYNAMIC DELAY LOGIC (UPDATED) ---
+      if (Array.isArray(defects)) {
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+
+        defects.forEach(d => {
+          if (d.sladuedate && d.sladuedate !== '-') {
+            // Safe Local Time Parsing (Timezone bug fix)
+            const dueParts = d.sladuedate.split('-');
+            const dueDate = new Date(dueParts[0], dueParts[1] - 1, dueParts[2]);
+            dueDate.setHours(0, 0, 0, 0);
+
+            let endDate = new Date(todayDate);
+
+            // Check for ANY closed state ('Closed' or 'In Progress Closed')
+            const isClosed = d.statusvector && String(d.statusvector).includes('Closed');
+
+            if (isClosed && d.closeddate && d.closeddate !== '-') {
+              const closeParts = d.closeddate.split('-');
+              if (closeParts.length === 3) {
+                endDate = new Date(closeParts[0], closeParts[1] - 1, closeParts[2]);
+                endDate.setHours(0, 0, 0, 0);
+              }
+            }
+
+            const diffTime = endDate.getTime() - dueDate.getTime();
+            // Math.round fixes minor timezone/daylight saving shifts
+            const daysDelayed = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            if (daysDelayed > 0) {
+              d.delayaxis = daysDelayed + " days";
+            } else {
+              d.delayaxis = "On Time";
+            }
+          }
+        });
+      }
+      // ----------------------------------------------
+
       // Detect new-defect events and toast/notify current user (only after first load)
       if (_lastKnownDefectIds.size > 0 && currentUser && Array.isArray(defects)) {
         const nowIds = new Set(defects.map(d => String(d.id)));
@@ -1841,10 +1881,7 @@ if (p.spec) {
       }
       if (Array.isArray(defects)) _lastKnownDefectIds = new Set(defects.map(d => String(d.id)));
       updateNotifCounts();
-      // FIX (refresh: all tabs auto-load with data): once cloud defects arrive,
-      // re-render whichever tab is currently active so it fills with full data —
-      // no matter which section was restored on refresh. Race-free: this never
-      // switches sections, it only refreshes the content of the active one.
+      
       const _isActive = (id) => { const s = document.getElementById(id); return !!(s && s.classList.contains('active')); };
       if (_isActive('notifications')) renderNotifications();
       if (_isActive('closure')) clRenderTable();
