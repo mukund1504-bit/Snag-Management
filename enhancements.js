@@ -2100,5 +2100,66 @@ if (p.spec) {
 
   window.toggleNavMenu = function(){ const n=document.querySelector('header nav'); if(n) n.classList.toggle('nav-open'); };
 
-  console.log('[CSMS Enhancements v2] loaded');
+// =========================================================
+  // --- BULLETPROOF EXCEL & REPORT DELAY FAILSAFE ---
+  // =========================================================
+  const parseStrictDate = (str) => {
+    if (!str || str === '-') return null;
+    const cleanDate = String(str).split('T')[0].split(' ')[0];
+    const parts = cleanDate.split(/[-/]/);
+    if (parts.length === 3) {
+      let y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1, d = parseInt(parts[2], 10);
+      if (y < 1000 && parts[2].length === 4) { y = parseInt(parts[2], 10); d = parseInt(parts[0], 10); }
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) return new Date(y, m, d, 0, 0, 0, 0);
+    }
+    return null;
+  };
+
+  const calculateDynamicDelay = (defect) => {
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    
+    const dueDate = parseStrictDate(defect.sladuedate);
+    if (!dueDate) return defect.delayaxis;
+
+    let endDate = new Date(todayDate); // Open defects ke liye downloading day tak ka time
+    const isClosed = defect.statusvector && String(defect.statusvector).includes('Closed');
+    
+    if (isClosed) {
+      const closedDateObj = parseStrictDate(defect.closeddate);
+      if (closedDateObj) endDate = closedDateObj; // Closed defects ke liye exact closed date
+    }
+    
+    const diffTime = endDate.getTime() - dueDate.getTime();
+    const daysDelayed = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    return daysDelayed > 0 ? daysDelayed + " days" : "On Time";
+  };
+
+  // 1. Hooking into Excel Export (Forces fresh calculation exactly when downloading)
+  const _origExportExcel = window.exportExcelWithPhotos;
+  window.exportExcelWithPhotos = async function(dataToExport) {
+    if (!dataToExport || dataToExport.length === 0) return alert('No data to export.');
+    
+    const freshlyCalculatedData = dataToExport.map(d => {
+      const clonedDefect = { ...d };
+      clonedDefect.delayaxis = calculateDynamicDelay(clonedDefect);
+      return clonedDefect;
+    });
+
+    if (_origExportExcel) {
+      return _origExportExcel(freshlyCalculatedData);
+    }
+  };
+
+  // 2. Hooking into UI Table Rendering (Forces fresh calculation on UI)
+  const _origGenerateTableRows = window.generateTableRowsHtml;
+  if (_origGenerateTableRows) {
+    window.generateTableRowsHtml = function(dataArray) {
+        // UI mein dikhane se pehle saare defects ka delay dynamically theek karega
+        dataArray.forEach(d => { d.delayaxis = calculateDynamicDelay(d); });
+        return _origGenerateTableRows(dataArray);
+    };
+  }  
+console.log('[CSMS Enhancements v2] loaded');
 })();

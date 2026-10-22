@@ -1,4 +1,4 @@
-const CACHE_NAME = 'csms-offline-cache-v7'; 
+const CACHE_NAME = 'csms-offline-cache-v9'; 
 
 const urlsToCache = [
   './',
