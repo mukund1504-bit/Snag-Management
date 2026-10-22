@@ -1822,41 +1822,62 @@ if (p.spec) {
 
   // =========================================================
  // =========================================================
+  // =========================================================
   // 11. Notifications realtime + auto-refresh
   const _origLoadDefects = window.loadDefectsFromCloud;
   let _lastKnownDefectIds = new Set();
   window.loadDefectsFromCloud = async function(isBg) {
     const r = _origLoadDefects ? await _origLoadDefects(isBg) : null;
     try {
-      // --- ACCURATE DYNAMIC DELAY LOGIC (UPDATED) ---
+      // --- BULLETPROOF DYNAMIC DELAY LOGIC ---
       if (Array.isArray(defects)) {
         const todayDate = new Date();
         todayDate.setHours(0, 0, 0, 0);
 
+        // Helper function: Extracts pure Date safely from any database format (ignoring ISO 'T')
+        const parseStrictDate = (str) => {
+          if (!str || str === '-') return null;
+          // Clean ISO 'T' and empty spaces (e.g., "2026-10-07T12:00:00Z" -> "2026-10-07")
+          const cleanDate = String(str).split('T')[0].split(' ')[0];
+          const parts = cleanDate.split(/[-/]/);
+          
+          if (parts.length === 3) {
+            let y = parseInt(parts[0], 10);
+            let m = parseInt(parts[1], 10) - 1;
+            let d = parseInt(parts[2], 10);
+            
+            // Format check: Handle DD-MM-YYYY fallback if needed
+            if (y < 1000 && parts[2].length === 4) {
+              y = parseInt(parts[2], 10);
+              d = parseInt(parts[0], 10);
+            }
+            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+              return new Date(y, m, d, 0, 0, 0, 0);
+            }
+          }
+          return null;
+        };
+
         defects.forEach(d => {
-          if (d.sladuedate && d.sladuedate !== '-') {
-            // Safe Local Time Parsing (Timezone bug fix)
-            const dueParts = d.sladuedate.split('-');
-            const dueDate = new Date(dueParts[0], dueParts[1] - 1, dueParts[2]);
-            dueDate.setHours(0, 0, 0, 0);
-
+          const dueDate = parseStrictDate(d.sladuedate);
+          
+          if (dueDate) {
             let endDate = new Date(todayDate);
-
+            
             // Check for ANY closed state ('Closed' or 'In Progress Closed')
             const isClosed = d.statusvector && String(d.statusvector).includes('Closed');
-
-            if (isClosed && d.closeddate && d.closeddate !== '-') {
-              const closeParts = d.closeddate.split('-');
-              if (closeParts.length === 3) {
-                endDate = new Date(closeParts[0], closeParts[1] - 1, closeParts[2]);
-                endDate.setHours(0, 0, 0, 0);
+            
+            if (isClosed) {
+              const closedDateObj = parseStrictDate(d.closeddate);
+              if (closedDateObj) {
+                endDate = closedDateObj;
               }
             }
-
+            
+            // Calculate accurate days difference
             const diffTime = endDate.getTime() - dueDate.getTime();
-            // Math.round fixes minor timezone/daylight saving shifts
             const daysDelayed = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
+            
             if (daysDelayed > 0) {
               d.delayaxis = daysDelayed + " days";
             } else {
@@ -1865,7 +1886,7 @@ if (p.spec) {
           }
         });
       }
-      // ----------------------------------------------
+      // ---------------------------------------
 
       // Detect new-defect events and toast/notify current user (only after first load)
       if (_lastKnownDefectIds.size > 0 && currentUser && Array.isArray(defects)) {
@@ -1888,7 +1909,7 @@ if (p.spec) {
       if (_isActive('report') && typeof renderReportTable === 'function') { populateReportMS(); renderReportTable(); }
       if (_isActive('dashboard') && typeof renderCharts === 'function') { populateBiMS(); renderCharts(); }
       if (_isActive('entry') && typeof ensureMapLoaded === 'function') ensureMapLoaded();
-    } catch(e) {}
+    } catch(e) { console.error("Delay Calculation Error: ", e); }
     return r;
   };
 
